@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Header
 from sqlalchemy.orm import Session
 from database import get_db
 from models.system import OperationLog, Message, BackupRecord
@@ -7,8 +7,12 @@ from schemas.system import OperationLogOut, MessageCreate, MessageOut, BackupRec
 from schemas.common import ResponseModel, PaginatedResponse
 from utils.auth import hash_password
 from datetime import datetime
+import os
 
 router = APIRouter(prefix="/api/system", tags=["系统"])
+
+# M6: 初始化接口保护 token（从环境变量读取）
+SETUP_TOKEN = os.environ.get("SETUP_TOKEN", "")
 
 
 @router.get("/check", response_model=ResponseModel)
@@ -18,7 +22,14 @@ def check_init(db: Session = Depends(get_db)):
 
 
 @router.post("/init", response_model=ResponseModel)
-def init_system(db: Session = Depends(get_db)):
+def init_system(db: Session = Depends(get_db), authorization: str = Header(None)):
+    # M6: 如果设置了 SETUP_TOKEN，则要求请求头中携带该 token
+    if SETUP_TOKEN:
+        token = authorization.replace("Bearer ", "") if authorization else ""
+        if token != SETUP_TOKEN:
+            raise HTTPException(status_code=403, detail="无效的初始化令牌")
+    else:
+        print("[警告] SETUP_TOKEN 未设置，初始化接口无认证保护！请在生产环境设置 SETUP_TOKEN 环境变量")
     existing = db.query(Employee).filter(Employee.username == "admin").first()
     if existing:
         raise HTTPException(status_code=400, detail="系统已初始化")
