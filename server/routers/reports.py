@@ -1,47 +1,218 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from database import get_db
 from models.product import Product
 from models.customer import Customer
 from models.supplier import Supplier
-from models.inventory import InventoryAlert
-from schemas.report import DashboardOut
+from models.inventory import Inventory, InventoryAlert
+from models.sales import SalesOrder, SalesStockout, SalesStockoutItem
+from models.purchase import PurchaseOrder, PurchaseStockin, PurchaseStockinItem
+from models.finance import Receipt, Payment
 from schemas.common import ResponseModel
+from datetime import datetime, timedelta
 
 router = APIRouter(prefix="/api/reports", tags=["报表"])
 
 
+# ========== 经营看板 ==========
 @router.get("/dashboard", response_model=ResponseModel)
 def dashboard(db: Session = Depends(get_db)):
-    """经营看板"""
-    data = DashboardOut(
-        product_count=db.query(Product).count(),
-        customer_count=db.query(Customer).count(),
-        supplier_count=db.query(Supplier).count(),
-        alert_count=db.query(InventoryAlert).filter(InventoryAlert.is_handled == 0).count(),
-    )
-    return ResponseModel(data=data)
+    today = datetime.now().strftime("%Y-%m-%d")
+    # 今日销售额
+    today_sales = db.query(func.sum(SalesStockout.total_amount)).filter(
+        SalesStockout.status == 1,
+        SalesStockout.created_at >= today
+    ).scalar() or 0
+    # 今日采购额
+    today_purchase = db.query(func.sum(PurchaseStockin.total_amount)).filter(
+        PurchaseStockin.status == 1,
+        PurchaseStockin.created_at >= today
+    ).scalar() or 0
+    # 今日回款
+    today_receipt = db.query(func.sum(Receipt.amount)).filter(
+        Receipt.status == 1,
+        Receipt.created_at >= today
+    ).scalar() or 0
+    # 今日付款
+    today_payment = db.query(func.sum(Payment.amount)).filter(
+        Payment.status == 1,
+        Payment.created_at >= today
+    ).scalar() or 0
+    # 库存总量
+    invs = db.query(Inventory).all()
+    total_stock_qty = sum(i.quantity for i in invs)
+    total_stock_value = sum(i.quantity * i.cost_price for i in invs)
+    # 应收/应付
+    total_receivable = db.query(func.sum(Customer.receivable_balance)).filter(
+        Customer.receivable_balance > 0
+    ).scalar() or 0
+    total_payable = db.query(func.sum(Supplier.payable_balance)).filter(
+        Supplier.payable_balance > 0
+    ).scalar() or 0
+    # 本月订单数
+    month_start = datetime.now().strftime("%Y-%m-01")
+    month_orders = db.query(SalesOrder).filter(SalesOrder.created_at >= month_start).count()
+    # 库存预警数
+    alert_count = db.query(InventoryAlert).filter(InventoryAlert.is_handled == 0).count()
+    return ResponseModel(data={
+        "today_sales": today_sales,
+        "today_purchase": today_purchase,
+        "today_receipt": today_receipt,
+        "today_payment": today_payment,
+        "total_stock_qty": total_stock_qty,
+        "total_stock_value": total_stock_value,
+        "total_receivable": total_receivable,
+        "total_payable": total_payable,
+        "month_orders": month_orders,
+        "alert_count": alert_count,
+        "product_count": db.query(Product).count(),
+        "customer_count": db.query(Customer).count(),
+        "supplier_count": db.query(Supplier).count(),
+    })
 
 
+# ========== 销售报表 ==========
 @router.get("/sales", response_model=ResponseModel)
-def sales_report(db: Session = Depends(get_db)):
-    """销售报表（预留）"""
-    return ResponseModel(data=[], message="功能开发中")
+def sales_report(
+    group_by: str = Query("day"),  # day/week/month/year
+    start_date: str = Query(None), end_date: str = Query(None),
+    customer_id: int = Query(None), product_id: int = Query(None),
+    db: Session = Depends(get_db)
+):
+    q = db.query(SalesStockout).filter(SalesStockout.status == 1)
+    if start_date:
+        q = q.filter(SalesStockout.created_at >= start_date)
+    if end_date:
+        q = q.filter(SalesStockout.created_at <= end_date + " 23:59:59")
+    if customer_id:
+        q = q.filter(SalesStockout.customer_id == customer_id)
+    stockouts = q.all()
+    # 按日期分组统计
+    stats = {}
+    for so in stockouts:
+        date_key = str(so.created_at)[:10]  # YYYY-MM-DD
+        if group_by == "month":
+            date_key = date_key[:7]
+        elif group_by == "year":
+            date_key = date_key[:4]
+        if date_key not in stats:
+            stats[date_key] = {"date": date_key, "order_count": 0, "total_amount": 0, "cost_amount": 0, "profit": 0}
+        stats[date_key]["order_count"] += 1
+        stats[date_key]["total_amount"] += so.total_amount
+        # 计算成本
+        items = db.query(SalesStockoutItem).filter(SalesStockoutItem.stockout_id == so.id).all()
+        for item in items:
+            if product_id and item.product_id != product_id:
+                continue
+            inv = db.query(Inventory).filter(Inventory.product_id == item.product_id).first()
+            cost = inv.cost_price if inv else 0
+            stats[date_key]["cost_amount"] += item.quantity * cost
+        stats[date_key]["profit"] = stats[date_key]["total_amount"] - stats[date_key]["cost_amount"]
+    result = sorted(stats.values(), key=lambda x: x["date"])
+    return ResponseModel(data=result)
 
 
+# ========== 采购报表 ==========
 @router.get("/purchase", response_model=ResponseModel)
-def purchase_report(db: Session = Depends(get_db)):
-    """采购报表（预留）"""
-    return ResponseModel(data=[], message="功能开发中")
+def purchase_report(
+    group_by: str = Query("day"),
+    start_date: str = Query(None), end_date: str = Query(None),
+    supplier_id: int = Query(None),
+    db: Session = Depends(get_db)
+):
+    q = db.query(PurchaseStockin).filter(PurchaseStockin.status == 1)
+    if start_date:
+        q = q.filter(PurchaseStockin.created_at >= start_date)
+    if end_date:
+        q = q.filter(PurchaseStockin.created_at <= end_date + " 23:59:59")
+    if supplier_id:
+        q = q.filter(PurchaseStockin.supplier_id == supplier_id)
+    stockins = q.all()
+    stats = {}
+    for si in stockins:
+        date_key = str(si.created_at)[:10]
+        if group_by == "month":
+            date_key = date_key[:7]
+        elif group_by == "year":
+            date_key = date_key[:4]
+        if date_key not in stats:
+            stats[date_key] = {"date": date_key, "order_count": 0, "total_amount": 0}
+        stats[date_key]["order_count"] += 1
+        stats[date_key]["total_amount"] += si.total_amount
+    result = sorted(stats.values(), key=lambda x: x["date"])
+    return ResponseModel(data=result)
 
 
+# ========== 库存报表 ==========
 @router.get("/inventory", response_model=ResponseModel)
-def inventory_report(db: Session = Depends(get_db)):
-    """库存报表（预留）"""
-    return ResponseModel(data=[], message="功能开发中")
+def inventory_report(warehouse_id: int = Query(None), db: Session = Depends(get_db)):
+    q = db.query(Inventory)
+    if warehouse_id:
+        q = q.filter(Inventory.warehouse_id == warehouse_id)
+    invs = q.all()
+    result = []
+    for inv in invs:
+        product = db.query(Product).get(inv.product_id)
+        from models.warehouse import Warehouse
+        warehouse = db.query(Warehouse).get(inv.warehouse_id)
+        result.append({
+            "product_id": inv.product_id,
+            "product_name": product.name if product else "",
+            "product_code": product.code if product else "",
+            "warehouse_name": warehouse.name if warehouse else "",
+            "quantity": inv.quantity,
+            "cost_price": inv.cost_price,
+            "total_value": inv.quantity * inv.cost_price
+        })
+    total_value = sum(r["total_value"] for r in result)
+    return ResponseModel(data={"items": result, "total_value": total_value})
 
 
+# ========== 利润报表 ==========
 @router.get("/profit", response_model=ResponseModel)
-def profit_report(db: Session = Depends(get_db)):
-    """利润报表（预留）"""
-    return ResponseModel(data=[], message="功能开发中")
+def profit_report(
+    group_by: str = Query("day"),
+    start_date: str = Query(None), end_date: str = Query(None),
+    db: Session = Depends(get_db)
+):
+    # 销售收入
+    sales_q = db.query(SalesStockout).filter(SalesStockout.status == 1)
+    if start_date:
+        sales_q = sales_q.filter(SalesStockout.created_at >= start_date)
+    if end_date:
+        sales_q = sales_q.filter(SalesStockout.created_at <= end_date + " 23:59:59")
+    sales = sales_q.all()
+    # 采购成本
+    purchase_q = db.query(PurchaseStockin).filter(PurchaseStockin.status == 1)
+    if start_date:
+        purchase_q = purchase_q.filter(PurchaseStockin.created_at >= start_date)
+    if end_date:
+        purchase_q = purchase_q.filter(PurchaseStockin.created_at <= end_date + " 23:59:59")
+    purchases = purchase_q.all()
+    # 按日期分组
+    stats = {}
+    for so in sales:
+        date_key = str(so.created_at)[:10]
+        if group_by == "month":
+            date_key = date_key[:7]
+        if date_key not in stats:
+            stats[date_key] = {"date": date_key, "sales_amount": 0, "cost_amount": 0, "profit": 0, "gross_rate": 0}
+        stats[date_key]["sales_amount"] += so.total_amount
+        items = db.query(SalesStockoutItem).filter(SalesStockoutItem.stockout_id == so.id).all()
+        for item in items:
+            inv = db.query(Inventory).filter(Inventory.product_id == item.product_id).first()
+            cost = inv.cost_price if inv else 0
+            stats[date_key]["cost_amount"] += item.quantity * cost
+    for si in purchases:
+        date_key = str(si.created_at)[:10]
+        if group_by == "month":
+            date_key = date_key[:7]
+        if date_key not in stats:
+            stats[date_key] = {"date": date_key, "sales_amount": 0, "cost_amount": 0, "profit": 0, "gross_rate": 0}
+    for key in stats:
+        stats[key]["profit"] = stats[key]["sales_amount"] - stats[key]["cost_amount"]
+        if stats[key]["sales_amount"] > 0:
+            stats[key]["gross_rate"] = round(stats[key]["profit"] / stats[key]["sales_amount"] * 100, 2)
+    result = sorted(stats.values(), key=lambda x: x["date"])
+    return ResponseModel(data=result)
