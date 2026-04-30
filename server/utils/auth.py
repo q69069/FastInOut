@@ -1,31 +1,36 @@
 import os
-import hashlib
-import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
+from passlib.context import CryptContext
 
-SECRET_KEY = os.getenv("SECRET_KEY", "fastinout-secret-key-change-in-production")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# JWT 配置
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    import secrets as _secrets
+    SECRET_KEY = _secrets.token_urlsafe(32)
+    import warnings
+    warnings.warn("SECRET_KEY 环境变量未设置，已生成临时密钥。请设置环境变量 SECRET_KEY！")
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24
 
 
 def hash_password(password: str) -> str:
-    salt = secrets.token_hex(16)
-    pwd_hash = hashlib.sha256((salt + password).encode()).hexdigest()
-    return f"{salt}${pwd_hash}"
+    return pwd_context.hash(password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     try:
-        salt, pwd_hash = hashed_password.split("$", 1)
-        return hashlib.sha256((salt + plain_password).encode()).hexdigest() == pwd_hash
+        return pwd_context.verify(plain_password, hashed_password)
     except (ValueError, AttributeError):
         return False
 
 
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
+    expire = datetime.now(timezone.utc) + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 

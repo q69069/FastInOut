@@ -239,7 +239,10 @@ def confirm_stockin(stockin_id: int, db: Session = Depends(get_db)):
             Inventory.product_id == item.product_id
         ).first()
         if inv:
+            # 移动加权平均成本计算
+            total_cost = inv.quantity * inv.cost_price + item.quantity * item.price
             inv.quantity += item.quantity
+            inv.cost_price = total_cost / inv.quantity
         else:
             inv = Inventory(warehouse_id=si.warehouse_id, product_id=item.product_id, quantity=item.quantity, cost_price=item.price)
             db.add(inv)
@@ -302,6 +305,8 @@ def confirm_purchase_return(return_id: int, db: Session = Depends(get_db)):
             Inventory.product_id == item.product_id
         ).first()
         if inv:
+            if inv.quantity < item.quantity:
+                raise HTTPException(status_code=400, detail=f"商品{item.product_id}库存不足，当前{inv.quantity}，退货{item.quantity}")
             inv.quantity -= item.quantity
     supplier = db.query(Supplier).get(ret.supplier_id)
     if supplier:

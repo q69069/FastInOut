@@ -324,7 +324,10 @@ def confirm_sales_return(return_id: int, db: Session = Depends(get_db)):
             Inventory.product_id == item.product_id
         ).first()
         if inv:
+            # 移动加权平均成本计算
+            total_cost = inv.quantity * inv.cost_price + item.quantity * item.price
             inv.quantity += item.quantity
+            inv.cost_price = total_cost / inv.quantity
         else:
             inv = Inventory(warehouse_id=ret.warehouse_id, product_id=item.product_id, quantity=item.quantity, cost_price=item.price)
             db.add(inv)

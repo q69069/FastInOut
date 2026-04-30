@@ -281,7 +281,7 @@ def get_receivable_detail(customer_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="客户不存在")
     receipts = db.query(Receipt).filter(Receipt.customer_id == customer_id, Receipt.status == 1).all()
     from models.sales import SalesStockout
-    stockouts = db.query(SalesStockout).filter(SalesStockout.customer_id == customer_id, SalesStockout.status == 1).all()
+    stockouts = db.query(SalesStockout).filter(SalesStockout.customer_id == customer_id, SalesStockout.status == 2).all()
     detail = []
     for so in stockouts:
         detail.append({"type": "sales_out", "code": so.code, "amount": so.total_amount, "date": str(so.created_at)})
@@ -315,7 +315,7 @@ def get_payable_detail(supplier_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="供应商不存在")
     payments = db.query(Payment).filter(Payment.supplier_id == supplier_id, Payment.status == 1).all()
     from models.purchase import PurchaseStockin
-    stockins = db.query(PurchaseStockin).filter(PurchaseStockin.supplier_id == supplier_id, PurchaseStockin.status == 1).all()
+    stockins = db.query(PurchaseStockin).filter(PurchaseStockin.supplier_id == supplier_id, PurchaseStockin.status == 2).all()
     detail = []
     for si in stockins:
         detail.append({"type": "purchase_in", "code": si.code, "amount": si.total_amount, "date": str(si.created_at)})

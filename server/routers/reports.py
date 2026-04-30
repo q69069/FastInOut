@@ -21,12 +21,12 @@ def dashboard(db: Session = Depends(get_db)):
     today = datetime.now().strftime("%Y-%m-%d")
     # 今日销售额
     today_sales = db.query(func.sum(SalesStockout.total_amount)).filter(
-        SalesStockout.status == 1,
+        SalesStockout.status == 2,
         SalesStockout.created_at >= today
     ).scalar() or 0
     # 今日采购额
     today_purchase = db.query(func.sum(PurchaseStockin.total_amount)).filter(
-        PurchaseStockin.status == 1,
+        PurchaseStockin.status == 2,
         PurchaseStockin.created_at >= today
     ).scalar() or 0
     # 今日回款
@@ -80,7 +80,7 @@ def sales_report(
     customer_id: int = Query(None), product_id: int = Query(None),
     db: Session = Depends(get_db)
 ):
-    q = db.query(SalesStockout).filter(SalesStockout.status == 1)
+    q = db.query(SalesStockout).filter(SalesStockout.status == 2)
     if start_date:
         q = q.filter(SalesStockout.created_at >= start_date)
     if end_date:
@@ -121,7 +121,7 @@ def purchase_report(
     supplier_id: int = Query(None),
     db: Session = Depends(get_db)
 ):
-    q = db.query(PurchaseStockin).filter(PurchaseStockin.status == 1)
+    q = db.query(PurchaseStockin).filter(PurchaseStockin.status == 2)
     if start_date:
         q = q.filter(PurchaseStockin.created_at >= start_date)
     if end_date:
@@ -177,14 +177,14 @@ def profit_report(
     db: Session = Depends(get_db)
 ):
     # 销售收入
-    sales_q = db.query(SalesStockout).filter(SalesStockout.status == 1)
+    sales_q = db.query(SalesStockout).filter(SalesStockout.status == 2)
     if start_date:
         sales_q = sales_q.filter(SalesStockout.created_at >= start_date)
     if end_date:
         sales_q = sales_q.filter(SalesStockout.created_at <= end_date + " 23:59:59")
     sales = sales_q.all()
     # 采购成本
-    purchase_q = db.query(PurchaseStockin).filter(PurchaseStockin.status == 1)
+    purchase_q = db.query(PurchaseStockin).filter(PurchaseStockin.status == 2)
     if start_date:
         purchase_q = purchase_q.filter(PurchaseStockin.created_at >= start_date)
     if end_date:

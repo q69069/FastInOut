@@ -72,7 +72,7 @@
               </template>
             </el-table-column>
             <el-table-column label="操作" width="80">
-              <template #default="{ $index }">
+              <template #default="{ row, $index }">
                 <el-button size="small" type="danger" @click="form.items.splice($index, 1)">删除</el-button>
               </template>
             </el-table-column>
