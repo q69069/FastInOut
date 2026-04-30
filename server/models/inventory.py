@@ -20,7 +20,7 @@ class InventoryCheck(Base):
     code = Column(String(50), unique=True, nullable=False)  # PD+日期+序号
     warehouse_id = Column(Integer, ForeignKey("warehouses.id"))
     operator_id = Column(Integer, ForeignKey("employees.id"))
-    status = Column(Integer, default=0)  # 0=草稿 1=已确认
+    status = Column(Integer, default=1)  # 1=盘点中 2=已确认 3=已作废
     remark = Column(String(500))
     created_at = Column(DateTime, server_default=func.now())
     confirmed_at = Column(DateTime)
@@ -45,7 +45,7 @@ class InventoryTransfer(Base):
     from_warehouse_id = Column(Integer, ForeignKey("warehouses.id"))
     to_warehouse_id = Column(Integer, ForeignKey("warehouses.id"))
     operator_id = Column(Integer, ForeignKey("employees.id"))
-    status = Column(Integer, default=0)  # 0=草稿 1=已确认
+    status = Column(Integer, default=1)  # 1=调拨中 2=已确认 3=已取消
     remark = Column(String(500))
     created_at = Column(DateTime, server_default=func.now())
     confirmed_at = Column(DateTime)

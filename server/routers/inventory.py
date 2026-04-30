@@ -124,26 +124,167 @@ def inventory_flow(
     product_id: int = Query(None),
     start_date: str = Query(None),
     end_date: str = Query(None),
+    flow_type: str = Query(None),  # purchase_in/purchase_return/sales_out/sales_return/transfer/other_in/other_out
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
-    q = db.query(OtherInventoryLog)
-    if warehouse_id:
-        q = q.filter(OtherInventoryLog.warehouse_id == warehouse_id)
-    if product_id:
-        q = q.filter(OtherInventoryLog.product_id == product_id)
-    if start_date:
-        q = q.filter(OtherInventoryLog.created_at >= start_date)
-    if end_date:
-        q = q.filter(OtherInventoryLog.created_at <= end_date + " 23:59:59")
-    total = q.count()
-    items = q.order_by(OtherInventoryLog.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
-    return PaginatedResponse(data=[{
-        "id": i.id, "warehouse_id": i.warehouse_id, "product_id": i.product_id,
-        "type": i.type, "quantity": i.quantity, "reason": i.reason,
-        "remark": i.remark, "created_at": str(i.created_at)
-    } for i in items], total=total, page=page, page_size=page_size)
+    from models.purchase import PurchaseStockin, PurchaseStockinItem, PurchaseReturn, PurchaseReturnItem
+    from models.sales import SalesStockout, SalesStockoutItem, SalesReturn, SalesReturnItem
+
+    records = []
+
+    # 采购入库
+    if not flow_type or flow_type == "purchase_in":
+        q = db.query(PurchaseStockin).filter(PurchaseStockin.status == 1)
+        if warehouse_id:
+            q = q.filter(PurchaseStockin.warehouse_id == warehouse_id)
+        if start_date:
+            q = q.filter(PurchaseStockin.created_at >= start_date)
+        if end_date:
+            q = q.filter(PurchaseStockin.created_at <= end_date + " 23:59:59")
+        for si in q.all():
+            items = db.query(PurchaseStockinItem).filter(PurchaseStockinItem.stockin_id == si.id).all()
+            for item in items:
+                if product_id and item.product_id != product_id:
+                    continue
+                product = db.query(Product).get(item.product_id)
+                records.append({
+                    "id": si.id, "warehouse_id": si.warehouse_id, "product_id": item.product_id,
+                    "product_name": product.name if product else "",
+                    "type": "purchase_in", "quantity": item.quantity, "price": item.price,
+                    "reason": "采购入库", "code": si.code,
+                    "created_at": str(si.created_at)
+                })
+
+    # 采购退货
+    if not flow_type or flow_type == "purchase_return":
+        q = db.query(PurchaseReturn).filter(PurchaseReturn.status == 1)
+        if warehouse_id:
+            q = q.filter(PurchaseReturn.warehouse_id == warehouse_id)
+        if start_date:
+            q = q.filter(PurchaseReturn.created_at >= start_date)
+        if end_date:
+            q = q.filter(PurchaseReturn.created_at <= end_date + " 23:59:59")
+        for pr in q.all():
+            items = db.query(PurchaseReturnItem).filter(PurchaseReturnItem.return_id == pr.id).all()
+            for item in items:
+                if product_id and item.product_id != product_id:
+                    continue
+                product = db.query(Product).get(item.product_id)
+                records.append({
+                    "id": pr.id, "warehouse_id": pr.warehouse_id, "product_id": item.product_id,
+                    "product_name": product.name if product else "",
+                    "type": "purchase_return", "quantity": -item.quantity, "price": item.price,
+                    "reason": "采购退货", "code": pr.code,
+                    "created_at": str(pr.created_at)
+                })
+
+    # 销售出库
+    if not flow_type or flow_type == "sales_out":
+        q = db.query(SalesStockout).filter(SalesStockout.status == 1)
+        if warehouse_id:
+            q = q.filter(SalesStockout.warehouse_id == warehouse_id)
+        if start_date:
+            q = q.filter(SalesStockout.created_at >= start_date)
+        if end_date:
+            q = q.filter(SalesStockout.created_at <= end_date + " 23:59:59")
+        for so in q.all():
+            items = db.query(SalesStockoutItem).filter(SalesStockoutItem.stockout_id == so.id).all()
+            for item in items:
+                if product_id and item.product_id != product_id:
+                    continue
+                product = db.query(Product).get(item.product_id)
+                records.append({
+                    "id": so.id, "warehouse_id": so.warehouse_id, "product_id": item.product_id,
+                    "product_name": product.name if product else "",
+                    "type": "sales_out", "quantity": -item.quantity, "price": item.price,
+                    "reason": "销售出库", "code": so.code,
+                    "created_at": str(so.created_at)
+                })
+
+    # 销售退货
+    if not flow_type or flow_type == "sales_return":
+        q = db.query(SalesReturn).filter(SalesReturn.status == 1)
+        if warehouse_id:
+            q = q.filter(SalesReturn.warehouse_id == warehouse_id)
+        if start_date:
+            q = q.filter(SalesReturn.created_at >= start_date)
+        if end_date:
+            q = q.filter(SalesReturn.created_at <= end_date + " 23:59:59")
+        for sr in q.all():
+            items = db.query(SalesReturnItem).filter(SalesReturnItem.return_id == sr.id).all()
+            for item in items:
+                if product_id and item.product_id != product_id:
+                    continue
+                product = db.query(Product).get(item.product_id)
+                records.append({
+                    "id": sr.id, "warehouse_id": sr.warehouse_id, "product_id": item.product_id,
+                    "product_name": product.name if product else "",
+                    "type": "sales_return", "quantity": item.quantity, "price": item.price,
+                    "reason": "销售退货", "code": sr.code,
+                    "created_at": str(sr.created_at)
+                })
+
+    # 库存调拨
+    if not flow_type or flow_type == "transfer":
+        q = db.query(InventoryTransfer).filter(InventoryTransfer.status == 2)
+        if start_date:
+            q = q.filter(InventoryTransfer.created_at >= start_date)
+        if end_date:
+            q = q.filter(InventoryTransfer.created_at <= end_date + " 23:59:59")
+        for t in q.all():
+            items = db.query(InventoryTransferItem).filter(InventoryTransferItem.transfer_id == t.id).all()
+            for item in items:
+                if product_id and item.product_id != product_id:
+                    continue
+                product = db.query(Product).get(item.product_id)
+                if not warehouse_id or t.from_warehouse_id == warehouse_id:
+                    records.append({
+                        "id": t.id, "warehouse_id": t.from_warehouse_id, "product_id": item.product_id,
+                        "product_name": product.name if product else "",
+                        "type": "transfer_out", "quantity": -item.quantity,
+                        "reason": f"调拨出库→{t.to_warehouse_id}", "code": t.code,
+                        "created_at": str(t.created_at)
+                    })
+                if not warehouse_id or t.to_warehouse_id == warehouse_id:
+                    records.append({
+                        "id": t.id, "warehouse_id": t.to_warehouse_id, "product_id": item.product_id,
+                        "product_name": product.name if product else "",
+                        "type": "transfer_in", "quantity": item.quantity,
+                        "reason": f"调拨入库←{t.from_warehouse_id}", "code": t.code,
+                        "created_at": str(t.created_at)
+                    })
+
+    # 其他出入库
+    if not flow_type or flow_type in ("other_in", "other_out"):
+        q = db.query(OtherInventoryLog)
+        if warehouse_id:
+            q = q.filter(OtherInventoryLog.warehouse_id == warehouse_id)
+        if product_id:
+            q = q.filter(OtherInventoryLog.product_id == product_id)
+        if flow_type:
+            q = q.filter(OtherInventoryLog.type == ("in" if flow_type == "other_in" else "out"))
+        if start_date:
+            q = q.filter(OtherInventoryLog.created_at >= start_date)
+        if end_date:
+            q = q.filter(OtherInventoryLog.created_at <= end_date + " 23:59:59")
+        for i in q.all():
+            product = db.query(Product).get(i.product_id)
+            records.append({
+                "id": i.id, "warehouse_id": i.warehouse_id, "product_id": i.product_id,
+                "product_name": product.name if product else "",
+                "type": f"other_{i.type}", "quantity": i.quantity if i.type == "in" else -i.quantity,
+                "reason": i.reason, "remark": i.remark,
+                "created_at": str(i.created_at)
+            })
+
+    # 按时间倒序排列
+    records.sort(key=lambda x: x["created_at"], reverse=True)
+    total = len(records)
+    start = (page - 1) * page_size
+    end = start + page_size
+    return PaginatedResponse(data=records[start:end], total=total, page=page, page_size=page_size)
 
 
 # ========== 库存预警 ==========
@@ -209,7 +350,7 @@ def list_checks(
 @router.post("/checks", response_model=ResponseModel)
 def create_check(req: CheckCreate, db: Session = Depends(get_db)):
     today = datetime.now().strftime("%Y%m%d")
-    count = db.query(InventoryCheck).count()
+    count = db.query(InventoryCheck).filter(InventoryCheck.code.like(f"PD{today}-%")).count()
     code = f"PD{today}-{count + 1:03d}"
     check = InventoryCheck(code=code, warehouse_id=req.warehouse_id, status=1, remark=req.remark)
     db.add(check)
@@ -340,7 +481,7 @@ def list_transfers(
 @router.post("/transfers", response_model=ResponseModel)
 def create_transfer(req: TransferCreate, db: Session = Depends(get_db)):
     today = datetime.now().strftime("%Y%m%d")
-    count = db.query(InventoryTransfer).count()
+    count = db.query(InventoryTransfer).filter(InventoryTransfer.code.like(f"DB{today}-%")).count()
     code = f"DB{today}-{count + 1:03d}"
     for item in req.items:
         inv = db.query(Inventory).filter(Inventory.warehouse_id == req.from_warehouse_id, Inventory.product_id == item.product_id).first()
