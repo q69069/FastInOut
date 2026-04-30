@@ -22,17 +22,21 @@ def init_system(db: Session = Depends(get_db)):
     existing = db.query(Employee).filter(Employee.username == "admin").first()
     if existing:
         raise HTTPException(status_code=400, detail="系统已初始化")
+    default_password = "admin123"
     admin = Employee(
         code="EMP001",
         name="管理员",
         username="admin",
-        password_hash=hash_password("admin123"),
+        password_hash=hash_password(default_password),
         position="系统管理员",
         status=1
     )
     db.add(admin)
     db.commit()
-    return ResponseModel(message="初始化成功，管理员账号：admin / admin123")
+    # M2: 仅在服务端控制台输出密码，不在 API 响应中返回
+    print(f"[初始化] 管理员账号已创建 - 用户名: admin, 密码: {default_password}")
+    print(f"[初始化] 请登录后立即修改默认密码！")
+    return ResponseModel(message="初始化成功，请查看服务端控制台获取管理员账号信息")
 
 
 @router.get("/logs", response_model=PaginatedResponse)

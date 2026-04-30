@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 
@@ -12,7 +12,7 @@ class ReceiptBase(BaseModel):
 
 
 class ReceiptCreate(ReceiptBase):
-    pass
+    amount: float = Field(gt=0, description="收款金额必须大于0")
 
 
 class ReceiptOut(ReceiptBase):
@@ -37,7 +37,7 @@ class PaymentBase(BaseModel):
 
 
 class PaymentCreate(PaymentBase):
-    pass
+    amount: float = Field(gt=0, description="付款金额必须大于0")
 
 
 class PaymentOut(PaymentBase):
@@ -55,14 +55,14 @@ class PaymentOut(PaymentBase):
 
 class PreReceiptCreate(BaseModel):
     customer_id: int
-    amount: float
+    amount: float = Field(gt=0, description="预收金额必须大于0")
     payment_method: Optional[str] = None
     remark: Optional[str] = None
 
 
 class PrePaymentCreate(BaseModel):
     supplier_id: int
-    amount: float
+    amount: float = Field(gt=0, description="预付金额必须大于0")
     payment_method: Optional[str] = None
     remark: Optional[str] = None
 
@@ -70,10 +70,10 @@ class PrePaymentCreate(BaseModel):
 class PreToReceivable(BaseModel):
     receipt_id: int  # 预收款ID
     stockout_id: int  # 出库单ID
-    amount: float  # 冲销金额
+    amount: float = Field(gt=0, description="冲销金额必须大于0")
 
 
 class PreToPayable(BaseModel):
     payment_id: int  # 预付款ID
     stockin_id: int  # 入库单ID
-    amount: float  # 冲销金额
+    amount: float = Field(gt=0, description="冲销金额必须大于0")

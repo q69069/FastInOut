@@ -202,6 +202,10 @@ def create_pre_receipt(req: PreReceiptCreate, db: Session = Depends(get_db)):
         status=1, remark=req.remark, confirmed_at=datetime.now()
     )
     db.add(receipt)
+    # 预收款减少客户应收余额
+    customer = db.query(Customer).get(req.customer_id)
+    if customer:
+        customer.receivable_balance = (customer.receivable_balance or 0) - req.amount
     db.commit()
     db.refresh(receipt)
     return ResponseModel(data={"id": receipt.id, "code": code, "message": "预收款登记成功"})
@@ -216,6 +220,10 @@ def create_pre_payment(req: PrePaymentCreate, db: Session = Depends(get_db)):
         status=1, remark=req.remark, confirmed_at=datetime.now()
     )
     db.add(payment)
+    # 预付款减少供应商应付余额
+    supplier = db.query(Supplier).get(req.supplier_id)
+    if supplier:
+        supplier.payable_balance = (supplier.payable_balance or 0) - req.amount
     db.commit()
     db.refresh(payment)
     return ResponseModel(data={"id": payment.id, "code": code, "message": "预付款登记成功"})

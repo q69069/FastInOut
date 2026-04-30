@@ -12,7 +12,7 @@ from models.warehouse import Warehouse
 from models.system import Message
 from schemas.common import ResponseModel, PaginatedResponse
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 
 router = APIRouter(prefix="/api/inventory", tags=["仓库管理"])
@@ -32,7 +32,7 @@ class CheckCreate(BaseModel):
 
 class TransferItemCreate(BaseModel):
     product_id: int
-    quantity: float
+    quantity: float = Field(gt=0, description="调拨数量必须大于0")
 
 
 class TransferCreate(BaseModel):
@@ -45,7 +45,7 @@ class TransferCreate(BaseModel):
 class OtherInOut(BaseModel):
     warehouse_id: int
     product_id: int
-    quantity: float
+    quantity: float = Field(gt=0, description="数量必须大于0")
     reason: Optional[str] = None
     remark: Optional[str] = None
 
@@ -480,6 +480,9 @@ def list_transfers(
 
 @router.post("/transfers", response_model=ResponseModel)
 def create_transfer(req: TransferCreate, db: Session = Depends(get_db)):
+    # M5: 检查源仓库和目标仓库不能相同
+    if req.from_warehouse_id == req.to_warehouse_id:
+        raise HTTPException(status_code=400, detail="源仓库和目标仓库不能相同")
     today = datetime.now().strftime("%Y%m%d")
     count = db.query(InventoryTransfer).filter(InventoryTransfer.code.like(f"DB{today}-%")).count()
     code = f"DB{today}-{count + 1:03d}"

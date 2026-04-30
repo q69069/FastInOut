@@ -20,12 +20,20 @@ from datetime import datetime
 router = APIRouter(prefix="/api", tags=["采购"])
 
 
-def _gen_code(prefix: str, db: Session, model) -> str:
+def _gen_code(prefix: str, db: Session, model, max_retries: int = 5) -> str:
     today = datetime.now().strftime("%Y%m%d")
-    count = db.query(model).filter(
-        func.strftime("%Y%m%d", model.created_at) == today
-    ).count() if hasattr(model, 'created_at') else db.query(model).count()
-    return f"{prefix}{today}-{count + 1:03d}"
+    for attempt in range(max_retries):
+        count = db.query(model).filter(
+            func.strftime("%Y%m%d", model.created_at) == today
+        ).count() if hasattr(model, 'created_at') else db.query(model).count()
+        code = f"{prefix}{today}-{count + 1 + attempt:03d}"
+        # 检查是否已存在
+        existing = db.query(model).filter(model.code == code).first()
+        if not existing:
+            return code
+    # 最后兜底：加时间戳
+    import time
+    return f"{prefix}{today}-{int(time.time() % 10000):04d}"
 
 
 # ========== 采购订单 ==========
@@ -234,6 +242,14 @@ def confirm_stockin(stockin_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="已确认过")
     items = db.query(PurchaseStockinItem).filter(PurchaseStockinItem.stockin_id == stockin_id).all()
     for item in items:
+        # 更新订单已收数量
+        if si.order_id:
+            order_item = db.query(PurchaseOrderItem).filter(
+                PurchaseOrderItem.order_id == si.order_id,
+                PurchaseOrderItem.product_id == item.product_id
+            ).first()
+            if order_item:
+                order_item.received_qty = (order_item.received_qty or 0) + item.quantity
         inv = db.query(Inventory).filter(
             Inventory.warehouse_id == si.warehouse_id,
             Inventory.product_id == item.product_id

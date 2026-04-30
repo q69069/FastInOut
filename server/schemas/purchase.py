@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
@@ -11,7 +11,8 @@ class PurchaseOrderItemBase(BaseModel):
 
 
 class PurchaseOrderItemCreate(PurchaseOrderItemBase):
-    pass
+    quantity: float = Field(gt=0, description="数量必须大于0")
+    price: float = Field(ge=0, description="单价不能为负")
 
 
 class PurchaseOrderItemOut(PurchaseOrderItemBase):
@@ -63,7 +64,8 @@ class PurchaseStockinItemBase(BaseModel):
 
 
 class PurchaseStockinItemCreate(PurchaseStockinItemBase):
-    pass
+    quantity: float = Field(gt=0, description="数量必须大于0")
+    price: float = Field(ge=0, description="单价不能为负")
 
 
 class PurchaseStockinItemOut(PurchaseStockinItemBase):
@@ -105,7 +107,8 @@ class PurchaseReturnItemBase(BaseModel):
 
 
 class PurchaseReturnItemCreate(PurchaseReturnItemBase):
-    pass
+    quantity: float = Field(gt=0, description="数量必须大于0")
+    price: float = Field(ge=0, description="单价不能为负")
 
 
 class PurchaseReturnBase(BaseModel):

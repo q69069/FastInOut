@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
@@ -11,7 +11,8 @@ class SalesOrderItemBase(BaseModel):
 
 
 class SalesOrderItemCreate(SalesOrderItemBase):
-    pass
+    quantity: float = Field(gt=0, description="数量必须大于0")
+    price: float = Field(ge=0, description="单价不能为负")
 
 
 class SalesOrderItemOut(SalesOrderItemBase):
@@ -63,7 +64,8 @@ class SalesStockoutItemBase(BaseModel):
 
 
 class SalesStockoutItemCreate(SalesStockoutItemBase):
-    pass
+    quantity: float = Field(gt=0, description="数量必须大于0")
+    price: float = Field(ge=0, description="单价不能为负")
 
 
 class SalesStockoutItemOut(SalesStockoutItemBase):
@@ -105,7 +107,8 @@ class SalesReturnItemBase(BaseModel):
 
 
 class SalesReturnItemCreate(SalesReturnItemBase):
-    pass
+    quantity: float = Field(gt=0, description="数量必须大于0")
+    price: float = Field(ge=0, description="单价不能为负")
 
 
 class SalesReturnBase(BaseModel):

@@ -21,12 +21,18 @@ from datetime import datetime
 router = APIRouter(prefix="/api", tags=["销售"])
 
 
-def _gen_code(prefix: str, db: Session, model) -> str:
+def _gen_code(prefix: str, db: Session, model, max_retries: int = 5) -> str:
     today = datetime.now().strftime("%Y%m%d")
-    count = db.query(model).filter(
-        func.strftime("%Y%m%d", model.created_at) == today
-    ).count() if hasattr(model, 'created_at') else db.query(model).count()
-    return f"{prefix}{today}-{count + 1:03d}"
+    for attempt in range(max_retries):
+        count = db.query(model).filter(
+            func.strftime("%Y%m%d", model.created_at) == today
+        ).count() if hasattr(model, 'created_at') else db.query(model).count()
+        code = f"{prefix}{today}-{count + 1 + attempt:03d}"
+        existing = db.query(model).filter(model.code == code).first()
+        if not existing:
+            return code
+    import time
+    return f"{prefix}{today}-{int(time.time() % 10000):04d}"
 
 
 def _get_product_price(product: Product, customer: Customer) -> float:
@@ -260,6 +266,14 @@ def confirm_stockout(stockout_id: int, db: Session = Depends(get_db)):
         if not inv or inv.quantity < item.quantity:
             raise HTTPException(status_code=400, detail=f"商品{item.product_id}库存不足，当前库存{inv.quantity if inv else 0}，需要{item.quantity}")
     for item in items:
+        # 更新订单已出库数量
+        if so.order_id:
+            order_item = db.query(SalesOrderItem).filter(
+                SalesOrderItem.order_id == so.order_id,
+                SalesOrderItem.product_id == item.product_id
+            ).first()
+            if order_item:
+                order_item.delivered_qty = (order_item.delivered_qty or 0) + item.quantity
         inv = db.query(Inventory).filter(
             Inventory.warehouse_id == so.warehouse_id,
             Inventory.product_id == item.product_id
