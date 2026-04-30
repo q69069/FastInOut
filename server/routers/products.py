@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from database import get_db
 from models.product import Product
+from models.inventory import Inventory
 from schemas.product import ProductCreate, ProductUpdate, ProductOut
 from schemas.common import ResponseModel, PaginatedResponse
 
@@ -17,7 +18,6 @@ def list_products(
     status: int = Query(None),
     db: Session = Depends(get_db)
 ):
-    """商品列表"""
     q = db.query(Product)
     if keyword:
         q = q.filter(Product.name.contains(keyword) | Product.code.contains(keyword) | Product.barcode.contains(keyword))
@@ -35,7 +35,10 @@ def list_products(
 
 @router.post("", response_model=ResponseModel)
 def create_product(req: ProductCreate, db: Session = Depends(get_db)):
-    """新增商品"""
+    if req.code:
+        existing = db.query(Product).filter(Product.code == req.code).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="商品编码已存在")
     prod = Product(**req.model_dump())
     db.add(prod)
     db.commit()
@@ -43,9 +46,16 @@ def create_product(req: ProductCreate, db: Session = Depends(get_db)):
     return ResponseModel(data=ProductOut.model_validate(prod))
 
 
+@router.get("/barcode/{barcode}", response_model=ResponseModel)
+def get_product_by_barcode(barcode: str, db: Session = Depends(get_db)):
+    prod = db.query(Product).filter(Product.barcode == barcode).first()
+    if not prod:
+        raise HTTPException(status_code=404, detail="商品不存在")
+    return ResponseModel(data=ProductOut.model_validate(prod))
+
+
 @router.get("/{product_id}", response_model=ResponseModel)
 def get_product(product_id: int, db: Session = Depends(get_db)):
-    """获取商品详情"""
     prod = db.query(Product).get(product_id)
     if not prod:
         raise HTTPException(status_code=404, detail="商品不存在")
@@ -54,11 +64,15 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
 
 @router.put("/{product_id}", response_model=ResponseModel)
 def update_product(product_id: int, req: ProductUpdate, db: Session = Depends(get_db)):
-    """更新商品"""
     prod = db.query(Product).get(product_id)
     if not prod:
         raise HTTPException(status_code=404, detail="商品不存在")
-    for k, v in req.model_dump(exclude_unset=True).items():
+    data = req.model_dump(exclude_unset=True)
+    if "code" in data and data["code"] != prod.code:
+        existing = db.query(Product).filter(Product.code == data["code"]).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="商品编码已存在")
+    for k, v in data.items():
         setattr(prod, k, v)
     db.commit()
     db.refresh(prod)
@@ -67,10 +81,12 @@ def update_product(product_id: int, req: ProductUpdate, db: Session = Depends(ge
 
 @router.delete("/{product_id}", response_model=ResponseModel)
 def delete_product(product_id: int, db: Session = Depends(get_db)):
-    """删除商品"""
     prod = db.query(Product).get(product_id)
     if not prod:
         raise HTTPException(status_code=404, detail="商品不存在")
+    has_inv = db.query(Inventory).filter(Inventory.product_id == product_id, Inventory.quantity > 0).first()
+    if has_inv:
+        raise HTTPException(status_code=400, detail="商品有库存，无法删除")
     db.delete(prod)
     db.commit()
     return ResponseModel(message="删除成功")
@@ -78,11 +94,9 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
 
 @router.post("/import", response_model=ResponseModel)
 def import_products():
-    """导入商品（预留）"""
     return ResponseModel(message="功能开发中")
 
 
 @router.get("/export", response_model=ResponseModel)
 def export_products():
-    """导出商品（预留）"""
     return ResponseModel(message="功能开发中")

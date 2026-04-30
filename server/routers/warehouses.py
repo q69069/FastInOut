@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from database import get_db
 from models.warehouse import Warehouse
+from models.inventory import Inventory
 from schemas.warehouse import WarehouseCreate, WarehouseUpdate, WarehouseOut
 from schemas.common import ResponseModel, PaginatedResponse
 
@@ -15,12 +16,11 @@ def list_warehouses(
     keyword: str = Query(None),
     db: Session = Depends(get_db)
 ):
-    """仓库列表"""
     q = db.query(Warehouse)
     if keyword:
         q = q.filter(Warehouse.name.contains(keyword) | Warehouse.code.contains(keyword))
     total = q.count()
-    items = q.offset((page - 1) * page_size).limit(page_size).all()
+    items = q.order_by(Warehouse.is_default.desc(), Warehouse.id).offset((page - 1) * page_size).limit(page_size).all()
     return PaginatedResponse(
         data=[WarehouseOut.model_validate(i) for i in items],
         total=total, page=page, page_size=page_size
@@ -29,7 +29,6 @@ def list_warehouses(
 
 @router.post("", response_model=ResponseModel)
 def create_warehouse(req: WarehouseCreate, db: Session = Depends(get_db)):
-    """新增仓库"""
     wh = Warehouse(**req.model_dump())
     db.add(wh)
     db.commit()
@@ -37,9 +36,16 @@ def create_warehouse(req: WarehouseCreate, db: Session = Depends(get_db)):
     return ResponseModel(data=WarehouseOut.model_validate(wh))
 
 
+@router.get("/{warehouse_id}", response_model=ResponseModel)
+def get_warehouse(warehouse_id: int, db: Session = Depends(get_db)):
+    wh = db.query(Warehouse).get(warehouse_id)
+    if not wh:
+        raise HTTPException(status_code=404, detail="仓库不存在")
+    return ResponseModel(data=WarehouseOut.model_validate(wh))
+
+
 @router.put("/{warehouse_id}", response_model=ResponseModel)
 def update_warehouse(warehouse_id: int, req: WarehouseUpdate, db: Session = Depends(get_db)):
-    """更新仓库"""
     wh = db.query(Warehouse).get(warehouse_id)
     if not wh:
         raise HTTPException(status_code=404, detail="仓库不存在")
@@ -52,10 +58,23 @@ def update_warehouse(warehouse_id: int, req: WarehouseUpdate, db: Session = Depe
 
 @router.delete("/{warehouse_id}", response_model=ResponseModel)
 def delete_warehouse(warehouse_id: int, db: Session = Depends(get_db)):
-    """删除仓库"""
     wh = db.query(Warehouse).get(warehouse_id)
     if not wh:
         raise HTTPException(status_code=404, detail="仓库不存在")
+    has_inventory = db.query(Inventory).filter(Inventory.warehouse_id == warehouse_id, Inventory.quantity > 0).first()
+    if has_inventory:
+        raise HTTPException(status_code=400, detail="仓库还有库存，无法删除")
     db.delete(wh)
     db.commit()
     return ResponseModel(message="删除成功")
+
+
+@router.put("/{warehouse_id}/default", response_model=ResponseModel)
+def set_default_warehouse(warehouse_id: int, db: Session = Depends(get_db)):
+    wh = db.query(Warehouse).get(warehouse_id)
+    if not wh:
+        raise HTTPException(status_code=404, detail="仓库不存在")
+    db.query(Warehouse).update({"is_default": False})
+    wh.is_default = True
+    db.commit()
+    return ResponseModel(message="已设为默认仓库")

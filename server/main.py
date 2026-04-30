@@ -18,8 +18,8 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="FastInOut 快消品进销存管理系统",
-    description="Phase 0 - API骨架",
-    version="0.1.0"
+    description="快消品进销存管理系统",
+    version="0.2.0"
 )
 
 # CORS

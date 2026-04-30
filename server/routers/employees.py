@@ -4,6 +4,7 @@ from database import get_db
 from models.employee import Employee
 from schemas.employee import EmployeeCreate, EmployeeUpdate, EmployeeOut
 from schemas.common import ResponseModel, PaginatedResponse
+from utils.auth import hash_password
 
 router = APIRouter(prefix="/api/employees", tags=["员工"])
 
@@ -15,10 +16,9 @@ def list_employees(
     keyword: str = Query(None),
     db: Session = Depends(get_db)
 ):
-    """员工列表"""
     q = db.query(Employee)
     if keyword:
-        q = q.filter(Employee.name.contains(keyword) | Employee.code.contains(keyword))
+        q = q.filter(Employee.name.contains(keyword) | Employee.code.contains(keyword) | Employee.username.contains(keyword))
     total = q.count()
     items = q.offset((page - 1) * page_size).limit(page_size).all()
     return PaginatedResponse(
@@ -29,30 +29,44 @@ def list_employees(
 
 @router.post("", response_model=ResponseModel)
 def create_employee(req: EmployeeCreate, db: Session = Depends(get_db)):
-    """新增员工"""
+    if req.username:
+        existing = db.query(Employee).filter(Employee.username == req.username).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="用户名已存在")
     data = req.model_dump()
     password = data.pop("password", None)
     emp = Employee(**data)
     if password:
-        emp.password_hash = password  # TODO: 后续加hash
+        emp.password_hash = hash_password(password)
     db.add(emp)
     db.commit()
     db.refresh(emp)
     return ResponseModel(data=EmployeeOut.model_validate(emp))
 
 
+@router.get("/{employee_id}", response_model=ResponseModel)
+def get_employee(employee_id: int, db: Session = Depends(get_db)):
+    emp = db.query(Employee).get(employee_id)
+    if not emp:
+        raise HTTPException(status_code=404, detail="员工不存在")
+    return ResponseModel(data=EmployeeOut.model_validate(emp))
+
+
 @router.put("/{employee_id}", response_model=ResponseModel)
 def update_employee(employee_id: int, req: EmployeeUpdate, db: Session = Depends(get_db)):
-    """更新员工"""
     emp = db.query(Employee).get(employee_id)
     if not emp:
         raise HTTPException(status_code=404, detail="员工不存在")
     data = req.model_dump(exclude_unset=True)
     password = data.pop("password", None)
+    if "username" in data and data["username"] != emp.username:
+        existing = db.query(Employee).filter(Employee.username == data["username"]).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="用户名已存在")
     for k, v in data.items():
         setattr(emp, k, v)
     if password:
-        emp.password_hash = password
+        emp.password_hash = hash_password(password)
     db.commit()
     db.refresh(emp)
     return ResponseModel(data=EmployeeOut.model_validate(emp))
@@ -60,7 +74,6 @@ def update_employee(employee_id: int, req: EmployeeUpdate, db: Session = Depends
 
 @router.delete("/{employee_id}", response_model=ResponseModel)
 def delete_employee(employee_id: int, db: Session = Depends(get_db)):
-    """删除员工"""
     emp = db.query(Employee).get(employee_id)
     if not emp:
         raise HTTPException(status_code=404, detail="员工不存在")
