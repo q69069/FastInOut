@@ -1,0 +1,74 @@
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, func
+from database import Base
+
+
+class Inventory(Base):
+    __tablename__ = "inventory"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    quantity = Column(Float, default=0)
+    cost_price = Column(Float, default=0)  # 成本价
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class InventoryCheck(Base):
+    __tablename__ = "inventory_checks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(String(50), unique=True, nullable=False)  # PD+日期+序号
+    warehouse_id = Column(Integer, ForeignKey("warehouses.id"))
+    operator_id = Column(Integer, ForeignKey("employees.id"))
+    status = Column(Integer, default=0)  # 0=草稿 1=已确认
+    remark = Column(String(500))
+    created_at = Column(DateTime, server_default=func.now())
+    confirmed_at = Column(DateTime)
+
+
+class InventoryCheckItem(Base):
+    __tablename__ = "inventory_check_items"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    check_id = Column(Integer, ForeignKey("inventory_checks.id"))
+    product_id = Column(Integer, ForeignKey("products.id"))
+    system_qty = Column(Float, default=0)  # 系统库存
+    actual_qty = Column(Float, default=0)  # 实际库存
+    diff_qty = Column(Float, default=0)  # 差异
+
+
+class InventoryTransfer(Base):
+    __tablename__ = "inventory_transfers"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(String(50), unique=True, nullable=False)  # DB+日期+序号
+    from_warehouse_id = Column(Integer, ForeignKey("warehouses.id"))
+    to_warehouse_id = Column(Integer, ForeignKey("warehouses.id"))
+    operator_id = Column(Integer, ForeignKey("employees.id"))
+    status = Column(Integer, default=0)  # 0=草稿 1=已确认
+    remark = Column(String(500))
+    created_at = Column(DateTime, server_default=func.now())
+    confirmed_at = Column(DateTime)
+
+
+class InventoryTransferItem(Base):
+    __tablename__ = "inventory_transfer_items"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    transfer_id = Column(Integer, ForeignKey("inventory_transfers.id"))
+    product_id = Column(Integer, ForeignKey("products.id"))
+    quantity = Column(Float, default=0)
+
+
+class InventoryAlert(Base):
+    __tablename__ = "inventory_alerts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    product_id = Column(Integer, ForeignKey("products.id"))
+    warehouse_id = Column(Integer, ForeignKey("warehouses.id"))
+    current_qty = Column(Float, default=0)
+    min_qty = Column(Float, default=0)
+    max_qty = Column(Float, default=0)
+    alert_type = Column(String(20))  # "low" or "high"
+    is_handled = Column(Integer, default=0)
+    created_at = Column(DateTime, server_default=func.now())
