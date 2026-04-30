@@ -1,164 +1,534 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from database import get_db
-from models.inventory import Inventory, InventoryCheck, InventoryCheckItem, InventoryTransfer, InventoryTransferItem, InventoryAlert
-from schemas.inventory import (
-    InventoryOut, InventoryCheckCreate, InventoryCheckOut,
-    InventoryTransferCreate, InventoryTransferOut, InventoryAlertOut, InventoryAdjust
+from models.inventory import (
+    Inventory, InventoryCheck, InventoryCheckItem,
+    InventoryTransfer, InventoryTransferItem,
+    InventoryAlert, OtherInventoryLog
 )
+from models.product import Product
+from models.warehouse import Warehouse
+from models.system import Message
 from schemas.common import ResponseModel, PaginatedResponse
 from datetime import datetime
+from pydantic import BaseModel
+from typing import Optional, List
 
 router = APIRouter(prefix="/api/inventory", tags=["仓库管理"])
 
 
+# ========== Schemas ==========
+class CheckItemCreate(BaseModel):
+    product_id: int
+    count_num: float  # 实盘数量
+
+
+class CheckCreate(BaseModel):
+    warehouse_id: int
+    remark: Optional[str] = None
+    items: Optional[List[CheckItemCreate]] = None
+
+
+class TransferItemCreate(BaseModel):
+    product_id: int
+    quantity: float
+
+
+class TransferCreate(BaseModel):
+    from_warehouse_id: int
+    to_warehouse_id: int
+    remark: Optional[str] = None
+    items: List[TransferItemCreate] = []
+
+
+class OtherInOut(BaseModel):
+    warehouse_id: int
+    product_id: int
+    quantity: float
+    reason: Optional[str] = None
+    remark: Optional[str] = None
+
+
+# ========== Helper ==========
+def _check_alert(db: Session, product_id: int, warehouse_id: int, quantity: float):
+    product = db.query(Product).get(product_id)
+    if not product:
+        return
+    if product.stock_min > 0 and quantity < product.stock_min:
+        alert = InventoryAlert(
+            product_id=product_id, warehouse_id=warehouse_id,
+            current_qty=quantity, min_qty=product.stock_min, max_qty=product.stock_max,
+            alert_type="low"
+        )
+        db.add(alert)
+        msg = Message(title=f"库存预警：{product.name}库存不足", content=f"当前库存{quantity}，低于下限{product.stock_min}", msg_type="inventory_alert")
+        db.add(msg)
+    if product.stock_max > 0 and quantity > product.stock_max:
+        alert = InventoryAlert(
+            product_id=product_id, warehouse_id=warehouse_id,
+            current_qty=quantity, min_qty=product.stock_min, max_qty=product.stock_max,
+            alert_type="high"
+        )
+        db.add(alert)
+        msg = Message(title=f"库存预警：{product.name}库存积压", content=f"当前库存{quantity}，高于上限{product.stock_max}", msg_type="inventory_alert")
+        db.add(msg)
+
+
+# ========== 库存查询 ==========
 @router.get("", response_model=PaginatedResponse)
 def list_inventory(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     warehouse_id: int = Query(None),
     product_id: int = Query(None),
+    keyword: str = Query(None),
     db: Session = Depends(get_db)
 ):
-    """库存查询"""
     q = db.query(Inventory)
     if warehouse_id:
         q = q.filter(Inventory.warehouse_id == warehouse_id)
     if product_id:
         q = q.filter(Inventory.product_id == product_id)
+    if keyword:
+        product_ids = [p.id for p in db.query(Product).filter(
+            Product.name.contains(keyword) | Product.code.contains(keyword) | Product.barcode.contains(keyword)
+        ).all()]
+        q = q.filter(Inventory.product_id.in_(product_ids))
     total = q.count()
-    items = q.offset((page - 1) * page_size).limit(page_size).all()
-    return PaginatedResponse(
-        data=[InventoryOut.model_validate(i) for i in items],
-        total=total, page=page, page_size=page_size
-    )
+    items = q.order_by(Inventory.warehouse_id, Inventory.product_id).offset((page - 1) * page_size).limit(page_size).all()
+    result = []
+    for inv in items:
+        product = db.query(Product).get(inv.product_id)
+        warehouse = db.query(Warehouse).get(inv.warehouse_id)
+        result.append({
+            "id": inv.id,
+            "warehouse_id": inv.warehouse_id,
+            "warehouse_name": warehouse.name if warehouse else "",
+            "product_id": inv.product_id,
+            "product_code": product.code if product else "",
+            "product_name": product.name if product else "",
+            "product_spec": product.spec if product else "",
+            "product_unit": product.unit if product else "",
+            "quantity": inv.quantity,
+            "cost_price": inv.cost_price,
+            "total_value": inv.quantity * inv.cost_price,
+        })
+    return PaginatedResponse(data=result, total=total, page=page, page_size=page_size)
 
 
-@router.get("/alerts", response_model=ResponseModel)
-def list_alerts(is_handled: int = Query(None), db: Session = Depends(get_db)):
-    """库存预警"""
-    q = db.query(InventoryAlert)
-    if is_handled is not None:
-        q = q.filter(InventoryAlert.is_handled == is_handled)
-    items = q.order_by(InventoryAlert.created_at.desc()).all()
-    return ResponseModel(data=[InventoryAlertOut.model_validate(i) for i in items])
-
-
-@router.get("/checks", response_model=PaginatedResponse)
-def list_checks(
+# ========== 库存流水 ==========
+@router.get("/flow", response_model=PaginatedResponse)
+def inventory_flow(
+    warehouse_id: int = Query(None),
+    product_id: int = Query(None),
+    start_date: str = Query(None),
+    end_date: str = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
-    """盘点列表"""
+    q = db.query(OtherInventoryLog)
+    if warehouse_id:
+        q = q.filter(OtherInventoryLog.warehouse_id == warehouse_id)
+    if product_id:
+        q = q.filter(OtherInventoryLog.product_id == product_id)
+    if start_date:
+        q = q.filter(OtherInventoryLog.created_at >= start_date)
+    if end_date:
+        q = q.filter(OtherInventoryLog.created_at <= end_date + " 23:59:59")
+    total = q.count()
+    items = q.order_by(OtherInventoryLog.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    return PaginatedResponse(data=[{
+        "id": i.id, "warehouse_id": i.warehouse_id, "product_id": i.product_id,
+        "type": i.type, "quantity": i.quantity, "reason": i.reason,
+        "remark": i.remark, "created_at": str(i.created_at)
+    } for i in items], total=total, page=page, page_size=page_size)
+
+
+# ========== 库存预警 ==========
+@router.get("/alerts", response_model=ResponseModel)
+def list_alerts(
+    alert_type: str = Query(None),
+    warehouse_id: int = Query(None),
+    is_handled: int = Query(None),
+    db: Session = Depends(get_db)
+):
+    q = db.query(InventoryAlert)
+    if alert_type:
+        q = q.filter(InventoryAlert.alert_type == alert_type)
+    if warehouse_id:
+        q = q.filter(InventoryAlert.warehouse_id == warehouse_id)
+    if is_handled is not None:
+        q = q.filter(InventoryAlert.is_handled == is_handled)
+    items = q.order_by(InventoryAlert.created_at.desc()).all()
+    result = []
+    for a in items:
+        product = db.query(Product).get(a.product_id)
+        result.append({
+            "id": a.id, "product_name": product.name if product else "",
+            "warehouse_id": a.warehouse_id, "current_qty": a.current_qty,
+            "min_qty": a.min_qty, "max_qty": a.max_qty,
+            "alert_type": a.alert_type, "is_handled": a.is_handled,
+            "created_at": str(a.created_at)
+        })
+    return ResponseModel(data=result)
+
+
+# ========== 库存盘点 ==========
+@router.get("/checks", response_model=PaginatedResponse)
+def list_checks(
+    page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
+    warehouse_id: int = Query(None), status: int = Query(None),
+    start_date: str = Query(None), end_date: str = Query(None),
+    db: Session = Depends(get_db)
+):
     q = db.query(InventoryCheck)
+    if warehouse_id:
+        q = q.filter(InventoryCheck.warehouse_id == warehouse_id)
+    if status is not None:
+        q = q.filter(InventoryCheck.status == status)
+    if start_date:
+        q = q.filter(InventoryCheck.created_at >= start_date)
+    if end_date:
+        q = q.filter(InventoryCheck.created_at <= end_date + " 23:59:59")
     total = q.count()
     items = q.order_by(InventoryCheck.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
-    return PaginatedResponse(
-        data=[InventoryCheckOut.model_validate(i) for i in items],
-        total=total, page=page, page_size=page_size
-    )
+    result = []
+    for c in items:
+        wh = db.query(Warehouse).get(c.warehouse_id)
+        result.append({
+            "id": c.id, "code": c.code, "warehouse_id": c.warehouse_id,
+            "warehouse_name": wh.name if wh else "",
+            "status": c.status, "remark": c.remark,
+            "created_at": str(c.created_at), "confirmed_at": str(c.confirmed_at) if c.confirmed_at else None
+        })
+    return PaginatedResponse(data=result, total=total, page=page, page_size=page_size)
 
 
 @router.post("/checks", response_model=ResponseModel)
-def create_check(req: InventoryCheckCreate, db: Session = Depends(get_db)):
-    """新建盘点"""
+def create_check(req: CheckCreate, db: Session = Depends(get_db)):
     today = datetime.now().strftime("%Y%m%d")
     count = db.query(InventoryCheck).count()
-    code = f"PD{today}{count + 1:03d}"
-    check = InventoryCheck(code=code, warehouse_id=req.warehouse_id, remark=req.remark)
+    code = f"PD{today}-{count + 1:03d}"
+    check = InventoryCheck(code=code, warehouse_id=req.warehouse_id, status=1, remark=req.remark)
     db.add(check)
     db.flush()
-    for item in req.items:
-        ci = InventoryCheckItem(
-            check_id=check.id,
-            product_id=item.product_id,
-            system_qty=item.system_qty,
-            actual_qty=item.actual_qty,
-            diff_qty=item.actual_qty - item.system_qty
-        )
-        db.add(ci)
+    if req.items:
+        for item in req.items:
+            inv = db.query(Inventory).filter(Inventory.warehouse_id == req.warehouse_id, Inventory.product_id == item.product_id).first()
+            system_qty = inv.quantity if inv else 0
+            ci = InventoryCheckItem(check_id=check.id, product_id=item.product_id, system_qty=system_qty, actual_qty=item.count_num, diff_qty=item.count_num - system_qty)
+            db.add(ci)
+    else:
+        invs = db.query(Inventory).filter(Inventory.warehouse_id == req.warehouse_id).all()
+        for inv in invs:
+            ci = InventoryCheckItem(check_id=check.id, product_id=inv.product_id, system_qty=inv.quantity, actual_qty=inv.quantity, diff_qty=0)
+            db.add(ci)
     db.commit()
     db.refresh(check)
-    return ResponseModel(data=InventoryCheckOut.model_validate(check))
+    return ResponseModel(data={"id": check.id, "code": code, "status": check.status})
+
+
+@router.get("/checks/{check_id}", response_model=ResponseModel)
+def get_check(check_id: int, db: Session = Depends(get_db)):
+    check = db.query(InventoryCheck).get(check_id)
+    if not check:
+        raise HTTPException(status_code=404, detail="盘点单不存在")
+    items = db.query(InventoryCheckItem).filter(InventoryCheckItem.check_id == check_id).all()
+    detail = []
+    for ci in items:
+        product = db.query(Product).get(ci.product_id)
+        detail.append({
+            "product_id": ci.product_id,
+            "product_name": product.name if product else "",
+            "system_qty": ci.system_qty,
+            "actual_qty": ci.actual_qty,
+            "diff_qty": ci.diff_qty
+        })
+    return ResponseModel(data={"id": check.id, "code": check.code, "warehouse_id": check.warehouse_id, "status": check.status, "items": detail})
+
+
+@router.put("/checks/{check_id}", response_model=ResponseModel)
+def update_check(check_id: int, items: List[CheckItemCreate], db: Session = Depends(get_db)):
+    check = db.query(InventoryCheck).get(check_id)
+    if not check:
+        raise HTTPException(status_code=404, detail="盘点单不存在")
+    if check.status != 1:
+        raise HTTPException(status_code=400, detail="非盘点中状态不能修改")
+    for item in items:
+        ci = db.query(InventoryCheckItem).filter(InventoryCheckItem.check_id == check_id, InventoryCheckItem.product_id == item.product_id).first()
+        if ci:
+            ci.actual_qty = item.count_num
+            ci.diff_qty = item.count_num - ci.system_qty
+    db.commit()
+    return ResponseModel(message="更新成功")
 
 
 @router.post("/checks/{check_id}/confirm", response_model=ResponseModel)
 def confirm_check(check_id: int, db: Session = Depends(get_db)):
-    """确认盘点"""
     check = db.query(InventoryCheck).get(check_id)
     if not check:
         raise HTTPException(status_code=404, detail="盘点单不存在")
-    check.status = 1
+    if check.status != 1:
+        raise HTTPException(status_code=400, detail="已确认或已作废")
+    items = db.query(InventoryCheckItem).filter(InventoryCheckItem.check_id == check_id).all()
+    profit_amount = 0
+    loss_amount = 0
+    for ci in items:
+        if ci.diff_qty != 0:
+            inv = db.query(Inventory).filter(Inventory.warehouse_id == check.warehouse_id, Inventory.product_id == ci.product_id).first()
+            if inv:
+                inv.quantity = ci.actual_qty
+            else:
+                inv = Inventory(warehouse_id=check.warehouse_id, product_id=ci.product_id, quantity=ci.actual_qty)
+                db.add(inv)
+            _check_alert(db, ci.product_id, check.warehouse_id, ci.actual_qty)
+            if ci.diff_qty > 0:
+                profit_amount += ci.diff_qty * (inv.cost_price if inv else 0)
+            else:
+                loss_amount += abs(ci.diff_qty) * (inv.cost_price if inv else 0)
+    check.status = 2
     check.confirmed_at = datetime.now()
     db.commit()
-    return ResponseModel(message="盘点已确认")
+    return ResponseModel(message="盘点确认成功", data={"profit_amount": profit_amount, "loss_amount": loss_amount})
 
 
+@router.delete("/checks/{check_id}", response_model=ResponseModel)
+def delete_check(check_id: int, db: Session = Depends(get_db)):
+    check = db.query(InventoryCheck).get(check_id)
+    if not check:
+        raise HTTPException(status_code=404, detail="盘点单不存在")
+    if check.status != 1:
+        raise HTTPException(status_code=400, detail="非盘点中状态不能作废")
+    check.status = 3
+    db.commit()
+    return ResponseModel(message="已作废")
+
+
+# ========== 库存调拨 ==========
 @router.get("/transfers", response_model=PaginatedResponse)
 def list_transfers(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
+    status: int = Query(None),
+    start_date: str = Query(None), end_date: str = Query(None),
     db: Session = Depends(get_db)
 ):
-    """调拨列表"""
     q = db.query(InventoryTransfer)
+    if status is not None:
+        q = q.filter(InventoryTransfer.status == status)
+    if start_date:
+        q = q.filter(InventoryTransfer.created_at >= start_date)
+    if end_date:
+        q = q.filter(InventoryTransfer.created_at <= end_date + " 23:59:59")
     total = q.count()
     items = q.order_by(InventoryTransfer.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
-    return PaginatedResponse(
-        data=[InventoryTransferOut.model_validate(i) for i in items],
-        total=total, page=page, page_size=page_size
-    )
+    result = []
+    for t in items:
+        from_wh = db.query(Warehouse).get(t.from_warehouse_id)
+        to_wh = db.query(Warehouse).get(t.to_warehouse_id)
+        result.append({
+            "id": t.id, "code": t.code,
+            "from_warehouse_name": from_wh.name if from_wh else "",
+            "to_warehouse_name": to_wh.name if to_wh else "",
+            "status": t.status, "remark": t.remark,
+            "created_at": str(t.created_at), "confirmed_at": str(t.confirmed_at) if t.confirmed_at else None
+        })
+    return PaginatedResponse(data=result, total=total, page=page, page_size=page_size)
 
 
 @router.post("/transfers", response_model=ResponseModel)
-def create_transfer(req: InventoryTransferCreate, db: Session = Depends(get_db)):
-    """新建调拨"""
+def create_transfer(req: TransferCreate, db: Session = Depends(get_db)):
     today = datetime.now().strftime("%Y%m%d")
     count = db.query(InventoryTransfer).count()
-    code = f"DB{today}{count + 1:03d}"
-    transfer = InventoryTransfer(
-        code=code,
-        from_warehouse_id=req.from_warehouse_id,
-        to_warehouse_id=req.to_warehouse_id,
-        remark=req.remark
-    )
+    code = f"DB{today}-{count + 1:03d}"
+    for item in req.items:
+        inv = db.query(Inventory).filter(Inventory.warehouse_id == req.from_warehouse_id, Inventory.product_id == item.product_id).first()
+        if not inv or inv.quantity < item.quantity:
+            product = db.query(Product).get(item.product_id)
+            raise HTTPException(status_code=400, detail=f"商品{product.name if product else item.product_id}库存不足")
+    transfer = InventoryTransfer(code=code, from_warehouse_id=req.from_warehouse_id, to_warehouse_id=req.to_warehouse_id, status=1, remark=req.remark)
     db.add(transfer)
     db.flush()
     for item in req.items:
-        ti = InventoryTransferItem(
-            transfer_id=transfer.id,
-            product_id=item.product_id,
-            quantity=item.quantity
-        )
+        ti = InventoryTransferItem(transfer_id=transfer.id, product_id=item.product_id, quantity=item.quantity)
         db.add(ti)
     db.commit()
     db.refresh(transfer)
-    return ResponseModel(data=InventoryTransferOut.model_validate(transfer))
+    return ResponseModel(data={"id": transfer.id, "code": code, "status": transfer.status})
+
+
+@router.get("/transfers/{transfer_id}", response_model=ResponseModel)
+def get_transfer(transfer_id: int, db: Session = Depends(get_db)):
+    transfer = db.query(InventoryTransfer).get(transfer_id)
+    if not transfer:
+        raise HTTPException(status_code=404, detail="调拨单不存在")
+    items = db.query(InventoryTransferItem).filter(InventoryTransferItem.transfer_id == transfer_id).all()
+    detail = []
+    for ti in items:
+        product = db.query(Product).get(ti.product_id)
+        detail.append({"product_id": ti.product_id, "product_name": product.name if product else "", "quantity": ti.quantity})
+    return ResponseModel(data={"id": transfer.id, "code": transfer.code, "from_warehouse_id": transfer.from_warehouse_id, "to_warehouse_id": transfer.to_warehouse_id, "status": transfer.status, "items": detail})
 
 
 @router.post("/transfers/{transfer_id}/confirm", response_model=ResponseModel)
 def confirm_transfer(transfer_id: int, db: Session = Depends(get_db)):
-    """确认调拨"""
     transfer = db.query(InventoryTransfer).get(transfer_id)
     if not transfer:
         raise HTTPException(status_code=404, detail="调拨单不存在")
-    transfer.status = 1
+    if transfer.status != 1:
+        raise HTTPException(status_code=400, detail="已确认或已取消")
+    items = db.query(InventoryTransferItem).filter(InventoryTransferItem.transfer_id == transfer_id).all()
+    for ti in items:
+        from_inv = db.query(Inventory).filter(Inventory.warehouse_id == transfer.from_warehouse_id, Inventory.product_id == ti.product_id).first()
+        if not from_inv or from_inv.quantity < ti.quantity:
+            raise HTTPException(status_code=400, detail=f"商品{ti.product_id}库存不足")
+        from_inv.quantity -= ti.quantity
+        to_inv = db.query(Inventory).filter(Inventory.warehouse_id == transfer.to_warehouse_id, Inventory.product_id == ti.product_id).first()
+        if to_inv:
+            to_inv.quantity += ti.quantity
+        else:
+            to_inv = Inventory(warehouse_id=transfer.to_warehouse_id, product_id=ti.product_id, quantity=ti.quantity, cost_price=from_inv.cost_price)
+            db.add(to_inv)
+        _check_alert(db, ti.product_id, transfer.from_warehouse_id, from_inv.quantity)
+    transfer.status = 2
     transfer.confirmed_at = datetime.now()
     db.commit()
-    return ResponseModel(message="调拨已确认")
+    return ResponseModel(message="调拨确认成功")
 
 
-@router.post("/adjust", response_model=ResponseModel)
-def adjust_inventory(req: InventoryAdjust, db: Session = Depends(get_db)):
-    """报损报溢"""
-    inv = db.query(Inventory).filter(
-        Inventory.warehouse_id == req.warehouse_id,
-        Inventory.product_id == req.product_id
-    ).first()
-    if not inv:
-        inv = Inventory(warehouse_id=req.warehouse_id, product_id=req.product_id, quantity=0)
-        db.add(inv)
-    inv.quantity += req.adjust_qty
+@router.delete("/transfers/{transfer_id}", response_model=ResponseModel)
+def delete_transfer(transfer_id: int, db: Session = Depends(get_db)):
+    transfer = db.query(InventoryTransfer).get(transfer_id)
+    if not transfer:
+        raise HTTPException(status_code=404, detail="调拨单不存在")
+    if transfer.status != 1:
+        raise HTTPException(status_code=400, detail="非调拨中状态不能取消")
+    transfer.status = 3
     db.commit()
-    return ResponseModel(message="调整成功")
+    return ResponseModel(message="已取消")
+
+
+# ========== 报损报溢 ==========
+@router.post("/other-in", response_model=ResponseModel)
+def other_in(req: OtherInOut, db: Session = Depends(get_db)):
+    inv = db.query(Inventory).filter(Inventory.warehouse_id == req.warehouse_id, Inventory.product_id == req.product_id).first()
+    if inv:
+        inv.quantity += req.quantity
+    else:
+        inv = Inventory(warehouse_id=req.warehouse_id, product_id=req.product_id, quantity=req.quantity)
+        db.add(inv)
+    log = OtherInventoryLog(warehouse_id=req.warehouse_id, product_id=req.product_id, type="in", quantity=req.quantity, reason=req.reason, remark=req.remark)
+    db.add(log)
+    _check_alert(db, req.product_id, req.warehouse_id, inv.quantity)
+    db.commit()
+    return ResponseModel(message="其他入库成功")
+
+
+@router.post("/other-out", response_model=ResponseModel)
+def other_out(req: OtherInOut, db: Session = Depends(get_db)):
+    inv = db.query(Inventory).filter(Inventory.warehouse_id == req.warehouse_id, Inventory.product_id == req.product_id).first()
+    if not inv or inv.quantity < req.quantity:
+        raise HTTPException(status_code=400, detail="库存不足")
+    inv.quantity -= req.quantity
+    log = OtherInventoryLog(warehouse_id=req.warehouse_id, product_id=req.product_id, type="out", quantity=req.quantity, reason=req.reason, remark=req.remark)
+    db.add(log)
+    _check_alert(db, req.product_id, req.warehouse_id, inv.quantity)
+    db.commit()
+    return ResponseModel(message="其他出库成功")
+
+
+@router.get("/other-log", response_model=PaginatedResponse)
+def list_other_log(
+    page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
+    type: str = Query(None), warehouse_id: int = Query(None),
+    start_date: str = Query(None), end_date: str = Query(None),
+    db: Session = Depends(get_db)
+):
+    q = db.query(OtherInventoryLog)
+    if type:
+        q = q.filter(OtherInventoryLog.type == type)
+    if warehouse_id:
+        q = q.filter(OtherInventoryLog.warehouse_id == warehouse_id)
+    if start_date:
+        q = q.filter(OtherInventoryLog.created_at >= start_date)
+    if end_date:
+        q = q.filter(OtherInventoryLog.created_at <= end_date + " 23:59:59")
+    total = q.count()
+    items = q.order_by(OtherInventoryLog.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    return PaginatedResponse(data=[{
+        "id": i.id, "warehouse_id": i.warehouse_id, "product_id": i.product_id,
+        "type": i.type, "quantity": i.quantity, "reason": i.reason,
+        "remark": i.remark, "created_at": str(i.created_at)
+    } for i in items], total=total, page=page, page_size=page_size)
+
+
+# ========== 库存统计 ==========
+@router.get("/summary", response_model=ResponseModel)
+def inventory_summary(db: Session = Depends(get_db)):
+    invs = db.query(Inventory).all()
+    total_qty = sum(i.quantity for i in invs)
+    total_value = sum(i.quantity * i.cost_price for i in invs)
+    wh_stats = {}
+    for i in invs:
+        wh = db.query(Warehouse).get(i.warehouse_id)
+        name = wh.name if wh else f"仓库{i.warehouse_id}"
+        if name not in wh_stats:
+            wh_stats[name] = {"qty": 0, "value": 0}
+        wh_stats[name]["qty"] += i.quantity
+        wh_stats[name]["value"] += i.quantity * i.cost_price
+    return ResponseModel(data={"total_qty": total_qty, "total_value": total_value, "product_count": len(set(i.product_id for i in invs)), "warehouse_stats": wh_stats})
+
+
+@router.get("/slow-moving", response_model=ResponseModel)
+def slow_moving(days: int = Query(30), db: Session = Depends(get_db)):
+    from models.sales import SalesStockoutItem, SalesStockout
+    from datetime import timedelta
+    cutoff = datetime.now() - timedelta(days=days)
+    recent_product_ids = set()
+    recent_items = db.query(SalesStockoutItem).join(SalesStockout).filter(SalesStockout.created_at >= cutoff).all()
+    for item in recent_items:
+        recent_product_ids.add(item.product_id)
+    invs = db.query(Inventory).filter(Inventory.quantity > 0).all()
+    result = []
+    for inv in invs:
+        if inv.product_id not in recent_product_ids:
+            product = db.query(Product).get(inv.product_id)
+            result.append({"product_id": inv.product_id, "product_name": product.name if product else "", "quantity": inv.quantity})
+    return ResponseModel(data=result)
+
+
+@router.get("/turnover", response_model=ResponseModel)
+def turnover(start_date: str = Query(None), end_date: str = Query(None), warehouse_id: int = Query(None), db: Session = Depends(get_db)):
+    from models.sales import SalesStockout, SalesStockoutItem
+    q = db.query(SalesStockout).filter(SalesStockout.status == 2)
+    if start_date:
+        q = q.filter(SalesStockout.created_at >= start_date)
+    if end_date:
+        q = q.filter(SalesStockout.created_at <= end_date + " 23:59:59")
+    stockouts = q.all()
+    total_out = 0
+    for so in stockouts:
+        items = db.query(SalesStockoutItem).filter(SalesStockoutItem.stockout_id == so.id).all()
+        for item in items:
+            total_out += item.quantity
+    invs = db.query(Inventory).all()
+    avg_stock = sum(i.quantity for i in invs) / len(invs) if invs else 1
+    return ResponseModel(data={"total_out": total_out, "avg_stock": avg_stock, "turnover_rate": total_out / avg_stock if avg_stock > 0 else 0})
+
+
+# ========== 库存详情（放在最后避免路由冲突）==========
+@router.get("/detail/{warehouse_id}/{product_id}", response_model=ResponseModel)
+def get_inventory_detail(warehouse_id: int, product_id: int, db: Session = Depends(get_db)):
+    inv = db.query(Inventory).filter(Inventory.warehouse_id == warehouse_id, Inventory.product_id == product_id).first()
+    if not inv:
+        raise HTTPException(status_code=404, detail="库存记录不存在")
+    product = db.query(Product).get(product_id)
+    warehouse = db.query(Warehouse).get(warehouse_id)
+    return ResponseModel(data={
+        "warehouse_name": warehouse.name if warehouse else "",
+        "product_name": product.name if product else "",
+        "quantity": inv.quantity,
+        "cost_price": inv.cost_price,
+        "total_value": inv.quantity * inv.cost_price,
+    })

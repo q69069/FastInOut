@@ -72,3 +72,17 @@ class InventoryAlert(Base):
     alert_type = Column(String(20))  # "low" or "high"
     is_handled = Column(Integer, default=0)
     created_at = Column(DateTime, server_default=func.now())
+
+
+class OtherInventoryLog(Base):
+    __tablename__ = "other_inventory_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    warehouse_id = Column(Integer, ForeignKey("warehouses.id"))
+    product_id = Column(Integer, ForeignKey("products.id"))
+    type = Column(String(10))  # in/out
+    quantity = Column(Float, default=0)
+    reason = Column(String(50))
+    remark = Column(String(200))
+    created_by = Column(Integer, ForeignKey("employees.id"))
+    created_at = Column(DateTime, server_default=func.now())
