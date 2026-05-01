@@ -200,6 +200,7 @@ export const voidInvoice = (id) => api.put(`/invoices/${id}/void`)
 // 系统
 export const getEmployees = (params) => api.get('/employees', { params })
 export const getCategories = (params) => api.get('/categories', { params })
+export const getOperationLogs = (params) => api.get('/system/logs', { params })
 
 // 打印模板
 export const getPrintTemplates = (params) => api.get('/print-templates', { params })

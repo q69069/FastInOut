@@ -175,6 +175,12 @@ const routes = [
         component: () => import('../views/system/DataImport.vue'),
         meta: { title: '数据导入' }
       },
+      {
+        path: 'system/logs',
+        name: 'OperationLogs',
+        component: () => import('../views/system/Logs.vue'),
+        meta: { title: '操作日志' }
+      },
       // 业务员
       {
         path: 'salesmen',
