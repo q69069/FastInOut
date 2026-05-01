@@ -149,6 +149,112 @@ DEFAULT_TEMPLATES = [
         "is_default": True,
     },
     {
+        "name": "默认入库单(A4)",
+        "template_type": "stockin",
+        "paper_size": "A4",
+        "content": """<div class="print-page">
+  <h2 style="text-align:center">{{company_name}}</h2>
+  <h3 style="text-align:center">采购入库单</h3>
+  <div style="display:flex;justify-content:space-between;margin:10px 0">
+    <span>供应商：{{supplier_name}}</span>
+    <span>单号：{{order_code}}</span>
+    <span>日期：{{order_date}}</span>
+  </div>
+  <div style="margin:6px 0">仓库：{{warehouse_name}}</div>
+  <table style="width:100%;border-collapse:collapse">
+    <thead>
+      <tr style="background:#f5f5f5">
+        <th style="border:1px solid #333;padding:6px">序号</th>
+        <th style="border:1px solid #333;padding:6px">商品名称</th>
+        <th style="border:1px solid #333;padding:6px">规格</th>
+        <th style="border:1px solid #333;padding:6px">单位</th>
+        <th style="border:1px solid #333;padding:6px">数量</th>
+        <th style="border:1px solid #333;padding:6px">单价</th>
+        <th style="border:1px solid #333;padding:6px">金额</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#items}}
+      <tr>
+        <td style="border:1px solid #333;padding:6px;text-align:center">{{index}}</td>
+        <td style="border:1px solid #333;padding:6px">{{product_name}}</td>
+        <td style="border:1px solid #333;padding:6px">{{spec}}</td>
+        <td style="border:1px solid #333;padding:6px;text-align:center">{{unit}}</td>
+        <td style="border:1px solid #333;padding:6px;text-align:right">{{quantity}}</td>
+        <td style="border:1px solid #333;padding:6px;text-align:right">{{price}}</td>
+        <td style="border:1px solid #333;padding:6px;text-align:right">{{amount}}</td>
+      </tr>
+      {{/items}}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="6" style="border:1px solid #333;padding:6px;text-align:right;font-weight:bold">合计：</td>
+        <td style="border:1px solid #333;padding:6px;text-align:right;font-weight:bold">{{total_amount}}</td>
+      </tr>
+    </tfoot>
+  </table>
+  <div style="margin-top:30px;display:flex;justify-content:space-between">
+    <span>制单人：________</span>
+    <span>审核人：________</span>
+    <span>仓管签字：________</span>
+  </div>
+</div>""",
+        "is_default": True,
+    },
+    {
+        "name": "默认出库单(A4)",
+        "template_type": "stockout",
+        "paper_size": "A4",
+        "content": """<div class="print-page">
+  <h2 style="text-align:center">{{company_name}}</h2>
+  <h3 style="text-align:center">销售出库单</h3>
+  <div style="display:flex;justify-content:space-between;margin:10px 0">
+    <span>客户：{{customer_name}}</span>
+    <span>单号：{{order_code}}</span>
+    <span>日期：{{order_date}}</span>
+  </div>
+  <div style="margin:6px 0">仓库：{{warehouse_name}}</div>
+  <table style="width:100%;border-collapse:collapse">
+    <thead>
+      <tr style="background:#f5f5f5">
+        <th style="border:1px solid #333;padding:6px">序号</th>
+        <th style="border:1px solid #333;padding:6px">商品名称</th>
+        <th style="border:1px solid #333;padding:6px">规格</th>
+        <th style="border:1px solid #333;padding:6px">单位</th>
+        <th style="border:1px solid #333;padding:6px">数量</th>
+        <th style="border:1px solid #333;padding:6px">单价</th>
+        <th style="border:1px solid #333;padding:6px">金额</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#items}}
+      <tr>
+        <td style="border:1px solid #333;padding:6px;text-align:center">{{index}}</td>
+        <td style="border:1px solid #333;padding:6px">{{product_name}}</td>
+        <td style="border:1px solid #333;padding:6px">{{spec}}</td>
+        <td style="border:1px solid #333;padding:6px;text-align:center">{{unit}}</td>
+        <td style="border:1px solid #333;padding:6px;text-align:right">{{quantity}}</td>
+        <td style="border:1px solid #333;padding:6px;text-align:right">{{price}}</td>
+        <td style="border:1px solid #333;padding:6px;text-align:right">{{amount}}</td>
+      </tr>
+      {{/items}}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="6" style="border:1px solid #333;padding:6px;text-align:right;font-weight:bold">合计：</td>
+        <td style="border:1px solid #333;padding:6px;text-align:right;font-weight:bold">{{total_amount}}</td>
+      </tr>
+    </tfoot>
+  </table>
+  <div style="margin-top:30px;display:flex;justify-content:space-between">
+    <span>制单人：________</span>
+    <span>审核人：________</span>
+    <span>收货人签字：________</span>
+  </div>
+</div>""",
+        "is_default": True,
+    },
+    {
         "name": "默认对账单(A4)",
         "template_type": "statement",
         "paper_size": "A4",
@@ -377,6 +483,62 @@ def preview_print(template_id: int, doc_type: str, doc_id: int, db: Session = De
             "start_date": "",
             "end_date": "",
             "items": [],
+        })
+
+    elif doc_type == "stockin":
+        stockin = db.query(PurchaseStockin).get(doc_id)
+        if not stockin:
+            raise HTTPException(status_code=404, detail="入库单不存在")
+        supplier = db.query(Supplier).get(stockin.supplier_id) if stockin.supplier_id else None
+        warehouse = db.query(Warehouse).get(stockin.warehouse_id) if stockin.warehouse_id else None
+        items = db.query(PurchaseStockinItem).filter(PurchaseStockinItem.stockin_id == stockin.id).all()
+        item_list = []
+        for i, item in enumerate(items):
+            product = db.query(Product).get(item.product_id)
+            item_list.append({
+                "index": i + 1,
+                "product_name": product.name if product else "",
+                "spec": product.spec if product else "",
+                "unit": product.unit if product else "",
+                "quantity": item.quantity,
+                "price": item.price,
+                "amount": item.amount,
+            })
+        data.update({
+            "supplier_name": supplier.name if supplier else "",
+            "warehouse_name": warehouse.name if warehouse else "",
+            "order_code": stockin.code,
+            "order_date": str(stockin.created_at)[:10],
+            "total_amount": sum(i.amount or 0 for i in items),
+            "items": item_list,
+        })
+
+    elif doc_type == "stockout":
+        stockout = db.query(SalesStockout).get(doc_id)
+        if not stockout:
+            raise HTTPException(status_code=404, detail="出库单不存在")
+        customer = db.query(Customer).get(stockout.customer_id) if stockout.customer_id else None
+        warehouse = db.query(Warehouse).get(stockout.warehouse_id) if stockout.warehouse_id else None
+        items = db.query(SalesStockoutItem).filter(SalesStockoutItem.stockout_id == stockout.id).all()
+        item_list = []
+        for i, item in enumerate(items):
+            product = db.query(Product).get(item.product_id)
+            item_list.append({
+                "index": i + 1,
+                "product_name": product.name if product else "",
+                "spec": product.spec if product else "",
+                "unit": product.unit if product else "",
+                "quantity": item.quantity,
+                "price": item.price,
+                "amount": item.amount,
+            })
+        data.update({
+            "customer_name": customer.name if customer else "",
+            "warehouse_name": warehouse.name if warehouse else "",
+            "order_code": stockout.code,
+            "order_date": str(stockout.created_at)[:10],
+            "total_amount": sum(i.amount or 0 for i in items),
+            "items": item_list,
         })
 
     return ResponseModel(data={"template": t.content, "data": data})
