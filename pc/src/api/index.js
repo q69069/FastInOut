@@ -125,6 +125,12 @@ export const getReceivables = () => api.get('/finance/receivables')
 export const getPayables = () => api.get('/finance/payables')
 export const getFinanceFlow = (params) => api.get('/finance/flow', { params })
 
+// 银行对账
+export const getBankStatements = (params) => api.get('/bank-statements', { params })
+export const createBankStatement = (data) => api.post('/bank-statements', data)
+export const autoMatchBankStatements = () => api.post('/bank-statements/auto-match')
+export const getBankSummary = () => api.get('/bank-statements/summary')
+
 // 报表
 export const getSalesReport = (params) => api.get('/reports/sales', { params })
 export const getPurchaseReport = (params) => api.get('/reports/purchase', { params })

@@ -11,7 +11,7 @@ from routers import (
     categories, products, customers, suppliers,
     inventory, purchases, sales, finance,
     reports, system, units, promotions, roles,
-    backup, customer_prices, crm, salesmen, batches
+    backup, customer_prices, crm, salesmen, batches, bank
 )
 
 # 创建所有表
@@ -63,6 +63,7 @@ app.include_router(customer_prices.router)
 app.include_router(crm.router)
 app.include_router(salesmen.router)
 app.include_router(batches.router)
+app.include_router(bank.router)
 
 
 @app.get("/api/health")

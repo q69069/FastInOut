@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text, func
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text, Boolean, func
 from database import Base
 
 
@@ -13,6 +13,7 @@ class Receipt(Base):
     stockout_id = Column(Integer, ForeignKey("sales_stockouts.id"), nullable=True)  # 关联出库单
     receipt_type = Column(String(20), default="normal")  # normal/pre 预收款
     status = Column(Integer, default=0)  # 0=待确认 1=已确认
+    matched = Column(Boolean, default=False)  # 银行对账匹配
     operator_id = Column(Integer, ForeignKey("employees.id"))
     remark = Column(Text)
     created_at = Column(DateTime, server_default=func.now())
@@ -30,6 +31,7 @@ class Payment(Base):
     stockin_id = Column(Integer, ForeignKey("purchase_stockins.id"), nullable=True)  # 关联入库单
     payment_type = Column(String(20), default="normal")  # normal/pre 预付款
     status = Column(Integer, default=0)  # 0=待确认 1=已确认
+    matched = Column(Boolean, default=False)  # 银行对账匹配
     operator_id = Column(Integer, ForeignKey("employees.id"))
     remark = Column(Text)
     created_at = Column(DateTime, server_default=func.now())

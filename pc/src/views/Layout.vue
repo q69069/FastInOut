@@ -62,6 +62,7 @@
             <span>财务</span>
           </template>
           <el-menu-item index="/finance">收支管理</el-menu-item>
+          <el-menu-item index="/bank-reconciliation">银行对账</el-menu-item>
         </el-sub-menu>
         <el-sub-menu index="reports">
           <template #title>
