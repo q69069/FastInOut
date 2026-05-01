@@ -68,6 +68,7 @@ export const getWarehouses = (params) => api.get('/warehouses', { params })
 export const createWarehouse = (data) => api.post('/warehouses', data)
 export const updateWarehouse = (id, data) => api.put(`/warehouses/${id}`, data)
 export const deleteWarehouse = (id) => api.delete(`/warehouses/${id}`)
+export const setWarehouseDefault = (id) => api.put(`/warehouses/${id}/default`)
 
 // 单位管理
 export const getUnits = (params) => api.get('/units', { params })

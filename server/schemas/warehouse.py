@@ -1,12 +1,12 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Literal
 from datetime import datetime
 
 
 class WarehouseBase(BaseModel):
     code: str
     name: str
-    warehouse_type: str = "normal"  # normal/vehicle/other
+    warehouse_type: Literal["normal", "vehicle", "other"] = "normal"
     address: Optional[str] = None
     manager: Optional[str] = None
     phone: Optional[str] = None
@@ -22,7 +22,7 @@ class WarehouseCreate(WarehouseBase):
 class WarehouseUpdate(BaseModel):
     code: Optional[str] = None
     name: Optional[str] = None
-    warehouse_type: Optional[str] = None
+    warehouse_type: Optional[Literal["normal", "vehicle", "other"]] = None
     address: Optional[str] = None
     manager: Optional[str] = None
     phone: Optional[str] = None
