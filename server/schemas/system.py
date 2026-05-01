@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import datetime
 
@@ -12,8 +12,7 @@ class OperationLogOut(BaseModel):
     ip: Optional[str] = None
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MessageBase(BaseModel):
@@ -33,8 +32,7 @@ class MessageOut(MessageBase):
     created_at: Optional[datetime] = None
     read_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BackupRecordOut(BaseModel):
@@ -46,5 +44,4 @@ class BackupRecordOut(BaseModel):
     remark: Optional[str] = None
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

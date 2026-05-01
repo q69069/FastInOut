@@ -43,6 +43,12 @@ const routes = [
         component: () => import('../views/purchases/Index.vue'),
         meta: { title: '采购订单' }
       },
+      {
+        path: 'purchase-returns',
+        name: 'PurchaseReturns',
+        component: () => import('../views/purchases/Returns.vue'),
+        meta: { title: '采购退货' }
+      },
       // 销售
       {
         path: 'sales',
@@ -50,12 +56,24 @@ const routes = [
         component: () => import('../views/sales/Index.vue'),
         meta: { title: '销售订单' }
       },
+      {
+        path: 'sales-returns',
+        name: 'SalesReturns',
+        component: () => import('../views/sales/Returns.vue'),
+        meta: { title: '销售退货' }
+      },
       // 库存
       {
         path: 'inventory',
         name: 'Inventory',
         component: () => import('../views/inventory/Index.vue'),
         meta: { title: '库存查询' }
+      },
+      {
+        path: 'transfers',
+        name: 'Transfers',
+        component: () => import('../views/inventory/Transfers.vue'),
+        meta: { title: '库存调拨' }
       },
       {
         path: 'warehouses',
@@ -69,6 +87,32 @@ const routes = [
         name: 'Finance',
         component: () => import('../views/finance/Index.vue'),
         meta: { title: '财务管理' }
+      },
+      // 报表
+      {
+        path: 'reports/profit',
+        name: 'ProfitReport',
+        component: () => import('../views/reports/Profit.vue'),
+        meta: { title: '利润统计' }
+      },
+      {
+        path: 'reports/inventory',
+        name: 'InventoryReport',
+        component: () => import('../views/reports/Inventory.vue'),
+        meta: { title: '库存汇总' }
+      },
+      {
+        path: 'reports/sales-ranking',
+        name: 'SalesRanking',
+        component: () => import('../views/reports/SalesRanking.vue'),
+        meta: { title: '销售排行' }
+      },
+      // 促销
+      {
+        path: 'promotions',
+        name: 'Promotions',
+        component: () => import('../views/promotions/Index.vue'),
+        meta: { title: '促销方案' }
       },
       // 系统
       {

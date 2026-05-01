@@ -1,14 +1,12 @@
-import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
-
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
-os.makedirs(DATA_DIR, exist_ok=True)
-DB_PATH = os.path.join(DATA_DIR, "fastinout.db")
-SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
+from sqlalchemy.pool import StaticPool
+from config import SQLALCHEMY_DATABASE_URL
 
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

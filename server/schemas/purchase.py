@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, List
 from datetime import datetime
 
@@ -20,8 +20,7 @@ class PurchaseOrderItemOut(PurchaseOrderItemBase):
     order_id: int
     received_qty: float = 0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PurchaseOrderBase(BaseModel):
@@ -52,8 +51,7 @@ class PurchaseOrderOut(PurchaseOrderBase):
     created_at: Optional[datetime] = None
     confirmed_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PurchaseStockinItemBase(BaseModel):
@@ -72,8 +70,7 @@ class PurchaseStockinItemOut(PurchaseStockinItemBase):
     id: int
     stockin_id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PurchaseStockinBase(BaseModel):
@@ -95,8 +92,7 @@ class PurchaseStockinOut(PurchaseStockinBase):
     status: int
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PurchaseReturnItemBase(BaseModel):
@@ -131,5 +127,4 @@ class PurchaseReturnOut(PurchaseReturnBase):
     created_at: Optional[datetime] = None
     confirmed_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

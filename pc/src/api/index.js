@@ -88,13 +88,32 @@ export const convertQuantity = (params) => api.post('/units/convert', null, { pa
 export const getPurchaseOrders = (params) => api.get('/purchase-orders', { params })
 export const createPurchaseOrder = (data) => api.post('/purchase-orders', data)
 
+// 采购退货
+export const getPurchaseReturns = (params) => api.get('/purchase-returns', { params })
+export const createPurchaseReturn = (data) => api.post('/purchase-returns', data)
+export const getPurchaseReturn = (id) => api.get(`/purchase-returns/${id}`)
+export const confirmPurchaseReturn = (id) => api.post(`/purchase-returns/${id}/confirm`)
+
 // 销售
 export const getSalesOrders = (params) => api.get('/sales-orders', { params })
 export const createSalesOrder = (data) => api.post('/sales-orders', data)
 
+// 销售退货
+export const getSalesReturns = (params) => api.get('/sales-returns', { params })
+export const createSalesReturn = (data) => api.post('/sales-returns', data)
+export const getSalesReturn = (id) => api.get(`/sales-returns/${id}`)
+export const confirmSalesReturn = (id) => api.post(`/sales-returns/${id}/confirm`)
+
 // 库存
 export const getInventory = (params) => api.get('/inventory', { params })
 export const getInventoryAlerts = () => api.get('/inventory/alerts')
+
+// 调拨
+export const getTransfers = (params) => api.get('/inventory/transfers', { params })
+export const createTransfer = (data) => api.post('/inventory/transfers', data)
+export const getTransfer = (id) => api.get(`/inventory/transfers/${id}`)
+export const confirmTransfer = (id) => api.post(`/inventory/transfers/${id}/confirm`)
+export const cancelTransfer = (id) => api.delete(`/inventory/transfers/${id}`)
 
 // 财务
 export const getReceipts = (params) => api.get('/finance/receipts', { params })
@@ -110,6 +129,12 @@ export const getSalesReport = (params) => api.get('/reports/sales', { params })
 export const getPurchaseReport = (params) => api.get('/reports/purchase', { params })
 export const getInventoryReport = (params) => api.get('/reports/inventory', { params })
 export const getProfitReport = (params) => api.get('/reports/profit', { params })
+
+// 促销
+export const getPromotions = (params) => api.get('/promotions', { params })
+export const createPromotion = (data) => api.post('/promotions', data)
+export const updatePromotion = (id, data) => api.put(`/promotions/${id}`, data)
+export const deletePromotion = (id) => api.delete(`/promotions/${id}`)
 
 // 系统
 export const getEmployees = (params) => api.get('/employees', { params })

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 
@@ -11,8 +11,7 @@ class InventoryOut(BaseModel):
     cost_price: float
     updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class InventoryCheckBase(BaseModel):
@@ -38,8 +37,7 @@ class InventoryCheckOut(InventoryCheckBase):
     created_at: Optional[datetime] = None
     confirmed_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class InventoryTransferBase(BaseModel):
@@ -65,8 +63,7 @@ class InventoryTransferOut(InventoryTransferBase):
     created_at: Optional[datetime] = None
     confirmed_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class InventoryAlertOut(BaseModel):
@@ -80,8 +77,7 @@ class InventoryAlertOut(BaseModel):
     is_handled: int
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class InventoryAdjust(BaseModel):

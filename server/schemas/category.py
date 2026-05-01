@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import datetime
 
@@ -25,8 +25,7 @@ class CategoryOut(CategoryBase):
     id: int
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CustomerCategoryBase(BaseModel):
@@ -47,8 +46,7 @@ class CustomerCategoryOut(CustomerCategoryBase):
     id: int
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SupplierCategoryBase(BaseModel):
@@ -69,5 +67,4 @@ class SupplierCategoryOut(SupplierCategoryBase):
     id: int
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

@@ -10,7 +10,7 @@ from routers import (
     auth, company, warehouses, employees,
     categories, products, customers, suppliers,
     inventory, purchases, sales, finance,
-    reports, system, units
+    reports, system, units, promotions
 )
 
 # 创建所有表
@@ -47,6 +47,7 @@ app.include_router(finance.router)
 app.include_router(reports.router)
 app.include_router(system.router)
 app.include_router(units.router)
+app.include_router(promotions.router)
 
 
 @app.get("/api/health")

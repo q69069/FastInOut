@@ -29,6 +29,7 @@
             <span>采购</span>
           </template>
           <el-menu-item index="/purchases">采购订单</el-menu-item>
+          <el-menu-item index="/purchase-returns">采购退货</el-menu-item>
         </el-sub-menu>
         <el-sub-menu index="sale">
           <template #title>
@@ -36,19 +37,37 @@
             <span>销售</span>
           </template>
           <el-menu-item index="/sales">销售订单</el-menu-item>
+          <el-menu-item index="/sales-returns">销售退货</el-menu-item>
         </el-sub-menu>
+        <el-menu-item index="/promotions">
+          <el-icon><PriceTag /></el-icon>
+          <span>促销</span>
+        </el-menu-item>
         <el-sub-menu index="warehouse">
           <template #title>
             <el-icon><Box /></el-icon>
             <span>仓库</span>
           </template>
           <el-menu-item index="/inventory">库存查询</el-menu-item>
+          <el-menu-item index="/transfers">库存调拨</el-menu-item>
           <el-menu-item index="/warehouses">仓库管理</el-menu-item>
         </el-sub-menu>
-        <el-menu-item index="/finance">
-          <el-icon><Money /></el-icon>
-          <span>财务</span>
-        </el-menu-item>
+        <el-sub-menu index="finance">
+          <template #title>
+            <el-icon><Money /></el-icon>
+            <span>财务</span>
+          </template>
+          <el-menu-item index="/finance">收支管理</el-menu-item>
+        </el-sub-menu>
+        <el-sub-menu index="reports">
+          <template #title>
+            <el-icon><DataBoard /></el-icon>
+            <span>报表</span>
+          </template>
+          <el-menu-item index="/reports/profit">利润统计</el-menu-item>
+          <el-menu-item index="/reports/inventory">库存汇总</el-menu-item>
+          <el-menu-item index="/reports/sales-ranking">销售排行</el-menu-item>
+        </el-sub-menu>
       </el-menu>
     </el-aside>
     <el-container>
