@@ -27,7 +27,7 @@
         <el-table-column prop="name" label="仓库名称" min-width="200" />
         <el-table-column prop="warehouse_type" label="类型" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.warehouse_type === 'vehicle' ? 'warning' : row.warehouse_type === 'other' ? 'info' : ''">
+            <el-tag :type="row.warehouse_type === 'vehicle' ? 'warning' : row.warehouse_type === 'other' ? 'info' : 'primary'">
               {{ warehouseTypeMap[row.warehouse_type] || '普通仓库' }}
             </el-tag>
           </template>

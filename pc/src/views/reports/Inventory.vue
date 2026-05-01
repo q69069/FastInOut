@@ -122,7 +122,7 @@ const loadData = async () => {
   const params = {}
   if (query.value.warehouse_id) params.warehouse_id = query.value.warehouse_id
   const res = await getInventoryReport(params)
-  tableData.value = res.data || []
+  tableData.value = res.data?.items || res.data?.data || []
   await nextTick()
   initChart()
 }

@@ -146,7 +146,7 @@ const loadStats = async () => {
 
 const loadEmployees = async () => {
   try {
-    const res = await getEmployees({ page_size: 200 })
+    const res = await getEmployees({ page_size: 100 })
     employees.value = res.data || []
   } catch (e) { console.error("[list]", e) }
 }
