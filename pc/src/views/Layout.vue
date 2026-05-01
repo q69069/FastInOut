@@ -69,13 +69,15 @@
 
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '../stores'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 
 const handleCommand = (cmd) => {
   if (cmd === 'logout') {
-    localStorage.removeItem('token')
+    authStore.logout()
     router.push('/login')
   }
 }

@@ -21,9 +21,10 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { login } from '../api'
+import { useAuthStore } from '../stores'
 
 const router = useRouter()
+const authStore = useAuthStore()
 const formRef = ref()
 const loading = ref(false)
 const form = ref({ username: '', password: '' })
@@ -36,13 +37,9 @@ const handleLogin = async () => {
   await formRef.value.validate()
   loading.value = true
   try {
-    const res = await login(form.value)
-    const token = res.data?.token
-    if (token) {
-      localStorage.setItem('token', token)
-      ElMessage.success('登录成功')
-      router.push('/dashboard')
-    }
+    await authStore.login(form.value)
+    ElMessage.success('登录成功')
+    router.push('/dashboard')
   } catch (e) {
     // 错误已在拦截器处理
   } finally {

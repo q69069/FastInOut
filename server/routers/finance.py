@@ -337,7 +337,7 @@ def get_payable_detail(supplier_id: int, db: Session = Depends(get_db)):
     })
 
 
-# ========== 收支流水 ==========
+# ========== 收支流水（M8: 批量加载优化） ==========
 @router.get("/flow", response_model=PaginatedResponse)
 def finance_flow(
     type: str = Query(None),  # income/expense
@@ -345,6 +345,10 @@ def finance_flow(
     page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
+    # M8: 批量预加载客户和供应商名称，避免逐条查询
+    customers_map = {c.id: c.name for c in db.query(Customer).all()}
+    suppliers_map = {s.id: s.name for s in db.query(Supplier).all()}
+
     records = []
     # 收款记录
     if not type or type == "income":
@@ -354,11 +358,10 @@ def finance_flow(
         if end_date:
             q = q.filter(Receipt.created_at <= end_date + " 23:59:59")
         for r in q.all():
-            customer = db.query(Customer).get(r.customer_id)
             records.append({
                 "id": r.id, "code": r.code, "type": "income",
                 "amount": r.amount, "payment_method": r.payment_method,
-                "party_name": customer.name if customer else "",
+                "party_name": customers_map.get(r.customer_id, ""),
                 "remark": r.remark, "created_at": str(r.created_at)
             })
     # 付款记录
@@ -369,11 +372,10 @@ def finance_flow(
         if end_date:
             q = q.filter(Payment.created_at <= end_date + " 23:59:59")
         for p in q.all():
-            supplier = db.query(Supplier).get(p.supplier_id)
             records.append({
                 "id": p.id, "code": p.code, "type": "expense",
                 "amount": p.amount, "payment_method": p.payment_method,
-                "party_name": supplier.name if supplier else "",
+                "party_name": suppliers_map.get(p.supplier_id, ""),
                 "remark": p.remark, "created_at": str(p.created_at)
             })
     records.sort(key=lambda x: x["created_at"], reverse=True)

@@ -117,7 +117,7 @@ def list_inventory(
     return PaginatedResponse(data=result, total=total, page=page, page_size=page_size)
 
 
-# ========== 库存流水 ==========
+# ========== 库存流水（M7: N+1 查询优化） ==========
 @router.get("/flow", response_model=PaginatedResponse)
 def inventory_flow(
     warehouse_id: int = Query(None),
@@ -132,6 +132,12 @@ def inventory_flow(
     from models.purchase import PurchaseStockin, PurchaseStockinItem, PurchaseReturn, PurchaseReturnItem
     from models.sales import SalesStockout, SalesStockoutItem, SalesReturn, SalesReturnItem
 
+    # M7: 批量预加载所有商品名称，避免逐条查询
+    products_map = {p.id: p.name for p in db.query(Product).all()}
+
+    def _product_name(pid):
+        return products_map.get(pid, "")
+
     records = []
 
     # 采购入库
@@ -143,15 +149,18 @@ def inventory_flow(
             q = q.filter(PurchaseStockin.created_at >= start_date)
         if end_date:
             q = q.filter(PurchaseStockin.created_at <= end_date + " 23:59:59")
-        for si in q.all():
-            items = db.query(PurchaseStockinItem).filter(PurchaseStockinItem.stockin_id == si.id).all()
+        stockin_ids = [si.id for si in q.all()]
+        if stockin_ids:
+            items_q = db.query(PurchaseStockinItem).filter(PurchaseStockinItem.stockin_id.in_(stockin_ids))
+            if product_id:
+                items_q = items_q.filter(PurchaseStockinItem.product_id == product_id)
+            items = items_q.all()
+            stockin_map = {si.id: si for si in db.query(PurchaseStockin).filter(PurchaseStockin.id.in_(stockin_ids)).all()}
             for item in items:
-                if product_id and item.product_id != product_id:
-                    continue
-                product = db.query(Product).get(item.product_id)
+                si = stockin_map[item.stockin_id]
                 records.append({
                     "id": si.id, "warehouse_id": si.warehouse_id, "product_id": item.product_id,
-                    "product_name": product.name if product else "",
+                    "product_name": _product_name(item.product_id),
                     "type": "purchase_in", "quantity": item.quantity, "price": item.price,
                     "reason": "采购入库", "code": si.code,
                     "created_at": str(si.created_at)
@@ -166,15 +175,18 @@ def inventory_flow(
             q = q.filter(PurchaseReturn.created_at >= start_date)
         if end_date:
             q = q.filter(PurchaseReturn.created_at <= end_date + " 23:59:59")
-        for pr in q.all():
-            items = db.query(PurchaseReturnItem).filter(PurchaseReturnItem.return_id == pr.id).all()
+        return_ids = [pr.id for pr in q.all()]
+        if return_ids:
+            items_q = db.query(PurchaseReturnItem).filter(PurchaseReturnItem.return_id.in_(return_ids))
+            if product_id:
+                items_q = items_q.filter(PurchaseReturnItem.product_id == product_id)
+            items = items_q.all()
+            return_map = {pr.id: pr for pr in db.query(PurchaseReturn).filter(PurchaseReturn.id.in_(return_ids)).all()}
             for item in items:
-                if product_id and item.product_id != product_id:
-                    continue
-                product = db.query(Product).get(item.product_id)
+                pr = return_map[item.return_id]
                 records.append({
                     "id": pr.id, "warehouse_id": pr.warehouse_id, "product_id": item.product_id,
-                    "product_name": product.name if product else "",
+                    "product_name": _product_name(item.product_id),
                     "type": "purchase_return", "quantity": -item.quantity, "price": item.price,
                     "reason": "采购退货", "code": pr.code,
                     "created_at": str(pr.created_at)
@@ -189,15 +201,18 @@ def inventory_flow(
             q = q.filter(SalesStockout.created_at >= start_date)
         if end_date:
             q = q.filter(SalesStockout.created_at <= end_date + " 23:59:59")
-        for so in q.all():
-            items = db.query(SalesStockoutItem).filter(SalesStockoutItem.stockout_id == so.id).all()
+        stockout_ids = [so.id for so in q.all()]
+        if stockout_ids:
+            items_q = db.query(SalesStockoutItem).filter(SalesStockoutItem.stockout_id.in_(stockout_ids))
+            if product_id:
+                items_q = items_q.filter(SalesStockoutItem.product_id == product_id)
+            items = items_q.all()
+            stockout_map = {so.id: so for so in db.query(SalesStockout).filter(SalesStockout.id.in_(stockout_ids)).all()}
             for item in items:
-                if product_id and item.product_id != product_id:
-                    continue
-                product = db.query(Product).get(item.product_id)
+                so = stockout_map[item.stockout_id]
                 records.append({
                     "id": so.id, "warehouse_id": so.warehouse_id, "product_id": item.product_id,
-                    "product_name": product.name if product else "",
+                    "product_name": _product_name(item.product_id),
                     "type": "sales_out", "quantity": -item.quantity, "price": item.price,
                     "reason": "销售出库", "code": so.code,
                     "created_at": str(so.created_at)
@@ -212,15 +227,18 @@ def inventory_flow(
             q = q.filter(SalesReturn.created_at >= start_date)
         if end_date:
             q = q.filter(SalesReturn.created_at <= end_date + " 23:59:59")
-        for sr in q.all():
-            items = db.query(SalesReturnItem).filter(SalesReturnItem.return_id == sr.id).all()
+        return_ids = [sr.id for sr in q.all()]
+        if return_ids:
+            items_q = db.query(SalesReturnItem).filter(SalesReturnItem.return_id.in_(return_ids))
+            if product_id:
+                items_q = items_q.filter(SalesReturnItem.product_id == product_id)
+            items = items_q.all()
+            return_map = {sr.id: sr for sr in db.query(SalesReturn).filter(SalesReturn.id.in_(return_ids)).all()}
             for item in items:
-                if product_id and item.product_id != product_id:
-                    continue
-                product = db.query(Product).get(item.product_id)
+                sr = return_map[item.return_id]
                 records.append({
                     "id": sr.id, "warehouse_id": sr.warehouse_id, "product_id": item.product_id,
-                    "product_name": product.name if product else "",
+                    "product_name": _product_name(item.product_id),
                     "type": "sales_return", "quantity": item.quantity, "price": item.price,
                     "reason": "销售退货", "code": sr.code,
                     "created_at": str(sr.created_at)
@@ -233,16 +251,19 @@ def inventory_flow(
             q = q.filter(InventoryTransfer.created_at >= start_date)
         if end_date:
             q = q.filter(InventoryTransfer.created_at <= end_date + " 23:59:59")
-        for t in q.all():
-            items = db.query(InventoryTransferItem).filter(InventoryTransferItem.transfer_id == t.id).all()
+        transfer_ids = [t.id for t in q.all()]
+        if transfer_ids:
+            items_q = db.query(InventoryTransferItem).filter(InventoryTransferItem.transfer_id.in_(transfer_ids))
+            if product_id:
+                items_q = items_q.filter(InventoryTransferItem.product_id == product_id)
+            items = items_q.all()
+            transfer_map = {t.id: t for t in db.query(InventoryTransfer).filter(InventoryTransfer.id.in_(transfer_ids)).all()}
             for item in items:
-                if product_id and item.product_id != product_id:
-                    continue
-                product = db.query(Product).get(item.product_id)
+                t = transfer_map[item.transfer_id]
                 if not warehouse_id or t.from_warehouse_id == warehouse_id:
                     records.append({
                         "id": t.id, "warehouse_id": t.from_warehouse_id, "product_id": item.product_id,
-                        "product_name": product.name if product else "",
+                        "product_name": _product_name(item.product_id),
                         "type": "transfer_out", "quantity": -item.quantity,
                         "reason": f"调拨出库→{t.to_warehouse_id}", "code": t.code,
                         "created_at": str(t.created_at)
@@ -250,7 +271,7 @@ def inventory_flow(
                 if not warehouse_id or t.to_warehouse_id == warehouse_id:
                     records.append({
                         "id": t.id, "warehouse_id": t.to_warehouse_id, "product_id": item.product_id,
-                        "product_name": product.name if product else "",
+                        "product_name": _product_name(item.product_id),
                         "type": "transfer_in", "quantity": item.quantity,
                         "reason": f"调拨入库←{t.from_warehouse_id}", "code": t.code,
                         "created_at": str(t.created_at)
@@ -270,10 +291,9 @@ def inventory_flow(
         if end_date:
             q = q.filter(OtherInventoryLog.created_at <= end_date + " 23:59:59")
         for i in q.all():
-            product = db.query(Product).get(i.product_id)
             records.append({
                 "id": i.id, "warehouse_id": i.warehouse_id, "product_id": i.product_id,
-                "product_name": product.name if product else "",
+                "product_name": _product_name(i.product_id),
                 "type": f"other_{i.type}", "quantity": i.quantity if i.type == "in" else -i.quantity,
                 "reason": i.reason, "remark": i.remark,
                 "created_at": str(i.created_at)
