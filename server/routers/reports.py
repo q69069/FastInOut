@@ -351,3 +351,72 @@ def export_finance(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=finance_report.xlsx"}
     )
+
+
+# ========== 趋势图 ==========
+@router.get("/trend", response_model=ResponseModel)
+def trend_report(
+    trend_type: str = Query("sales"),  # sales/purchase
+    period: str = Query("month"),  # month/quarter
+    months: int = Query(12, ge=1, le=24),
+    db: Session = Depends(get_db)
+):
+    """采购/销售趋势数据（按月/季度）"""
+    from collections import OrderedDict
+    now = datetime.now()
+    data = OrderedDict()
+
+    if trend_type == "sales":
+        # 查询已确认的销售出库单
+        records = db.query(SalesStockout).filter(SalesStockout.status == 2).all()
+        for r in records:
+            dt = r.created_at
+            if not dt:
+                continue
+            if period == "month":
+                key = dt.strftime("%Y-%m")
+            elif period == "quarter":
+                q = (dt.month - 1) // 3 + 1
+                key = f"{dt.year}-Q{q}"
+            else:
+                key = dt.strftime("%Y-%m")
+            if key not in data:
+                data[key] = {"amount": 0, "count": 0}
+            data[key]["amount"] += r.total_amount or 0
+            data[key]["count"] += 1
+    else:
+        records = db.query(PurchaseStockin).filter(PurchaseStockin.status == 2).all()
+        for r in records:
+            dt = r.created_at
+            if not dt:
+                continue
+            if period == "month":
+                key = dt.strftime("%Y-%m")
+            elif period == "quarter":
+                q = (dt.month - 1) // 3 + 1
+                key = f"{dt.year}-Q{q}"
+            else:
+                key = dt.strftime("%Y-%m")
+            if key not in data:
+                data[key] = {"amount": 0, "count": 0}
+            data[key]["amount"] += r.total_amount or 0
+            data[key]["count"] += 1
+
+    # 填充空月份/季度
+    result = []
+    if period == "month":
+        for i in range(months - 1, -1, -1):
+            dt = now - timedelta(days=i * 30)
+            key = dt.strftime("%Y-%m")
+            d = data.get(key, {"amount": 0, "count": 0})
+            result.append({"period": key, "amount": round(d["amount"], 2), "count": d["count"]})
+    else:
+        for i in range(months // 3):
+            dt = now - timedelta(days=i * 90)
+            q = (dt.month - 1) // 3 + 1
+            key = f"{dt.year}-Q{q}"
+            if key not in [r["period"] for r in result]:
+                d = data.get(key, {"amount": 0, "count": 0})
+                result.insert(0, {"period": key, "amount": round(d["amount"], 2), "count": d["count"]})
+
+    return ResponseModel(data=result)

@@ -73,6 +73,7 @@
           <el-menu-item index="/reports/profit">利润统计</el-menu-item>
           <el-menu-item index="/reports/inventory">库存汇总</el-menu-item>
           <el-menu-item index="/reports/sales-ranking">销售排行</el-menu-item>
+          <el-menu-item index="/reports/trend">趋势图</el-menu-item>
         </el-sub-menu>
         <el-sub-menu v-if="authStore.isAdmin" index="system">
           <template #title>

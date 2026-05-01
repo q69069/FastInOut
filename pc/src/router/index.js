@@ -137,6 +137,12 @@ const routes = [
         component: () => import('../views/reports/SalesRanking.vue'),
         meta: { title: '销售排行' }
       },
+      {
+        path: 'reports/trend',
+        name: 'TrendReport',
+        component: () => import('../views/reports/Trend.vue'),
+        meta: { title: '趋势图' }
+      },
       // 促销
       {
         path: 'promotions',

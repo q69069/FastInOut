@@ -139,6 +139,7 @@ export const getProfitReport = (params) => api.get('/reports/profit', { params }
 export const exportSalesReport = (params) => api.get('/reports/export/sales', { params, responseType: 'blob' })
 export const exportInventoryReport = () => api.get('/reports/export/inventory', { responseType: 'blob' })
 export const exportFinanceReport = (params) => api.get('/reports/export/finance', { params, responseType: 'blob' })
+export const getTrendReport = (params) => api.get('/reports/trend', { params })
 
 // 促销
 export const getPromotions = (params) => api.get('/promotions', { params })
