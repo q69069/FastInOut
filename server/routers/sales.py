@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from datetime import datetime
 from database import get_db
 from models.sales import (
     SalesOrder, SalesOrderItem,
@@ -62,7 +63,7 @@ def list_sales_orders(
     if start_date:
         q = q.filter(SalesOrder.created_at >= start_date)
     if end_date:
-        q = q.filter(SalesOrder.created_at <= end_date + " 23:59:59")
+        q = q.filter(SalesOrder.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
     if keyword:
         q = q.filter(SalesOrder.code.contains(keyword))
     total = q.count()
@@ -179,7 +180,7 @@ def list_sales_stockouts(
     if start_date:
         q = q.filter(SalesStockout.created_at >= start_date)
     if end_date:
-        q = q.filter(SalesStockout.created_at <= end_date + " 23:59:59")
+        q = q.filter(SalesStockout.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
     total = q.count()
     items = q.order_by(SalesStockout.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     return PaginatedResponse(data=[SalesStockoutOut.model_validate(i) for i in items], total=total, page=page, page_size=page_size)
@@ -373,8 +374,8 @@ def customer_statement(
         stockouts_q = stockouts_q.filter(SalesStockout.created_at >= start_date)
         returns_q = returns_q.filter(SalesReturn.created_at >= start_date)
     if end_date:
-        stockouts_q = stockouts_q.filter(SalesStockout.created_at <= end_date + " 23:59:59")
-        returns_q = returns_q.filter(SalesReturn.created_at <= end_date + " 23:59:59")
+        stockouts_q = stockouts_q.filter(SalesStockout.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+        returns_q = returns_q.filter(SalesReturn.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
 
     stockouts = stockouts_q.all()
     returns = returns_q.all()
@@ -405,7 +406,7 @@ def sales_statistics(
     if start_date:
         q = q.filter(SalesStockout.created_at >= start_date)
     if end_date:
-        q = q.filter(SalesStockout.created_at <= end_date + " 23:59:59")
+        q = q.filter(SalesStockout.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
 
     stockouts = q.all()
 

@@ -37,7 +37,7 @@ def supplier_statement(
         PurchaseStockin.supplier_id == supplier_id,
         PurchaseStockin.status == 2,
         PurchaseStockin.created_at >= start_date,
-        PurchaseStockin.created_at <= end_date + " 23:59:59"
+        PurchaseStockin.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
     ).all():
         purchase_amount += si.total_amount or 0
 
@@ -47,7 +47,7 @@ def supplier_statement(
         PurchaseReturn.supplier_id == supplier_id,
         PurchaseReturn.status == 2,
         PurchaseReturn.created_at >= start_date,
-        PurchaseReturn.created_at <= end_date + " 23:59:59"
+        PurchaseReturn.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
     ).all():
         return_amount += ret.total_amount or 0
 
@@ -57,7 +57,7 @@ def supplier_statement(
         Payment.supplier_id == supplier_id,
         Payment.status == 1,
         Payment.created_at >= start_date,
-        Payment.created_at <= end_date + " 23:59:59"
+        Payment.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
     ).all():
         payment_amount += p.amount or 0
 
@@ -69,7 +69,7 @@ def supplier_statement(
         PurchaseStockin.supplier_id == supplier_id,
         PurchaseStockin.status == 2,
         PurchaseStockin.created_at >= start_date,
-        PurchaseStockin.created_at <= end_date + " 23:59:59"
+        PurchaseStockin.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
     ).all():
         items.append({
             "date": str(si.created_at)[:10], "code": si.code, "type": "采购入库",
@@ -79,7 +79,7 @@ def supplier_statement(
         PurchaseReturn.supplier_id == supplier_id,
         PurchaseReturn.status == 2,
         PurchaseReturn.created_at >= start_date,
-        PurchaseReturn.created_at <= end_date + " 23:59:59"
+        PurchaseReturn.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
     ).all():
         items.append({
             "date": str(ret.created_at)[:10], "code": ret.code, "type": "采购退货",
@@ -89,7 +89,7 @@ def supplier_statement(
         Payment.supplier_id == supplier_id,
         Payment.status == 1,
         Payment.created_at >= start_date,
-        Payment.created_at <= end_date + " 23:59:59"
+        Payment.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
     ).all():
         items.append({
             "date": str(p.created_at)[:10], "code": p.code, "type": "付款",
