@@ -25,7 +25,7 @@ class PurchaseOrderItemOut(PurchaseOrderItemBase):
 
 class PurchaseOrderBase(BaseModel):
     supplier_id: int
-    warehouse_id: int
+    warehouse_id: Optional[int] = None
     total_amount: float = 0
     remark: Optional[str] = None
 
