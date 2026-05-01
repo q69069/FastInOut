@@ -20,7 +20,9 @@
           </template>
           <el-menu-item index="/products">商品管理</el-menu-item>
           <el-menu-item index="/customers">客户管理</el-menu-item>
+          <el-menu-item index="/customer-prices">客户价格等级</el-menu-item>
           <el-menu-item index="/suppliers">供应商管理</el-menu-item>
+          <el-menu-item index="/customers/crm">客户关系管理</el-menu-item>
           <el-menu-item index="/units">单位管理</el-menu-item>
         </el-sub-menu>
         <el-sub-menu index="purchase">
@@ -38,6 +40,7 @@
           </template>
           <el-menu-item index="/sales">销售订单</el-menu-item>
           <el-menu-item index="/sales-returns">销售退货</el-menu-item>
+          <el-menu-item index="/salesmen">业务员管理</el-menu-item>
         </el-sub-menu>
         <el-menu-item index="/promotions">
           <el-icon><PriceTag /></el-icon>

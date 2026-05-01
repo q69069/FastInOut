@@ -1,3 +1,4 @@
+from models.role import Role
 from models.company import Company
 from models.warehouse import Warehouse
 from models.employee import Employee
@@ -10,3 +11,6 @@ from models.purchase import PurchaseOrder, PurchaseOrderItem, PurchaseStockin, P
 from models.sales import SalesOrder, SalesOrderItem, SalesStockout, SalesStockoutItem, SalesReturn, SalesReturnItem
 from models.finance import Receipt, Payment
 from models.system import OperationLog, Message, BackupRecord
+from models.customer_price import CustomerPrice
+from models.crm import Contact, Visit
+from models.salesman import Salesman

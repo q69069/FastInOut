@@ -31,6 +31,18 @@ const routes = [
         meta: { title: '客户管理' }
       },
       {
+        path: 'customer-prices',
+        name: 'CustomerPrices',
+        component: () => import('../views/customers/PriceLevel.vue'),
+        meta: { title: '客户价格等级' }
+      },
+      {
+        path: 'customers/crm',
+        name: 'Crm',
+        component: () => import('../views/customers/Crm.vue'),
+        meta: { title: '客户关系管理' }
+      },
+      {
         path: 'suppliers',
         name: 'Suppliers',
         component: () => import('../views/suppliers/Index.vue'),
@@ -120,6 +132,25 @@ const routes = [
         name: 'Units',
         component: () => import('../views/units/Index.vue'),
         meta: { title: '单位管理' }
+      },
+      {
+        path: 'system/roles',
+        name: 'Roles',
+        component: () => import('../views/system/Roles.vue'),
+        meta: { title: '角色管理' }
+      },
+      {
+        path: 'system/backup',
+        name: 'Backup',
+        component: () => import('../views/system/Backup.vue'),
+        meta: { title: '数据备份' }
+      },
+      // 业务员
+      {
+        path: 'salesmen',
+        name: 'Salesmen',
+        component: () => import('../views/salesmen/Index.vue'),
+        meta: { title: '业务员管理' }
       }
     ]
   }

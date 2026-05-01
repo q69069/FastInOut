@@ -136,6 +136,46 @@ export const createPromotion = (data) => api.post('/promotions', data)
 export const updatePromotion = (id, data) => api.put(`/promotions/${id}`, data)
 export const deletePromotion = (id) => api.delete(`/promotions/${id}`)
 
+// 角色
+export const getRoles = (params) => api.get('/roles', { params })
+export const getAllRoles = () => api.get('/roles/all')
+export const createRole = (data) => api.post('/roles', data)
+export const updateRole = (id, data) => api.put(`/roles/${id}`, data)
+export const deleteRole = (id) => api.delete(`/roles/${id}`)
+export const assignRole = (data) => api.post('/roles/assign', data)
+
+// 备份
+export const exportBackup = () => api.get('/backup/export', { responseType: 'blob' })
+export const importBackup = (file) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return api.post('/backup/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+}
+
+// 客户联系人
+export const getContacts = (params) => api.get('/contacts', { params })
+export const createContact = (data) => api.post('/contacts', data)
+export const updateContact = (id, data) => api.put(`/contacts/${id}`, data)
+export const deleteContact = (id) => api.delete(`/contacts/${id}`)
+
+// 拜访记录
+export const getVisits = (params) => api.get('/visits', { params })
+export const createVisit = (data) => api.post('/visits', data)
+export const deleteVisit = (id) => api.delete(`/visits/${id}`)
+
+// 业务员提成
+export const getSalesmen = (params) => api.get('/salesmen', { params })
+export const getSalesmanStats = (params) => api.get('/salesmen/stats', { params })
+export const createSalesman = (data) => api.post('/salesmen', data)
+export const updateSalesman = (id, data) => api.put(`/salesmen/${id}`, data)
+
+// 客户价格等级
+export const getCustomerPrices = (params) => api.get('/customer-prices', { params })
+export const createCustomerPrice = (data) => api.post('/customer-prices', data)
+export const updateCustomerPrice = (id, data) => api.put(`/customer-prices/${id}`, data)
+export const deleteCustomerPrice = (id) => api.delete(`/customer-prices/${id}`)
+export const queryCustomerPrice = (params) => api.get('/customer-prices/query', { params })
+
 // 系统
 export const getEmployees = (params) => api.get('/employees', { params })
 export const getCategories = (params) => api.get('/categories', { params })
