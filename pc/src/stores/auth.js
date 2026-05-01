@@ -9,6 +9,15 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = computed(() => !!token.value)
   const username = computed(() => user.value?.username || '')
   const displayName = computed(() => user.value?.name || user.value?.username || '')
+  const roleId = computed(() => user.value?.role_id || null)
+  const roleName = computed(() => user.value?.role_name || '')
+  const permissions = computed(() => user.value?.permissions || [])
+  const isAdmin = computed(() => roleName.value === '管理员' || permissions.value.includes('*'))
+
+  function hasPermission(perm) {
+    if (isAdmin.value) return true
+    return permissions.value.includes(perm)
+  }
 
   async function login(form) {
     const res = await apiLogin(form)
@@ -36,5 +45,9 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('token')
   }
 
-  return { token, user, isLoggedIn, username, displayName, login, fetchUser, logout }
+  return {
+    token, user, isLoggedIn, username, displayName,
+    roleId, roleName, permissions, isAdmin,
+    hasPermission, login, fetchUser, logout
+  }
 })

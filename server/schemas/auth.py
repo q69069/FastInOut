@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 
@@ -14,6 +14,9 @@ class LoginResponse(BaseModel):
     username: str
     name: str
     position: Optional[str] = None
+    role_id: Optional[int] = None
+    role_name: Optional[str] = None
+    permissions: List[str] = []
 
 
 class CurrentUser(BaseModel):
@@ -24,5 +27,8 @@ class CurrentUser(BaseModel):
     position: Optional[str] = None
     phone: Optional[str] = None
     status: int
+    role_id: Optional[int] = None
+    role_name: Optional[str] = None
+    permissions: List[str] = []
 
     model_config = ConfigDict(from_attributes=True)

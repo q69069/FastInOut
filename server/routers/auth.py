@@ -1,7 +1,9 @@
+import json
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from database import get_db
 from models.employee import Employee
+from models.role import Role
 from schemas.auth import LoginRequest, LoginResponse, CurrentUser
 from schemas.common import ResponseModel
 from utils.auth import verify_password, create_access_token, decode_access_token
@@ -10,23 +12,19 @@ import threading
 
 router = APIRouter(prefix="/api/auth", tags=["认证"])
 
-# M1: 登录暴力破解防护 - 记录失败尝试
-_login_failures = {}  # {username: [timestamp, ...]}
+_login_failures = {}
 _login_lock = threading.Lock()
 MAX_FAILURES = 5
 LOCKOUT_MINUTES = 15
 
-# M3: Token 黑名单
-_token_blacklist = set()  # 存储已登出的 token
+_token_blacklist = set()
 _blacklist_lock = threading.Lock()
 
 
 def _check_login_lock(username: str):
-    """检查用户是否被锁定"""
     with _login_lock:
         if username not in _login_failures:
             return
-        # 清理过期记录
         cutoff = datetime.now() - timedelta(minutes=LOCKOUT_MINUTES)
         _login_failures[username] = [t for t in _login_failures[username] if t > cutoff]
         if len(_login_failures[username]) >= MAX_FAILURES:
@@ -37,7 +35,6 @@ def _check_login_lock(username: str):
 
 
 def _record_login_failure(username: str):
-    """记录一次登录失败"""
     with _login_lock:
         if username not in _login_failures:
             _login_failures[username] = []
@@ -45,7 +42,6 @@ def _record_login_failure(username: str):
 
 
 def _clear_login_failures(username: str):
-    """清除用户的失败记录（登录成功时调用）"""
     with _login_lock:
         _login_failures.pop(username, None)
 
@@ -54,7 +50,6 @@ def get_current_user(authorization: str = Header(None), db: Session = Depends(ge
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="未登录")
     token = authorization.replace("Bearer ", "")
-    # M3: 检查 token 是否在黑名单中
     with _blacklist_lock:
         if token in _token_blacklist:
             raise HTTPException(status_code=401, detail="token已失效，请重新登录")
@@ -67,9 +62,22 @@ def get_current_user(authorization: str = Header(None), db: Session = Depends(ge
     return user
 
 
+def _get_user_permissions(user: Employee, db: Session) -> tuple:
+    """返回 (role_name, permissions_list)"""
+    if not user.role_id:
+        return None, []
+    role = db.query(Role).get(user.role_id)
+    if not role:
+        return None, []
+    try:
+        perms = json.loads(role.permissions_json or "[]")
+    except (json.JSONDecodeError, TypeError):
+        perms = []
+    return role.name, perms
+
+
 @router.post("/login", response_model=ResponseModel)
 def login(req: LoginRequest, db: Session = Depends(get_db)):
-    # M1: 检查是否被锁定
     _check_login_lock(req.username)
     user = db.query(Employee).filter(Employee.username == req.username).first()
     if not user or not verify_password(req.password, user.password_hash):
@@ -77,21 +85,23 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="用户名或密码错误")
     if user.status != 1:
         raise HTTPException(status_code=403, detail="账号已禁用")
-    # M1: 登录成功，清除失败记录
     _clear_login_failures(req.username)
     token = create_access_token({"user_id": user.id, "username": user.username})
+    role_name, permissions = _get_user_permissions(user, db)
     return ResponseModel(data=LoginResponse(
         token=token,
         user_id=user.id,
         username=user.username,
         name=user.name,
-        position=user.position
+        position=user.position,
+        role_id=user.role_id,
+        role_name=role_name,
+        permissions=permissions,
     ))
 
 
 @router.post("/logout", response_model=ResponseModel)
 def logout(authorization: str = Header(None)):
-    # M3: 将 token 加入黑名单
     if authorization and authorization.startswith("Bearer "):
         token = authorization.replace("Bearer ", "")
         with _blacklist_lock:
@@ -100,5 +110,9 @@ def logout(authorization: str = Header(None)):
 
 
 @router.get("/current", response_model=ResponseModel)
-def current_user(user: Employee = Depends(get_current_user)):
-    return ResponseModel(data=CurrentUser.model_validate(user))
+def current_user(user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
+    role_name, permissions = _get_user_permissions(user, db)
+    data = CurrentUser.model_validate(user)
+    data.role_name = role_name
+    data.permissions = permissions
+    return ResponseModel(data=data)

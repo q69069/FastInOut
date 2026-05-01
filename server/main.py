@@ -5,21 +5,30 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from database import engine, Base
+from database import engine, Base, SessionLocal
 from routers import (
     auth, company, warehouses, employees,
     categories, products, customers, suppliers,
     inventory, purchases, sales, finance,
-    reports, system, units, promotions
+    reports, system, units, promotions, roles,
+    backup, customer_prices, crm, salesmen
 )
 
 # 创建所有表
 Base.metadata.create_all(bind=engine)
 
+# 初始化默认角色
+from routers.roles import init_default_roles
+db = SessionLocal()
+try:
+    init_default_roles(db)
+finally:
+    db.close()
+
 app = FastAPI(
     title="FastInOut 快消品进销存管理系统",
     description="快消品进销存管理系统",
-    version="0.2.0"
+    version="0.3.0"
 )
 
 # CORS
@@ -33,6 +42,7 @@ app.add_middleware(
 
 # 注册路由
 app.include_router(auth.router)
+app.include_router(roles.router)
 app.include_router(company.router)
 app.include_router(warehouses.router)
 app.include_router(employees.router)
@@ -48,6 +58,10 @@ app.include_router(reports.router)
 app.include_router(system.router)
 app.include_router(units.router)
 app.include_router(promotions.router)
+app.include_router(backup.router)
+app.include_router(customer_prices.router)
+app.include_router(crm.router)
+app.include_router(salesmen.router)
 
 
 @app.get("/api/health")
