@@ -11,7 +11,8 @@ from routers import (
     categories, products, customers, suppliers,
     inventory, purchases, sales, finance,
     reports, system, units, promotions, roles,
-    backup, customer_prices, crm, salesmen, batches, bank
+    backup, customer_prices, crm, salesmen, batches, bank,
+    print_templates
 )
 
 # 创建所有表
@@ -19,9 +20,11 @@ Base.metadata.create_all(bind=engine)
 
 # 初始化默认角色
 from routers.roles import init_default_roles
+from routers.print_templates import init_default_templates
 db = SessionLocal()
 try:
     init_default_roles(db)
+    init_default_templates(db)
 finally:
     db.close()
 
@@ -64,6 +67,7 @@ app.include_router(crm.router)
 app.include_router(salesmen.router)
 app.include_router(batches.router)
 app.include_router(bank.router)
+app.include_router(print_templates.router)
 
 
 @app.get("/api/health")

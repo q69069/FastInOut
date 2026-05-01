@@ -190,6 +190,15 @@ export const queryCustomerPrice = (params) => api.get('/customer-prices/query', 
 export const getEmployees = (params) => api.get('/employees', { params })
 export const getCategories = (params) => api.get('/categories', { params })
 
+// 打印模板
+export const getPrintTemplates = (params) => api.get('/print-templates', { params })
+export const getPrintTemplate = (id) => api.get(`/print-templates/${id}`)
+export const createPrintTemplate = (data) => api.post('/print-templates', data)
+export const updatePrintTemplate = (id, data) => api.put(`/print-templates/${id}`, data)
+export const deletePrintTemplate = (id) => api.delete(`/print-templates/${id}`)
+export const getPrintTemplateTypes = () => api.get('/print-templates/types')
+export const previewPrint = (templateId, docType, docId) => api.get(`/print-templates/${templateId}/preview/${docType}/${docId}`)
+
 // 批次管理
 export const getBatches = (params) => api.get('/batches', { params })
 export const createBatch = (data) => api.post('/batches', data)

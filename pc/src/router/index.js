@@ -157,6 +157,12 @@ const routes = [
         component: () => import('../views/system/Backup.vue'),
         meta: { title: '数据备份' }
       },
+      {
+        path: 'system/print-templates',
+        name: 'PrintTemplates',
+        component: () => import('../views/system/PrintTemplates.vue'),
+        meta: { title: '打印模板' }
+      },
       // 业务员
       {
         path: 'salesmen',

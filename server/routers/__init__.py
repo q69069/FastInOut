@@ -3,5 +3,5 @@ from routers import (
     categories, products, customers, suppliers,
     inventory, purchases, sales, finance,
     reports, system, units, promotions, roles,
-    backup, customer_prices, crm, salesmen
+    backup, customer_prices, crm, salesmen, print_templates
 )
