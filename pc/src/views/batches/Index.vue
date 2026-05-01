@@ -140,17 +140,21 @@ const warehouses = ref([])
 const expiringBatches = ref([])
 
 const loadData = async () => {
-  const params = { ...query.value }
-  if (!params.warehouse_id) delete params.warehouse_id
-  if (!params.status) delete params.status
-  const res = await getBatches(params)
-  list.value = res.data || []
-  total.value = res.total || 0
+  try {
+    const params = { ...query.value }
+    if (!params.warehouse_id) delete params.warehouse_id
+    if (!params.status) delete params.status
+    const res = await getBatches(params)
+    list.value = res.data || []
+    total.value = res.total || 0
+  } catch (e) {}
 }
 
 const loadExpiring = async () => {
-  const res = await getExpiringBatches(30)
-  expiringBatches.value = res.data || []
+  try {
+    const res = await getExpiringBatches(30)
+    expiringBatches.value = res.data || []
+  } catch (e) {}
 }
 
 const isExpiringSoon = (dateStr) => {
@@ -182,14 +186,15 @@ const handleSave = async () => {
 }
 
 onMounted(async () => {
-  const [pRes, wRes] = await Promise.all([
-    getProducts({ page: 1, page_size: 1000 }),
-    getWarehouses({ page_size: 100 })
-  ])
-  products.value = pRes.data || []
-  warehouses.value = wRes.data || []
-  loadData()
-  loadExpiring()
+  try {
+    const [pRes, wRes] = await Promise.all([
+      getProducts({ page: 1, page_size: 1000 }),
+      getWarehouses({ page_size: 100 })
+    ])
+    products.value = pRes.data || []
+    warehouses.value = wRes.data || []
+    await Promise.all([loadData(), loadExpiring()])
+  } catch (e) {}
 })
 </script>
 

@@ -125,24 +125,30 @@ const getOrderCount = (employeeId) => {
 }
 
 const loadList = async () => {
-  const res = await getSalesmen()
-  list.value = res.data || []
+  try {
+    const res = await getSalesmen()
+    list.value = res.data || []
+  } catch (e) {}
 }
 
 const loadStats = async () => {
-  const params = {}
-  if (dateRange.value && dateRange.value.length === 2) {
-    params.start_date = dateRange.value[0]
-    params.end_date = dateRange.value[1]
-  }
-  const res = await getSalesmanStats(params)
-  stats.value = res.data || []
-  renderChart()
+  try {
+    const params = {}
+    if (dateRange.value && dateRange.value.length === 2) {
+      params.start_date = dateRange.value[0]
+      params.end_date = dateRange.value[1]
+    }
+    const res = await getSalesmanStats(params)
+    stats.value = res.data || []
+    renderChart()
+  } catch (e) {}
 }
 
 const loadEmployees = async () => {
-  const res = await getEmployees({ page_size: 200 })
-  employees.value = res.data || []
+  try {
+    const res = await getEmployees({ page_size: 200 })
+    employees.value = res.data || []
+  } catch (e) {}
 }
 
 const showDialog = (row) => {
@@ -200,9 +206,9 @@ const renderChart = () => {
 }
 
 onMounted(async () => {
-  await loadEmployees()
-  await loadList()
-  await loadStats()
-  nextTick(() => renderChart())
+  try {
+    await Promise.all([loadEmployees(), loadList(), loadStats()])
+    nextTick(() => renderChart())
+  } catch (e) {}
 })
 </script>

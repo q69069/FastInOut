@@ -164,27 +164,35 @@ const products = ref([])
 
 // 加载单位列表
 const loadUnits = async () => {
-  const res = await getUnits(unitQuery.value)
-  units.value = res.data || []
-  unitTotal.value = res.total || 0
+  try {
+    const res = await getUnits(unitQuery.value)
+    units.value = res.data || []
+    unitTotal.value = res.total || 0
+  } catch (e) {}
 }
 
 // 加载所有单位（下拉用）
 const loadAllUnits = async () => {
-  const res = await getAllUnits()
-  allUnits.value = res.data || []
+  try {
+    const res = await getAllUnits()
+    allUnits.value = res.data || []
+  } catch (e) {}
 }
 
 // 加载商品列表（下拉用）
 const loadProducts = async () => {
-  const res = await getProducts({ page: 1, page_size: 1000 })
-  products.value = res.data || []
+  try {
+    const res = await getProducts({ page: 1, page_size: 1000 })
+    products.value = res.data || []
+  } catch (e) {}
 }
 
 // 加载换算列表
 const loadConversions = async () => {
-  const res = await getUnitConversions(convQuery.value)
-  conversions.value = res.data || []
+  try {
+    const res = await getUnitConversions(convQuery.value)
+    conversions.value = res.data || []
+  } catch (e) {}
 }
 
 // 显示单位弹窗
@@ -237,10 +245,9 @@ const handleDeleteConversion = async (row) => {
   loadConversions()
 }
 
-onMounted(() => {
-  loadUnits()
-  loadAllUnits()
-  loadProducts()
-  loadConversions()
+onMounted(async () => {
+  try {
+    await Promise.all([loadUnits(), loadAllUnits(), loadProducts(), loadConversions()])
+  } catch (e) {}
 })
 </script>

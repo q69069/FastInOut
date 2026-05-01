@@ -121,18 +121,22 @@ const supplierList = ref([])
 const statusMap = { 1: '未认证', 2: '已认证', 3: '已作废' }
 
 const loadData = async () => {
-  const res = await getInvoices({ ...query.value, invoice_type: tabType.value })
-  list.value = res.data || []
-  total.value = res.total || 0
+  try {
+    const res = await getInvoices({ ...query.value, invoice_type: tabType.value })
+    list.value = res.data || []
+    total.value = res.total || 0
+  } catch (e) {}
 }
 
 const loadDropdowns = async () => {
-  const [c, s] = await Promise.all([
-    getCustomers({ page: 1, page_size: 9999 }),
-    getSuppliers({ page: 1, page_size: 9999 })
-  ])
-  customerList.value = c.data || []
-  supplierList.value = s.data || []
+  try {
+    const [c, s] = await Promise.all([
+      getCustomers({ page: 1, page_size: 9999 }),
+      getSuppliers({ page: 1, page_size: 9999 })
+    ])
+    customerList.value = c.data || []
+    supplierList.value = s.data || []
+  } catch (e) {}
 }
 
 const openDialog = (row) => {
@@ -173,5 +177,9 @@ const handleDelete = async (row) => {
   loadData()
 }
 
-onMounted(() => { loadData(); loadDropdowns() })
+onMounted(async () => {
+  try {
+    await Promise.all([loadData(), loadDropdowns()])
+  } catch (e) {}
+})
 </script>
