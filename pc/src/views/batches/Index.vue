@@ -147,14 +147,14 @@ const loadData = async () => {
     const res = await getBatches(params)
     list.value = res.data || []
     total.value = res.total || 0
-  } catch (e) {}
+  } catch (e) { console.error("[statusMap]", e) }
 }
 
 const loadExpiring = async () => {
   try {
     const res = await getExpiringBatches(30)
     expiringBatches.value = res.data || []
-  } catch (e) {}
+  } catch (e) { console.error("[statusMap]", e) }
 }
 
 const isExpiringSoon = (dateStr) => {
@@ -194,7 +194,7 @@ onMounted(async () => {
     products.value = pRes.data || []
     warehouses.value = wRes.data || []
     await Promise.all([loadData(), loadExpiring()])
-  } catch (e) {}
+  } catch (e) { console.error("[statusMap]", e) }
 })
 </script>
 

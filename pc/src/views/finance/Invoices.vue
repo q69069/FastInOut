@@ -125,7 +125,7 @@ const loadData = async () => {
     const res = await getInvoices({ ...query.value, invoice_type: tabType.value })
     list.value = res.data || []
     total.value = res.total || 0
-  } catch (e) {}
+  } catch (e) { console.error("[tabType]", e) }
 }
 
 const loadDropdowns = async () => {
@@ -136,7 +136,7 @@ const loadDropdowns = async () => {
     ])
     customerList.value = c.data || []
     supplierList.value = s.data || []
-  } catch (e) {}
+  } catch (e) { console.error("[tabType]", e) }
 }
 
 const openDialog = (row) => {
@@ -180,6 +180,6 @@ const handleDelete = async (row) => {
 onMounted(async () => {
   try {
     await Promise.all([loadData(), loadDropdowns()])
-  } catch (e) {}
+  } catch (e) { console.error("[tabType]", e) }
 })
 </script>

@@ -128,7 +128,7 @@ const loadList = async () => {
   try {
     const res = await getSalesmen()
     list.value = res.data || []
-  } catch (e) {}
+  } catch (e) { console.error("[list]", e) }
 }
 
 const loadStats = async () => {
@@ -141,14 +141,14 @@ const loadStats = async () => {
     const res = await getSalesmanStats(params)
     stats.value = res.data || []
     renderChart()
-  } catch (e) {}
+  } catch (e) { console.error("[list]", e) }
 }
 
 const loadEmployees = async () => {
   try {
     const res = await getEmployees({ page_size: 200 })
     employees.value = res.data || []
-  } catch (e) {}
+  } catch (e) { console.error("[list]", e) }
 }
 
 const showDialog = (row) => {
@@ -209,6 +209,6 @@ onMounted(async () => {
   try {
     await Promise.all([loadEmployees(), loadList(), loadStats()])
     nextTick(() => renderChart())
-  } catch (e) {}
+  } catch (e) { console.error("[list]", e) }
 })
 </script>

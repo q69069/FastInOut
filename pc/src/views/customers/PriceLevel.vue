@@ -86,14 +86,14 @@ const loadCustomers = async () => {
   try {
     const res = await getCustomers({ page: 1, page_size: 9999 })
     customerList.value = res.data || []
-  } catch (e) {}
+  } catch (e) { console.error('[PriceLevel] loadCustomers error:', e) }
 }
 
 const loadProducts = async () => {
   try {
     const res = await getProducts({ page: 1, page_size: 9999 })
     productList.value = res.data || []
-  } catch (e) {}
+  } catch (e) { console.error('[PriceLevel] loadProducts error:', e) }
 }
 
 const loadData = async () => {
@@ -105,7 +105,7 @@ const loadData = async () => {
     const res = await getCustomerPrices(params)
     list.value = res.data || []
     total.value = res.total || 0
-  } catch (e) {}
+  } catch (e) { console.error('[PriceLevel] loadData error:', e) }
 }
 
 const showDialog = (row) => {

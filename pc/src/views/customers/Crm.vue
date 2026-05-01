@@ -201,7 +201,7 @@ const loadContacts = async () => {
     const res = await getContacts(params)
     contactList.value = res.data || []
     contactTotal.value = res.total || 0
-  } catch (e) {}
+  } catch (e) { console.error('[Crm] loadContacts error:', e) }
 }
 
 const showContactDialog = (row) => {
@@ -261,7 +261,7 @@ const loadVisits = async () => {
     const res = await getVisits(params)
     visitList.value = res.data || []
     visitTotal.value = res.total || 0
-  } catch (e) {}
+  } catch (e) { console.error("[customerList]", e) }
 }
 
 const showVisitDialog = () => {
@@ -309,6 +309,6 @@ const loadCustomers = async () => {
 onMounted(async () => {
   try {
     await Promise.all([loadCustomers(), loadContacts(), loadVisits()])
-  } catch (e) {}
+  } catch (e) { console.error("[customerList]", e) }
 })
 </script>

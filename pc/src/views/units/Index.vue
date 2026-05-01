@@ -168,7 +168,7 @@ const loadUnits = async () => {
     const res = await getUnits(unitQuery.value)
     units.value = res.data || []
     unitTotal.value = res.total || 0
-  } catch (e) {}
+  } catch (e) { console.error("[activeTab]", e) }
 }
 
 // 加载所有单位（下拉用）
@@ -176,7 +176,7 @@ const loadAllUnits = async () => {
   try {
     const res = await getAllUnits()
     allUnits.value = res.data || []
-  } catch (e) {}
+  } catch (e) { console.error("[activeTab]", e) }
 }
 
 // 加载商品列表（下拉用）
@@ -184,7 +184,7 @@ const loadProducts = async () => {
   try {
     const res = await getProducts({ page: 1, page_size: 1000 })
     products.value = res.data || []
-  } catch (e) {}
+  } catch (e) { console.error("[activeTab]", e) }
 }
 
 // 加载换算列表
@@ -192,7 +192,7 @@ const loadConversions = async () => {
   try {
     const res = await getUnitConversions(convQuery.value)
     conversions.value = res.data || []
-  } catch (e) {}
+  } catch (e) { console.error("[activeTab]", e) }
 }
 
 // 显示单位弹窗
@@ -248,6 +248,6 @@ const handleDeleteConversion = async (row) => {
 onMounted(async () => {
   try {
     await Promise.all([loadUnits(), loadAllUnits(), loadProducts(), loadConversions()])
-  } catch (e) {}
+  } catch (e) { console.error("[activeTab]", e) }
 })
 </script>
