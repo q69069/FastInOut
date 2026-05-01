@@ -198,6 +198,10 @@ export const deleteInvoice = (id) => api.delete(`/invoices/${id}`)
 export const certifyInvoice = (id) => api.put(`/invoices/${id}/certify`)
 export const voidInvoice = (id) => api.put(`/invoices/${id}/void`)
 
+// 供应商对账
+export const getSupplierReconSummary = () => api.get('/supplier-recon/summary')
+export const getSupplierStatement = (params) => api.get('/supplier-recon/statement', { params })
+
 // 系统
 export const getEmployees = (params) => api.get('/employees', { params })
 export const getCategories = (params) => api.get('/categories', { params })

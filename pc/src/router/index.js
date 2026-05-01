@@ -48,6 +48,12 @@ const routes = [
         component: () => import('../views/suppliers/Index.vue'),
         meta: { title: '供应商管理' }
       },
+      {
+        path: 'supplier-reconciliation',
+        name: 'SupplierReconciliation',
+        component: () => import('../views/suppliers/Reconciliation.vue'),
+        meta: { title: '供应商对账' }
+      },
       // 采购
       {
         path: 'purchases',

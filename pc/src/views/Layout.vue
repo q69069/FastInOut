@@ -22,6 +22,7 @@
           <el-menu-item index="/customers">客户管理</el-menu-item>
           <el-menu-item index="/customer-prices">客户价格等级</el-menu-item>
           <el-menu-item index="/suppliers">供应商管理</el-menu-item>
+          <el-menu-item index="/supplier-reconciliation">供应商对账</el-menu-item>
           <el-menu-item index="/customers/crm">客户关系管理</el-menu-item>
           <el-menu-item index="/units">单位管理</el-menu-item>
         </el-sub-menu>
