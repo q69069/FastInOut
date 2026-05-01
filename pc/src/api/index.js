@@ -199,6 +199,20 @@ export const deletePrintTemplate = (id) => api.delete(`/print-templates/${id}`)
 export const getPrintTemplateTypes = () => api.get('/print-templates/types')
 export const previewPrint = (templateId, docType, docId) => api.get(`/print-templates/${templateId}/preview/${docType}/${docId}`)
 
+// 数据导入
+export const getImportTypes = () => api.get('/data-import/types')
+export const downloadImportTemplate = (type) => api.get(`/data-import/template/${type}`, { responseType: 'blob' })
+export const previewImport = (type, file) => {
+  const fd = new FormData()
+  fd.append('file', file)
+  return api.post(`/data-import/preview/${type}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+}
+export const executeImport = (type, file) => {
+  const fd = new FormData()
+  fd.append('file', file)
+  return api.post(`/data-import/execute/${type}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+}
+
 // 批次管理
 export const getBatches = (params) => api.get('/batches', { params })
 export const createBatch = (data) => api.post('/batches', data)

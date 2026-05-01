@@ -81,6 +81,7 @@
           <el-menu-item index="/system/roles">角色管理</el-menu-item>
           <el-menu-item index="/system/backup">数据备份</el-menu-item>
           <el-menu-item index="/system/print-templates">打印模板</el-menu-item>
+          <el-menu-item index="/system/data-import">数据导入</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>

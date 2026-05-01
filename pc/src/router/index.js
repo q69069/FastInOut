@@ -163,6 +163,12 @@ const routes = [
         component: () => import('../views/system/PrintTemplates.vue'),
         meta: { title: '打印模板' }
       },
+      {
+        path: 'system/data-import',
+        name: 'DataImport',
+        component: () => import('../views/system/DataImport.vue'),
+        meta: { title: '数据导入' }
+      },
       // 业务员
       {
         path: 'salesmen',
