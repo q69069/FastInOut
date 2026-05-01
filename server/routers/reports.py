@@ -216,3 +216,138 @@ def profit_report(
             stats[key]["gross_rate"] = round(stats[key]["profit"] / stats[key]["sales_amount"] * 100, 2)
     result = sorted(stats.values(), key=lambda x: x["date"])
     return ResponseModel(data=result)
+
+
+# ========== Excel导出 ==========
+@router.get("/export/sales")
+def export_sales(
+    start_date: str = Query(None),
+    end_date: str = Query(None),
+    db: Session = Depends(get_db)
+):
+    from fastapi.responses import StreamingResponse
+    from openpyxl import Workbook
+    from io import BytesIO
+
+    q = db.query(SalesStockout).filter(SalesStockout.status == 2)
+    if start_date:
+        q = q.filter(SalesStockout.created_at >= start_date)
+    if end_date:
+        q = q.filter(SalesStockout.created_at <= end_date + " 23:59:59")
+    orders = q.order_by(SalesStockout.created_at.desc()).all()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "销售报表"
+    ws.append(["单号", "客户", "仓库", "金额", "日期"])
+
+    from models.customer import Customer as Cust
+    from models.warehouse import Warehouse as Wh
+    customers_map = {c.id: c.name for c in db.query(Cust).all()}
+    warehouses_map = {w.id: w.name for w in db.query(Wh).all()}
+
+    for so in orders:
+        ws.append([
+            so.code,
+            customers_map.get(so.customer_id, ""),
+            warehouses_map.get(so.warehouse_id, ""),
+            so.total_amount,
+            str(so.created_at)[:19]
+        ])
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=sales_report.xlsx"}
+    )
+
+
+@router.get("/export/inventory")
+def export_inventory(db: Session = Depends(get_db)):
+    from fastapi.responses import StreamingResponse
+    from openpyxl import Workbook
+    from io import BytesIO
+
+    invs = db.query(Inventory).all()
+    products_map = {p.id: p for p in db.query(Product).all()}
+    warehouses_map = {w.id: w.name for w in db.query(Wh).all()}
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "库存报表"
+    ws.append(["商品编码", "商品名称", "规格", "单位", "仓库", "数量", "成本价", "库存金额"])
+
+    for inv in invs:
+        p = products_map.get(inv.product_id)
+        ws.append([
+            p.code if p else "",
+            p.name if p else "",
+            p.spec if p else "",
+            p.unit if p else "",
+            warehouses_map.get(inv.warehouse_id, ""),
+            inv.quantity,
+            inv.cost_price,
+            inv.quantity * inv.cost_price
+        ])
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=inventory_report.xlsx"}
+    )
+
+
+@router.get("/export/finance")
+def export_finance(
+    start_date: str = Query(None),
+    end_date: str = Query(None),
+    db: Session = Depends(get_db)
+):
+    from fastapi.responses import StreamingResponse
+    from openpyxl import Workbook
+    from io import BytesIO
+
+    wb = Workbook()
+    # 收款
+    ws1 = wb.active
+    ws1.title = "收款记录"
+    ws1.append(["单号", "客户", "金额", "日期"])
+
+    rq = db.query(Receipt).filter(Receipt.status == 1)
+    if start_date:
+        rq = rq.filter(Receipt.created_at >= start_date)
+    if end_date:
+        rq = rq.filter(Receipt.created_at <= end_date + " 23:59:59")
+
+    customers_map = {c.id: c.name for c in db.query(Customer).all()}
+    for r in rq.all():
+        ws1.append([r.code, customers_map.get(r.customer_id, ""), r.amount, str(r.created_at)[:19]])
+
+    # 付款
+    ws2 = wb.create_sheet("付款记录")
+    ws2.append(["单号", "供应商", "金额", "日期"])
+
+    pq = db.query(Payment).filter(Payment.status == 1)
+    if start_date:
+        pq = pq.filter(Payment.created_at >= start_date)
+    if end_date:
+        pq = pq.filter(Payment.created_at <= end_date + " 23:59:59")
+
+    suppliers_map = {s.id: s.name for s in db.query(Supplier).all()}
+    for p in pq.all():
+        ws2.append([p.code, suppliers_map.get(p.supplier_id, ""), p.amount, str(p.created_at)[:19]])
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=finance_report.xlsx"}
+    )
