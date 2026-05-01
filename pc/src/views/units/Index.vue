@@ -182,7 +182,7 @@ const loadAllUnits = async () => {
 // 加载商品列表（下拉用）
 const loadProducts = async () => {
   try {
-    const res = await getProducts({ page: 1, page_size: 1000 })
+    const res = await getProducts({ page: 1, page_size: 100 })
     products.value = res.data || []
   } catch (e) { console.error("[activeTab]", e) }
 }

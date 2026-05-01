@@ -188,7 +188,7 @@ const handleSave = async () => {
 onMounted(async () => {
   try {
     const [pRes, wRes] = await Promise.all([
-      getProducts({ page: 1, page_size: 1000 }),
+      getProducts({ page: 1, page_size: 100 }),
       getWarehouses({ page_size: 100 })
     ])
     products.value = pRes.data || []

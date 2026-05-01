@@ -84,14 +84,14 @@ const productList = ref([])
 
 const loadCustomers = async () => {
   try {
-    const res = await getCustomers({ page: 1, page_size: 9999 })
+    const res = await getCustomers({ page: 1, page_size: 100 })
     customerList.value = res.data || []
   } catch (e) { console.error('[PriceLevel] loadCustomers error:', e) }
 }
 
 const loadProducts = async () => {
   try {
-    const res = await getProducts({ page: 1, page_size: 9999 })
+    const res = await getProducts({ page: 1, page_size: 100 })
     productList.value = res.data || []
   } catch (e) { console.error('[PriceLevel] loadProducts error:', e) }
 }

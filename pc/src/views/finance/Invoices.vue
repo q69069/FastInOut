@@ -131,8 +131,8 @@ const loadData = async () => {
 const loadDropdowns = async () => {
   try {
     const [c, s] = await Promise.all([
-      getCustomers({ page: 1, page_size: 9999 }),
-      getSuppliers({ page: 1, page_size: 9999 })
+      getCustomers({ page: 1, page_size: 100 }),
+      getSuppliers({ page: 1, page_size: 100 })
     ])
     customerList.value = c.data || []
     supplierList.value = s.data || []
