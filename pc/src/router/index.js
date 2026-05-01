@@ -112,6 +112,12 @@ const routes = [
         component: () => import('../views/finance/BankReconciliation.vue'),
         meta: { title: '银行对账' }
       },
+      {
+        path: 'invoices',
+        name: 'Invoices',
+        component: () => import('../views/finance/Invoices.vue'),
+        meta: { title: '发票管理' }
+      },
       // 报表
       {
         path: 'reports/profit',

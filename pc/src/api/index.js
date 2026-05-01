@@ -188,6 +188,15 @@ export const queryCustomerPrice = (params) => api.get('/customer-prices/query', 
 export const smartPriceQuery = (params) => api.get('/customer-prices/price-query', { params })
 export const batchPriceQuery = (params) => api.get('/customer-prices/batch-query', { params })
 
+// 发票管理
+export const getInvoices = (params) => api.get('/invoices', { params })
+export const getInvoice = (id) => api.get(`/invoices/${id}`)
+export const createInvoice = (data) => api.post('/invoices', data)
+export const updateInvoice = (id, data) => api.put(`/invoices/${id}`, data)
+export const deleteInvoice = (id) => api.delete(`/invoices/${id}`)
+export const certifyInvoice = (id) => api.put(`/invoices/${id}/certify`)
+export const voidInvoice = (id) => api.put(`/invoices/${id}/void`)
+
 // 系统
 export const getEmployees = (params) => api.get('/employees', { params })
 export const getCategories = (params) => api.get('/categories', { params })

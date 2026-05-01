@@ -19,3 +19,4 @@ from models.salesman import Salesman
 from models.promotion import Promotion
 from models.bank import BankStatement
 from models.print_template import PrintTemplate
+from models.invoice import Invoice
