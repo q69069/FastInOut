@@ -110,7 +110,7 @@ class SalesReturnItemCreate(SalesReturnItemBase):
 class SalesReturnBase(BaseModel):
     stockout_id: Optional[int] = None
     customer_id: int
-    warehouse_id: int
+    warehouse_id: Optional[int] = None
     total_amount: float = 0
     remark: Optional[str] = None
 

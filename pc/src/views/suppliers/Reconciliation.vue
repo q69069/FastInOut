@@ -29,7 +29,7 @@
             <span style="margin-left:20px"><strong>期间：</strong>{{ statement.start_date }} 至 {{ statement.end_date }}</span>
           </div>
           <div>
-            <el-date-picker v-model="dateRange" type="daterange" range-separator="至" start-placeholder="开始" end-datepicker="结束" value-format="YYYY-MM-DD" style="margin-right:8px" @change="reloadStatement" />
+            <el-date-picker v-model="dateRange" type="daterange" range-separator="至" start-placeholder="开始" end-placeholder="结束" value-format="YYYY-MM-DD" style="margin-right:8px" @change="reloadStatement" />
           </div>
         </div>
         <el-table :data="statement.items" border stripe size="small" max-height="300">

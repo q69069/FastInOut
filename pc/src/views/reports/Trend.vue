@@ -32,41 +32,45 @@ const chartRef = ref(null)
 let chart = null
 
 const loadData = async () => {
-  const res = await getTrendReport({ trend_type: trendType.value, period: period.value, months: 12 })
-  const items = res.data || []
-  const labels = items.map(i => i.period)
-  const amounts = items.map(i => i.amount)
-  const counts = items.map(i => i.count)
+  try {
+    const res = await getTrendReport({ trend_type: trendType.value, period: period.value, months: 12 })
+    const items = res.data || []
+    const labels = items.map(i => i.period)
+    const amounts = items.map(i => i.amount)
+    const counts = items.map(i => i.count)
 
-  if (!chart && chartRef.value) {
-    chart = echarts.init(chartRef.value)
+    if (!chartRef.value) return
+    if (!chart) {
+      chart = echarts.init(chartRef.value)
+    }
+
+    const title = trendType.value === 'sales' ? '销售' : '采购'
+    chart.setOption({
+      title: { text: `${title}趋势`, left: 'center' },
+      tooltip: { trigger: 'axis' },
+      legend: { data: ['金额', '单数'], top: 30 },
+      grid: { left: 60, right: 60, bottom: 40, top: 70 },
+      xAxis: { type: 'category', data: labels },
+      yAxis: [
+        { type: 'value', name: '金额(元)', position: 'left' },
+        { type: 'value', name: '单数', position: 'right' }
+      ],
+      series: [
+        {
+          name: '金额', type: 'bar', data: amounts,
+          itemStyle: { color: trendType.value === 'sales' ? '#409EFF' : '#67C23A' },
+          yAxisIndex: 0
+        },
+        {
+          name: '单数', type: 'line', data: counts,
+          itemStyle: { color: '#E6A23C' },
+          yAxisIndex: 1
+        }
+      ]
+    })
+  } catch (e) {
+    console.error('Trend load error:', e)
   }
-  if (!chart) return
-
-  const title = trendType.value === 'sales' ? '销售' : '采购'
-  chart.setOption({
-    title: { text: `${title}趋势`, left: 'center' },
-    tooltip: { trigger: 'axis' },
-    legend: { data: ['金额', '单数'], top: 30 },
-    grid: { left: 60, right: 60, bottom: 40, top: 70 },
-    xAxis: { type: 'category', data: labels },
-    yAxis: [
-      { type: 'value', name: '金额(元)', position: 'left' },
-      { type: 'value', name: '单数', position: 'right' }
-    ],
-    series: [
-      {
-        name: '金额', type: 'bar', data: amounts,
-        itemStyle: { color: trendType.value === 'sales' ? '#409EFF' : '#67C23A' },
-        yAxisIndex: 0
-      },
-      {
-        name: '单数', type: 'line', data: counts,
-        itemStyle: { color: '#E6A23C' },
-        yAxisIndex: 1
-      }
-    ]
-  })
 }
 
 const handleResize = () => { chart?.resize() }
