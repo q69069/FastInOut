@@ -179,3 +179,11 @@ export const queryCustomerPrice = (params) => api.get('/customer-prices/query', 
 // 系统
 export const getEmployees = (params) => api.get('/employees', { params })
 export const getCategories = (params) => api.get('/categories', { params })
+
+// 批次管理
+export const getBatches = (params) => api.get('/batches', { params })
+export const createBatch = (data) => api.post('/batches', data)
+export const updateBatch = (id, data) => api.put(`/batches/${id}`, data)
+export const getExpiringBatches = (days = 30) => api.get('/batches/expiring', { params: { days } })
+export const getFifoBatches = (params) => api.get(`/batches/fifo/${params.product_id}`, { params })
+export const deductBatchStock = (params) => api.post('/batches/deduct', null, { params })

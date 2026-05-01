@@ -54,6 +54,7 @@
           <el-menu-item index="/inventory">库存查询</el-menu-item>
           <el-menu-item index="/transfers">库存调拨</el-menu-item>
           <el-menu-item index="/warehouses">仓库管理</el-menu-item>
+          <el-menu-item index="/batches">批次管理</el-menu-item>
         </el-sub-menu>
         <el-sub-menu index="finance">
           <template #title>

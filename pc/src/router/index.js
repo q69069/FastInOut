@@ -93,6 +93,12 @@ const routes = [
         component: () => import('../views/warehouses/Index.vue'),
         meta: { title: '仓库管理' }
       },
+      {
+        path: 'batches',
+        name: 'Batches',
+        component: () => import('../views/batches/Index.vue'),
+        meta: { title: '批次管理' }
+      },
       // 财务
       {
         path: 'finance',
