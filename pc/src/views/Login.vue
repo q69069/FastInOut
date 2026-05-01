@@ -37,7 +37,7 @@ const handleLogin = async () => {
   loading.value = true
   try {
     const res = await login(form.value)
-    const token = res.data?.access_token
+    const token = res.data?.token
     if (token) {
       localStorage.setItem('token', token)
       ElMessage.success('登录成功')

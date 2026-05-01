@@ -39,7 +39,7 @@ export default api
 
 // 认证
 export const login = (data) => api.post('/auth/login', data)
-export const getCurrentUser = () => api.get('/auth/me')
+export const getCurrentUser = () => api.get('/auth/current')
 
 // 仪表盘
 export const getDashboard = () => api.get('/reports/dashboard')
@@ -66,12 +66,12 @@ export const deleteSupplier = (id) => api.delete(`/suppliers/${id}`)
 export const getWarehouses = (params) => api.get('/warehouses', { params })
 
 // 采购
-export const getPurchaseOrders = (params) => api.get('/purchases/orders', { params })
-export const createPurchaseOrder = (data) => api.post('/purchases/orders', data)
+export const getPurchaseOrders = (params) => api.get('/purchase-orders', { params })
+export const createPurchaseOrder = (data) => api.post('/purchase-orders', data)
 
 // 销售
-export const getSalesOrders = (params) => api.get('/sales/orders', { params })
-export const createSalesOrder = (data) => api.post('/sales/orders', data)
+export const getSalesOrders = (params) => api.get('/sales-orders', { params })
+export const createSalesOrder = (data) => api.post('/sales-orders', data)
 
 // 库存
 export const getInventory = (params) => api.get('/inventory', { params })
