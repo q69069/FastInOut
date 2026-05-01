@@ -21,6 +21,7 @@ class Product(Base):
     stock_min = Column(Float, default=0)  # 库存下限
     stock_max = Column(Float, default=0)  # 库存上限
     image = Column(String(500))  # 图片路径
+    level_prices = Column(String(500))  # JSON: {"VIP":50,"A":55,"B":58,"C":60}
     status = Column(Integer, default=1)  # 1=启用 0=禁用
     remark = Column(String(500))
     created_at = Column(DateTime, server_default=func.now())

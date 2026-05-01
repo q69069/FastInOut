@@ -185,6 +185,8 @@ export const createCustomerPrice = (data) => api.post('/customer-prices', data)
 export const updateCustomerPrice = (id, data) => api.put(`/customer-prices/${id}`, data)
 export const deleteCustomerPrice = (id) => api.delete(`/customer-prices/${id}`)
 export const queryCustomerPrice = (params) => api.get('/customer-prices/query', { params })
+export const smartPriceQuery = (params) => api.get('/customer-prices/price-query', { params })
+export const batchPriceQuery = (params) => api.get('/customer-prices/batch-query', { params })
 
 // 系统
 export const getEmployees = (params) => api.get('/employees', { params })

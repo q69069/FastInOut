@@ -65,6 +65,29 @@
         <el-form-item label="会员价">
           <el-input-number v-model="form.member_price" :min="0" :precision="2" />
         </el-form-item>
+        <el-divider content-position="left">等级价格</el-divider>
+        <el-row :gutter="12">
+          <el-col :span="6">
+            <el-form-item label="VIP价">
+              <el-input-number v-model="levelPrices.VIP" :min="0" :precision="2" style="width:100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="A级价">
+              <el-input-number v-model="levelPrices.A" :min="0" :precision="2" style="width:100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="B级价">
+              <el-input-number v-model="levelPrices.B" :min="0" :precision="2" style="width:100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="C级价">
+              <el-input-number v-model="levelPrices.C" :min="0" :precision="2" style="width:100%" />
+            </el-form-item>
+          </el-col>
+        </el-row>
         <el-form-item label="条码">
           <el-input v-model="form.barcode" />
         </el-form-item>
@@ -147,6 +170,7 @@ const total = ref(0)
 const query = ref({ page: 1, page_size: 20, keyword: '' })
 const dialogVisible = ref(false)
 const form = ref({})
+const levelPrices = ref({ VIP: null, A: null, B: null, C: null })
 
 // 单位相关
 const allUnits = ref([])
@@ -169,10 +193,21 @@ const loadUnits = async () => {
 
 const showDialog = (row) => {
   form.value = row ? { ...row } : { code: '', name: '', spec: '', unit: '', purchase_price: 0, retail_price: 0, member_price: 0, barcode: '', stock_min: 0, stock_max: 0 }
+  // Parse level prices
+  try {
+    levelPrices.value = row?.level_prices ? JSON.parse(row.level_prices) : { VIP: null, A: null, B: null, C: null }
+  } catch { levelPrices.value = { VIP: null, A: null, B: null, C: null } }
   dialogVisible.value = true
 }
 
 const handleSave = async () => {
+  // Serialize level prices (only non-null values)
+  const lp = {}
+  for (const k of ['VIP', 'A', 'B', 'C']) {
+    if (levelPrices.value[k] != null && levelPrices.value[k] > 0) lp[k] = levelPrices.value[k]
+  }
+  form.value.level_prices = Object.keys(lp).length > 0 ? JSON.stringify(lp) : null
+
   if (form.value.id) {
     await updateProduct(form.value.id, form.value)
   } else {

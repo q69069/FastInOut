@@ -18,6 +18,55 @@ from routers import (
 # 创建所有表
 Base.metadata.create_all(bind=engine)
 
+# 自动迁移：添加缺失的列
+from sqlalchemy import text, inspect
+def auto_migrate():
+    inspector = inspect(engine)
+    with engine.connect() as conn:
+        # products.level_prices
+        cols = [c['name'] for c in inspector.get_columns('products')]
+        if 'level_prices' not in cols:
+            conn.execute(text('ALTER TABLE products ADD COLUMN level_prices VARCHAR(500)'))
+        # invoices 表（发票管理用）
+        tables = inspector.get_table_names()
+        if 'invoices' not in tables:
+            conn.execute(text('''CREATE TABLE invoices (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                invoice_type VARCHAR(20) NOT NULL,
+                invoice_code VARCHAR(50),
+                invoice_no VARCHAR(50),
+                related_id INTEGER,
+                related_type VARCHAR(20),
+                customer_id INTEGER,
+                supplier_id INTEGER,
+                amount REAL DEFAULT 0,
+                tax_amount REAL DEFAULT 0,
+                total_amount REAL DEFAULT 0,
+                invoice_date DATE,
+                status INTEGER DEFAULT 1,
+                remark VARCHAR(500),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )'''))
+        # operation_logs 表（操作日志用）
+        if 'operation_logs' not in tables:
+            conn.execute(text('''CREATE TABLE operation_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                username VARCHAR(50),
+                module VARCHAR(50),
+                action VARCHAR(20),
+                target_type VARCHAR(50),
+                target_id INTEGER,
+                target_name VARCHAR(200),
+                detail TEXT,
+                ip VARCHAR(50),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )'''))
+        conn.commit()
+
+auto_migrate()
+
 # 初始化默认角色
 from routers.roles import init_default_roles
 from routers.print_templates import init_default_templates
