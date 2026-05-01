@@ -681,6 +681,31 @@ def turnover(start_date: str = Query(None), end_date: str = Query(None), warehou
     return ResponseModel(data={"total_out": total_out, "avg_stock": avg_stock, "turnover_rate": total_out / avg_stock if avg_stock > 0 else 0})
 
 
+# ========== 智能补货建议 ==========
+@router.get("/reorder-suggestions", response_model=ResponseModel)
+def get_reorder_suggestions(db: Session = Depends(get_db)):
+    """获取需要补货的商品（当前库存 <= 最低库存）"""
+    products = db.query(Product).filter(Product.stock_min > 0, Product.status == 1).all()
+    suggestions = []
+    for p in products:
+        # 汇总所有仓库的库存
+        total_qty = sum(inv.quantity for inv in db.query(Inventory).filter(Inventory.product_id == p.id).all())
+        if total_qty <= p.stock_min:
+            # 建议补货到最高库存
+            suggest_qty = p.stock_max - total_qty if p.stock_max > 0 else p.stock_min * 2
+            suggestions.append({
+                "product_id": p.id,
+                "product_code": p.code,
+                "product_name": p.name,
+                "current_qty": total_qty,
+                "min_stock": p.stock_min,
+                "max_stock": p.stock_max,
+                "suggest_qty": suggest_qty,
+                "supplier_id": p.supplier_id
+            })
+    return ResponseModel(data=suggestions)
+
+
 # ========== 库存详情（放在最后避免路由冲突）==========
 @router.get("/detail/{warehouse_id}/{product_id}", response_model=ResponseModel)
 def get_inventory_detail(warehouse_id: int, product_id: int, db: Session = Depends(get_db)):

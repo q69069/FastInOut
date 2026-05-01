@@ -107,6 +107,7 @@ export const confirmSalesReturn = (id) => api.post(`/sales-returns/${id}/confirm
 // 库存
 export const getInventory = (params) => api.get('/inventory', { params })
 export const getInventoryAlerts = () => api.get('/inventory/alerts')
+export const getReorderSuggestions = () => api.get('/inventory/reorder-suggestions')
 
 // 调拨
 export const getTransfers = (params) => api.get('/inventory/transfers', { params })
