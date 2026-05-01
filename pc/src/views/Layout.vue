@@ -71,6 +71,14 @@
           <el-menu-item index="/reports/inventory">库存汇总</el-menu-item>
           <el-menu-item index="/reports/sales-ranking">销售排行</el-menu-item>
         </el-sub-menu>
+        <el-sub-menu v-if="authStore.isAdmin" index="system">
+          <template #title>
+            <el-icon><Setting /></el-icon>
+            <span>系统</span>
+          </template>
+          <el-menu-item index="/system/roles">角色管理</el-menu-item>
+          <el-menu-item index="/system/backup">数据备份</el-menu-item>
+        </el-sub-menu>
       </el-menu>
     </el-aside>
     <el-container>
@@ -78,7 +86,8 @@
         <span style="font-size:18px;color:#333">{{ route.meta.title || '首页' }}</span>
         <el-dropdown @command="handleCommand">
           <span style="cursor:pointer;color:#666">
-            <el-icon><User /></el-icon> admin
+            <el-icon><User /></el-icon> {{ authStore.displayName || 'admin' }}
+            <span v-if="authStore.roleName" style="color:#999;font-size:12px;margin-left:4px">({{ authStore.roleName }})</span>
           </span>
           <template #dropdown>
             <el-dropdown-menu>
