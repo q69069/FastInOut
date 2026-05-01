@@ -21,6 +21,7 @@
           <el-menu-item index="/products">商品管理</el-menu-item>
           <el-menu-item index="/customers">客户管理</el-menu-item>
           <el-menu-item index="/suppliers">供应商管理</el-menu-item>
+          <el-menu-item index="/units">单位管理</el-menu-item>
         </el-sub-menu>
         <el-sub-menu index="purchase">
           <template #title>
@@ -36,10 +37,14 @@
           </template>
           <el-menu-item index="/sales">销售订单</el-menu-item>
         </el-sub-menu>
-        <el-menu-item index="/inventory">
-          <el-icon><Box /></el-icon>
-          <span>仓库</span>
-        </el-menu-item>
+        <el-sub-menu index="warehouse">
+          <template #title>
+            <el-icon><Box /></el-icon>
+            <span>仓库</span>
+          </template>
+          <el-menu-item index="/inventory">库存查询</el-menu-item>
+          <el-menu-item index="/warehouses">仓库管理</el-menu-item>
+        </el-sub-menu>
         <el-menu-item index="/finance">
           <el-icon><Money /></el-icon>
           <span>财务</span>

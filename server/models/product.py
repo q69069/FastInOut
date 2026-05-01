@@ -10,12 +10,13 @@ class Product(Base):
     barcode = Column(String(50))  # 条码
     name = Column(String(200), nullable=False)
     spec = Column(String(200))  # 规格
-    unit = Column(String(20))  # 单位
+    unit = Column(String(20))  # 基本单位（最小单位）
+    base_unit_id = Column(Integer, ForeignKey("units.id"))  # 关联单位表
     category_id = Column(Integer, ForeignKey("categories.id"))
-    purchase_price = Column(Float, default=0)  # 进价
-    retail_price = Column(Float, default=0)  # 零售价
-    member_price = Column(Float, default=0)  # 会员价
-    cost_price = Column(Float, default=0)  # 成本价
+    purchase_price = Column(Float, default=0)  # 进价（基本单位）
+    retail_price = Column(Float, default=0)  # 零售价（基本单位）
+    member_price = Column(Float, default=0)  # 会员价（基本单位）
+    cost_price = Column(Float, default=0)  # 成本价（基本单位）
     supplier_id = Column(Integer, ForeignKey("suppliers.id"))
     stock_min = Column(Float, default=0)  # 库存下限
     stock_max = Column(Float, default=0)  # 库存上限

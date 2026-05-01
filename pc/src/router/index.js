@@ -57,12 +57,25 @@ const routes = [
         component: () => import('../views/inventory/Index.vue'),
         meta: { title: '库存查询' }
       },
+      {
+        path: 'warehouses',
+        name: 'Warehouses',
+        component: () => import('../views/warehouses/Index.vue'),
+        meta: { title: '仓库管理' }
+      },
       // 财务
       {
         path: 'finance',
         name: 'Finance',
         component: () => import('../views/finance/Index.vue'),
         meta: { title: '财务管理' }
+      },
+      // 系统
+      {
+        path: 'units',
+        name: 'Units',
+        component: () => import('../views/units/Index.vue'),
+        meta: { title: '单位管理' }
       }
     ]
   }

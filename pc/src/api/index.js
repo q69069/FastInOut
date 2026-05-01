@@ -65,6 +65,23 @@ export const deleteSupplier = (id) => api.delete(`/suppliers/${id}`)
 
 // 仓库
 export const getWarehouses = (params) => api.get('/warehouses', { params })
+export const createWarehouse = (data) => api.post('/warehouses', data)
+export const updateWarehouse = (id, data) => api.put(`/warehouses/${id}`, data)
+export const deleteWarehouse = (id) => api.delete(`/warehouses/${id}`)
+
+// 单位管理
+export const getUnits = (params) => api.get('/units', { params })
+export const getAllUnits = () => api.get('/units/all')
+export const createUnit = (data) => api.post('/units', data)
+export const updateUnit = (id, data) => api.put(`/units/${id}`, data)
+export const deleteUnit = (id) => api.delete(`/units/${id}`)
+
+// 单位换算
+export const getUnitConversions = (params) => api.get('/units/conversions', { params })
+export const createUnitConversion = (data) => api.post('/units/conversions', data)
+export const deleteUnitConversion = (id) => api.delete(`/units/conversions/${id}`)
+export const getProductUnitConfig = (productId) => api.get(`/units/product/${productId}/config`)
+export const convertQuantity = (params) => api.post('/units/convert', null, { params })
 
 // 采购
 export const getPurchaseOrders = (params) => api.get('/purchase-orders', { params })
