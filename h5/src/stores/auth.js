@@ -13,6 +13,11 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const res = await getCurrentUser()
       user.value = res.data || null
+      if (res.data?.position) {
+        localStorage.setItem('user_role', res.data.position)
+      } else if (res.data?.role) {
+        localStorage.setItem('user_role', res.data.role)
+      }
     } catch {
       user.value = null
     }
@@ -33,6 +38,7 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = ''
     user.value = null
     localStorage.removeItem('token')
+    localStorage.removeItem('user_role')
   }
 
   return { token, user, isLoggedIn, displayName, fetchUser, login, logout }

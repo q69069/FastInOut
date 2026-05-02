@@ -73,8 +73,8 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const userInfo = ref({
-  name: localStorage.getItem('user_name') || '',
-  role: localStorage.getItem('user_role') || '销售员'
+  name: localStorage.getItem('user_name') || localStorage.getItem('user_role') || '用户',
+  role: localStorage.getItem('user_role') || '老板'
 })
 
 const clearCache = () => {
