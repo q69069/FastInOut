@@ -3,24 +3,35 @@
     <div class="content">
       <router-view />
     </div>
-    <van-tabbar v-model="active" route fixed safe-area-inset-bottom>
-      <van-tabbar-item to="/home" icon="home-o">首页</van-tabbar-item>
-      <van-tabbar-item to="/todo" icon="todo-o">待办</van-tabbar-item>
-      <van-tabbar-item to="/order" icon="orders-o">下单</van-tabbar-item>
-      <van-tabbar-item to="/inventory" icon="search">库存</van-tabbar-item>
+    <van-tabbar v-model="active" route fixed safe-area-inset-bottom">
+      <van-tabbar-item to="/home" icon="wap-home">首页</van-tabbar-item>
+      <van-tabbar-item to="/customers" icon="friends">客户</van-tabbar-item>
       <van-tabbar-item to="/performance" icon="chart-trending-o">业绩</van-tabbar-item>
+      <van-tabbar-item to="/inventory" icon="logistics">仓库</van-tabbar-item>
+      <van-tabbar-item to="/tools" icon="setting-o">工具</van-tabbar-item>
     </van-tabbar>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
 const active = ref(0)
+
+watch(() => route.path, (path) => {
+  if (path === '/home') active.value = 0
+  else if (path === '/customers') active.value = 1
+  else if (path === '/performance') active.value = 2
+  else if (path === '/inventory') active.value = 3
+  else if (path === '/tools') active.value = 4
+}, { immediate: true })
 </script>
 
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body, #app { height: 100%; }
-.layout { height: 100vh; display: flex; flex-direction: column; }
+.layout { height: 100vh; display: flex; flex-direction: column; background: #f7f8fa; }
 .content { flex: 1; overflow-y: auto; padding-bottom: 50px; }
 </style>

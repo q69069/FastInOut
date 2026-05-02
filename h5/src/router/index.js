@@ -12,20 +12,22 @@ const routes = [
     redirect: '/home',
     children: [
       { path: 'home', name: 'Home', component: () => import('../views/Home.vue') },
+      { path: 'customers', name: 'Customers', component: () => import('../views/Customers.vue') },
+      { path: 'performance', name: 'Performance', component: () => import('../views/Performance.vue') },
+      { path: 'inventory', name: 'Inventory', component: () => import('../views/Inventory.vue') },
+      { path: 'tools', name: 'Tools', component: () => import('../views/Tools.vue') },
       { path: 'todo', name: 'Todo', component: () => import('../views/Todo.vue') },
       { path: 'visit', name: 'Visit', component: () => import('../views/Visit.vue') },
       { path: 'checkin', name: 'CheckIn', component: () => import('../views/CheckIn.vue') },
       { path: 'order', name: 'Order', component: () => import('../views/Order.vue') },
       { path: 'print', name: 'Print', component: () => import('../views/Print.vue') },
-      { path: 'inventory', name: 'Inventory', component: () => import('../views/Inventory.vue') },
-      { path: 'performance', name: 'Performance', component: () => import('../views/Performance.vue') },
       { path: 'receivables', name: 'Receivables', component: () => import('../views/Receivables.vue') }
     ]
   }
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory('/'),
   routes
 })
 

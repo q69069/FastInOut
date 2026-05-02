@@ -13,7 +13,8 @@ from routers import (
     reports, system, units, promotions, roles,
     backup, customer_prices, crm, salesmen, batches, bank,
     print_templates, data_import, invoices, supplier_recon,
-    route, audit, price_change, vehicle, operation_log
+    route, audit, price_change, vehicle, operation_log,
+    message, advance_deduction, todos
 )
 
 # 创建所有表
@@ -257,6 +258,9 @@ app.include_router(audit.router)
 app.include_router(price_change.router)
 app.include_router(vehicle.router)
 app.include_router(operation_log.router)
+app.include_router(message.router)
+app.include_router(advance_deduction.router)
+app.include_router(todos.router)
 
 
 @app.get("/api/health")

@@ -30,6 +30,7 @@ export default api
 
 export const login = (data) => api.post('/auth/login', data)
 export const getCurrentUser = () => api.get('/auth/current')
+export const getTodos = () => api.get('/todos')
 export const getTodoTasks = (params) => api.get('/todos', { params })
 export const getVisits = (params) => api.get('/customer-visits', { params })
 export const createVisit = (data) => api.post('/customer-visits', data)
