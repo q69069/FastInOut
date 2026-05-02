@@ -3,10 +3,24 @@
     <el-card>
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span>采购退货</span>
-          <el-button type="primary" @click="showDialog()">新增退货</el-button>
+          <span>采购入库单</span>
+          <el-button type="primary" @click="showDialog()">新增入库</el-button>
         </div>
       </template>
+      <el-form inline style="margin-bottom:16px">
+        <el-form-item>
+          <el-input v-model="query.keyword" placeholder="搜索单号" clearable @keyup.enter="loadData" />
+        </el-form-item>
+        <el-form-item>
+          <el-select v-model="query.status" clearable placeholder="状态" style="width:100px">
+            <el-option label="草稿" :value="0" />
+            <el-option label="已入库" :value="2" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="loadData">查询</el-button>
+        </el-form-item>
+      </el-form>
       <el-table :data="list" border stripe>
         <el-table-column prop="code" label="单号" width="150" />
         <el-table-column prop="supplier_name" label="供应商" />
@@ -14,7 +28,7 @@
         <el-table-column prop="total_amount" label="金额" width="120" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'warning'">
+            <el-tag :type="row.status === 2 ? 'success' : 'warning'">
               {{ statusMap[row.status] || '未知' }}
             </el-tag>
           </template>
@@ -23,7 +37,7 @@
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <el-button v-if="row.status === 0" size="small" @click="showDialog(row)">编辑</el-button>
-            <el-button v-if="row.status === 0" size="small" type="success" @click="handleConfirm(row)">确认</el-button>
+            <el-button v-if="row.status === 0" size="small" type="success" @click="handleConfirm(row)">确认入库</el-button>
             <el-button v-if="row.status === 0" size="small" type="danger" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -37,19 +51,20 @@
         @current-change="loadData"
       />
     </el-card>
-    <el-dialog v-model="dialogVisible" title="新增采购退货" width="800px">
+
+    <el-dialog v-model="dialogVisible" :title="form.id ? '编辑入库单' : '新增入库单'" width="800px">
       <el-form :model="form" label-width="80px">
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="供应商" required>
-              <el-select v-model="form.supplier_id" filterable placeholder="选择供应商">
+              <el-select v-model="form.supplier_id" filterable placeholder="选择供应商" style="width:100%">
                 <el-option v-for="s in suppliers" :key="s.id" :label="s.name" :value="s.id" />
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="仓库" required>
-              <el-select v-model="form.warehouse_id" filterable placeholder="选择仓库">
+              <el-select v-model="form.warehouse_id" filterable placeholder="选择仓库" style="width:100%">
                 <el-option v-for="w in warehouses" :key="w.id" :label="w.name" :value="w.id" />
               </el-select>
             </el-form-item>
@@ -63,19 +78,24 @@
           <el-table :data="form.items" border style="margin-top:8px">
             <el-table-column label="商品">
               <template #default="{ row }">
-                <el-select v-model="row.product_id" filterable placeholder="选择商品">
+                <el-select v-model="row.product_id" filterable placeholder="选择商品" style="width:100%">
                   <el-option v-for="p in products" :key="p.id" :label="p.name" :value="p.id" />
                 </el-select>
               </template>
             </el-table-column>
             <el-table-column label="数量" width="120">
               <template #default="{ row }">
-                <el-input-number v-model="row.quantity" :min="1" size="small" />
+                <el-input-number v-model="row.quantity" :min="1" size="small" style="width:100%" />
               </template>
             </el-table-column>
             <el-table-column label="单价" width="120">
               <template #default="{ row }">
-                <el-input-number v-model="row.price" :min="0" :precision="2" size="small" />
+                <el-input-number v-model="row.price" :min="0" :precision="2" size="small" style="width:100%" />
+              </template>
+            </el-table-column>
+            <el-table-column label="金额" width="100">
+              <template #default="{ row }">
+                {{ ((row.quantity || 0) * (row.price || 0)).toFixed(2) }}
               </template>
             </el-table-column>
             <el-table-column label="操作" width="80">
@@ -97,12 +117,15 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getPurchaseReturns, createPurchaseReturn, updatePurchaseReturn, deletePurchaseReturn, confirmPurchaseReturn, getProducts, getSuppliers, getWarehouses } from '../../api'
+import {
+  getPurchaseStockins, createPurchaseStockin, updatePurchaseStockin, deletePurchaseStockin, confirmPurchaseStockin,
+  getProducts, getSuppliers, getWarehouses
+} from '../../api'
 
-const statusMap = { 0: '草稿', 1: '已确认' }
+const statusMap = { 0: '草稿', 1: '已确认', 2: '已入库', 3: '已关闭' }
 const list = ref([])
 const total = ref(0)
-const query = ref({ page: 1, page_size: 20 })
+const query = ref({ page: 1, page_size: 20, keyword: '', status: null })
 const dialogVisible = ref(false)
 const form = ref({})
 const suppliers = ref([])
@@ -110,7 +133,10 @@ const warehouses = ref([])
 const products = ref([])
 
 const loadData = async () => {
-  const res = await getPurchaseReturns(query.value)
+  const params = { ...query.value }
+  if (!params.status) delete params.status
+  if (!params.keyword) delete params.keyword
+  const res = await getPurchaseStockins(params)
   list.value = res.data || []
   total.value = res.total || 0
 }
@@ -129,16 +155,16 @@ const loadOptions = async () => {
 const showDialog = (row) => {
   if (row) {
     form.value = { ...row, items: [] }
-    loadReturnItems(row.id)
+    loadStockinItems(row.id)
   } else {
     form.value = { supplier_id: null, warehouse_id: null, remark: '', items: [] }
   }
   dialogVisible.value = true
 }
 
-const loadReturnItems = async (id) => {
+const loadStockinItems = async (id) => {
   try {
-    const res = await getPurchaseReturn(id)
+    const res = await getPurchaseStockin(id)
     if (res.data && res.data.items) {
       form.value.items = res.data.items.map(item => ({
         product_id: item.product_id,
@@ -147,7 +173,7 @@ const loadReturnItems = async (id) => {
       }))
     }
   } catch (e) {
-    console.error('[PurchaseReturn] loadReturnItems error:', e)
+    console.error('[Stockin] loadStockinItems error:', e)
   }
 }
 
@@ -173,10 +199,10 @@ const handleSave = async () => {
   }
 
   if (form.value.id) {
-    await updatePurchaseReturn(form.value.id, data)
+    await updatePurchaseStockin(form.value.id, data)
     ElMessage.success('更新成功')
   } else {
-    await createPurchaseReturn(data)
+    await createPurchaseStockin(data)
     ElMessage.success('创建成功')
   }
   dialogVisible.value = false
@@ -184,15 +210,15 @@ const handleSave = async () => {
 }
 
 const handleConfirm = async (row) => {
-  await ElMessageBox.confirm('确认退货？库存将减少！', '提示', { type: 'warning' })
-  await confirmPurchaseReturn(row.id)
-  ElMessage.success('确认成功')
+  await ElMessageBox.confirm('确认入库？库存将增加！', '提示', { type: 'warning' })
+  await confirmPurchaseStockin(row.id)
+  ElMessage.success('入库确认成功')
   loadData()
 }
 
 const handleDelete = async (row) => {
-  await ElMessageBox.confirm('确定删除该退货单？', '提示', { type: 'warning' })
-  await deletePurchaseReturn(row.id)
+  await ElMessageBox.confirm('确定删除该入库单？', '提示', { type: 'warning' })
+  await deletePurchaseStockin(row.id)
   ElMessage.success('删除成功')
   loadData()
 }

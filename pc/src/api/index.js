@@ -87,11 +87,25 @@ export const convertQuantity = (params) => api.post('/units/convert', null, { pa
 // 采购
 export const getPurchaseOrders = (params) => api.get('/purchase-orders', { params })
 export const createPurchaseOrder = (data) => api.post('/purchase-orders', data)
+export const getPurchaseOrder = (id) => api.get(`/purchase-orders/${id}`)
+export const updatePurchaseOrder = (id, data) => api.put(`/purchase-orders/${id}`, data)
+export const deletePurchaseOrder = (id) => api.delete(`/purchase-orders/${id}`)
+export const orderToStockin = (id) => api.post(`/purchase-orders/${id}/stockin`)
+
+// 采购入库
+export const getPurchaseStockins = (params) => api.get('/purchase-stockins', { params })
+export const createPurchaseStockin = (data) => api.post('/purchase-stockins', data)
+export const getPurchaseStockin = (id) => api.get(`/purchase-stockins/${id}`)
+export const updatePurchaseStockin = (id, data) => api.put(`/purchase-stockins/${id}`, data)
+export const deletePurchaseStockin = (id) => api.delete(`/purchase-stockins/${id}`)
+export const confirmPurchaseStockin = (id) => api.post(`/purchase-stockins/${id}/confirm`)
 
 // 采购退货
 export const getPurchaseReturns = (params) => api.get('/purchase-returns', { params })
 export const createPurchaseReturn = (data) => api.post('/purchase-returns', data)
 export const getPurchaseReturn = (id) => api.get(`/purchase-returns/${id}`)
+export const updatePurchaseReturn = (id, data) => api.put(`/purchase-returns/${id}`, data)
+export const deletePurchaseReturn = (id) => api.delete(`/purchase-returns/${id}`)
 export const confirmPurchaseReturn = (id) => api.post(`/purchase-returns/${id}/confirm`)
 
 // 销售
