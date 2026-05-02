@@ -30,12 +30,12 @@
         <el-table-column prop="employee_name" label="业务员" width="120" />
         <el-table-column label="提成比例" width="100">
           <template #default="{ row }">
-            {{ (row.commission_rate * 100).toFixed(1) }}%
+            {{ ((row.commission_rate || 0) * 100).toFixed(1) }}%
           </template>
         </el-table-column>
         <el-table-column label="目标金额" width="120">
           <template #default="{ row }">
-            {{ row.target_amount?.toFixed(2) }}
+            {{ (row.target_amount || 0).toFixed(2) }}
           </template>
         </el-table-column>
         <el-table-column label="实际销售" width="120">

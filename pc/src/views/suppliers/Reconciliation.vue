@@ -7,7 +7,7 @@
         <el-table-column prop="payable_balance" label="应付余额" width="130">
           <template #default="{ row }">
             <span :style="{ color: row.payable_balance > 0 ? '#f56c6c' : '#67c23a' }">
-              ¥{{ row.payable_balance.toFixed(2) }}
+              ¥{{ (row.payable_balance || 0).toFixed(2) }}
             </span>
           </template>
         </el-table-column>
@@ -37,26 +37,26 @@
           <el-table-column prop="code" label="单号" width="160" />
           <el-table-column prop="type" label="类型" width="90" />
           <el-table-column prop="purchase" label="采购" width="100">
-            <template #default="{ row }">{{ row.purchase ? '¥' + row.purchase.toFixed(2) : '' }}</template>
+            <template #default="{ row }">{{ row.purchase ? '¥' + row.purchase.toFixed(2) : '¥0.00' }}</template>
           </el-table-column>
           <el-table-column prop="return" label="退货" width="100">
-            <template #default="{ row }">{{ row.return ? '¥' + row.return.toFixed(2) : '' }}</template>
+            <template #default="{ row }">{{ row.return ? '¥' + row.return.toFixed(2) : '¥0.00' }}</template>
           </el-table-column>
           <el-table-column prop="payment" label="付款" width="100">
-            <template #default="{ row }">{{ row.payment ? '¥' + row.payment.toFixed(2) : '' }}</template>
+            <template #default="{ row }">{{ row.payment ? '¥' + row.payment.toFixed(2) : '¥0.00' }}</template>
           </el-table-column>
           <el-table-column prop="balance" label="余额" width="110">
             <template #default="{ row }">
-              <span style="font-weight:bold">¥{{ row.balance.toFixed(2) }}</span>
+              <span style="font-weight:bold">¥{{ (row.balance || 0).toFixed(2) }}</span>
             </template>
           </el-table-column>
         </el-table>
         <div style="margin-top:16px;display:flex;gap:24px">
-          <span>期初应付：<b>¥{{ statement.opening_balance.toFixed(2) }}</b></span>
-          <span>本期采购：<b>¥{{ statement.purchase_amount.toFixed(2) }}</b></span>
-          <span>本期退货：<b>¥{{ statement.return_amount.toFixed(2) }}</b></span>
-          <span>本期付款：<b>¥{{ statement.payment_amount.toFixed(2) }}</b></span>
-          <span style="color:#f56c6c">期末应付：<b>¥{{ statement.closing_balance.toFixed(2) }}</b></span>
+          <span>期初应付：<b>¥{{ (statement.opening_balance || 0).toFixed(2) }}</b></span>
+          <span>本期采购：<b>¥{{ (statement.purchase_amount || 0).toFixed(2) }}</b></span>
+          <span>本期退货：<b>¥{{ (statement.return_amount || 0).toFixed(2) }}</b></span>
+          <span>本期付款：<b>¥{{ (statement.payment_amount || 0).toFixed(2) }}</b></span>
+          <span style="color:#f56c6c">期末应付：<b>¥{{ (statement.closing_balance || 0).toFixed(2) }}</b></span>
         </div>
       </div>
     </el-dialog>
