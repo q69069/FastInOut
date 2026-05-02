@@ -13,7 +13,7 @@ from routers import (
     reports, system, units, promotions, roles,
     backup, customer_prices, crm, salesmen, batches, bank,
     print_templates, data_import, invoices, supplier_recon,
-    route, audit, price_change, vehicle
+    route, audit, price_change, vehicle, operation_log
 )
 
 # 创建所有表
@@ -256,6 +256,7 @@ app.include_router(route.router)
 app.include_router(audit.router)
 app.include_router(price_change.router)
 app.include_router(vehicle.router)
+app.include_router(operation_log.router)
 
 
 @app.get("/api/health")
