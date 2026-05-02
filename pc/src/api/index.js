@@ -97,11 +97,25 @@ export const confirmPurchaseReturn = (id) => api.post(`/purchase-returns/${id}/c
 // 销售
 export const getSalesOrders = (params) => api.get('/sales-orders', { params })
 export const createSalesOrder = (data) => api.post('/sales-orders', data)
+export const getSalesOrder = (id) => api.get(`/sales-orders/${id}`)
+export const updateSalesOrder = (id, data) => api.put(`/sales-orders/${id}`, data)
+export const deleteSalesOrder = (id) => api.delete(`/sales-orders/${id}`)
+export const orderToStockout = (id) => api.post(`/sales-orders/${id}/stockout`)
+
+// 销售出库
+export const getSalesStockouts = (params) => api.get('/sales-stockouts', { params })
+export const createSalesStockout = (data) => api.post('/sales-stockouts', data)
+export const getSalesStockout = (id) => api.get(`/sales-stockouts/${id}`)
+export const updateSalesStockout = (id, data) => api.put(`/sales-stockouts/${id}`, data)
+export const deleteSalesStockout = (id) => api.delete(`/sales-stockouts/${id}`)
+export const confirmSalesStockout = (id) => api.post(`/sales-stockouts/${id}/confirm`)
 
 // 销售退货
 export const getSalesReturns = (params) => api.get('/sales-returns', { params })
 export const createSalesReturn = (data) => api.post('/sales-returns', data)
 export const getSalesReturn = (id) => api.get(`/sales-returns/${id}`)
+export const updateSalesReturn = (id, data) => api.put(`/sales-returns/${id}`, data)
+export const deleteSalesReturn = (id) => api.delete(`/sales-returns/${id}`)
 export const confirmSalesReturn = (id) => api.post(`/sales-returns/${id}/confirm`)
 
 // 库存
