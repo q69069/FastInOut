@@ -6,5 +6,5 @@ from routers import (
     backup, customer_prices, crm, salesmen, print_templates,
     data_import, invoices, supplier_recon,
     message, audit, operation_log, price_change, route, vehicle, bank,
-    advance_deduction, todos
+    advance_deduction, todos, customer_visits
 )
