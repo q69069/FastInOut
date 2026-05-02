@@ -209,11 +209,19 @@ const router = createRouter({
   routes
 })
 
+import { useAuthStore } from '../stores/auth'
+
 // 路由守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const token = localStorage.getItem('token')
   if (to.path !== '/login' && !token) {
     next('/login')
+  } else if (token) {
+    const authStore = useAuthStore()
+    if (!authStore.user) {
+      await authStore.fetchUser()
+    }
+    next()
   } else {
     next()
   }
