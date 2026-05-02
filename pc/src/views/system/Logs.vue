@@ -58,8 +58,8 @@ const total = ref(0)
 const query = ref({ page: 1, page_size: 20, operator: '', action: '', keyword: '' })
 
 const actionType = (action) => {
-  const map = { '新增': 'success', '修改': 'warning', '删除': 'danger', '审核': '', '登录': 'info', '导入': '' }
-  return map[action] || ''
+  const map = { '新增': 'success', '修改': 'warning', '删除': 'danger', '审核': 'info', '登录': 'info', '导入': 'info' }
+  return map[action] || 'info'
 }
 
 const loadData = async () => {
