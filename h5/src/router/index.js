@@ -21,7 +21,12 @@ const routes = [
       { path: 'checkin', name: 'CheckIn', component: () => import('../views/CheckIn.vue') },
       { path: 'order', name: 'Order', component: () => import('../views/Order.vue') },
       { path: 'print', name: 'Print', component: () => import('../views/Print.vue') },
-      { path: 'receivables', name: 'Receivables', component: () => import('../views/Receivables.vue') }
+      { path: 'receivables', name: 'Receivables', component: () => import('../views/Receivables.vue') },
+      { path: 'payments', name: 'Payments', component: () => import('../views/Payments.vue') },
+      { path: 'account', name: 'Account', component: () => import('../views/Account.vue') },
+      { path: 'transfer', name: 'Transfer', component: () => import('../views/Transfer.vue') },
+      { path: 'check', name: 'Check', component: () => import('../views/Check.vue') },
+      { path: 'loss-report', name: 'LossReport', component: () => import('../views/LossReport.vue') }
     ]
   }
 ]

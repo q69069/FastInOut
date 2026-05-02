@@ -3,7 +3,7 @@
     <div class="content">
       <router-view />
     </div>
-    <van-tabbar v-model="active" route fixed safe-area-inset-bottom">
+    <van-tabbar v-model="active" route fixed safe-area-inset-bottom>
       <van-tabbar-item to="/home" icon="wap-home">首页</van-tabbar-item>
       <van-tabbar-item to="/customers" icon="friends">客户</van-tabbar-item>
       <van-tabbar-item to="/performance" icon="chart-trending-o">业绩</van-tabbar-item>
