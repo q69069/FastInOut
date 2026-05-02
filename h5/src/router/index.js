@@ -26,7 +26,8 @@ const routes = [
       { path: 'account', name: 'Account', component: () => import('../views/Account.vue') },
       { path: 'transfer', name: 'Transfer', component: () => import('../views/Transfer.vue') },
       { path: 'check', name: 'Check', component: () => import('../views/Check.vue') },
-      { path: 'loss-report', name: 'LossReport', component: () => import('../views/LossReport.vue') }
+      { path: 'loss-report', name: 'LossReport', component: () => import('../views/LossReport.vue') },
+      { path: 'approve', name: 'Approve', component: () => import('../views/Approve.vue') }
     ]
   }
 ]

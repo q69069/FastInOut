@@ -28,6 +28,12 @@
         </div>
         <div class="tool-name">往来账</div>
       </div>
+      <div class="tool-item" @click="router.push('/approve')">
+        <div class="tool-icon purple">
+          <van-icon name="passed" size="24" />
+        </div>
+        <div class="tool-name">审核中心</div>
+      </div>
     </div>
 
     <!-- 系统功能 -->
@@ -91,6 +97,7 @@ const handleLogout = () => {
 .tool-icon.blue { background: linear-gradient(135deg, #1989fa, #396bec); }
 .tool-icon.red { background: linear-gradient(135deg, #ee0a24, #f56c6c); }
 .tool-icon.green { background: linear-gradient(135deg, #07c160, #10b980); }
+.tool-icon.purple { background: linear-gradient(135deg, #722ed1, #9c27b0); }
 .tool-name { font-size: 13px; color: #333; }
 .section-title { font-size: 14px; font-weight: bold; color: #333; margin: 16px 12px 8px; padding-left: 4px; }
 .user-info { display: flex; align-items: center; gap: 12px; background: #fff; margin: 16px 12px; padding: 16px; border-radius: 12px; }
