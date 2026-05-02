@@ -1,7 +1,9 @@
 <template>
   <div class="layout">
-    <router-view />
-    <van-tabbar v-model="active" route fixed placeholder safe-area-inset-bottom>
+    <div class="content">
+      <router-view />
+    </div>
+    <van-tabbar v-model="active" route fixed safe-area-inset-bottom>
       <van-tabbar-item to="/home" icon="home-o">首页</van-tabbar-item>
       <van-tabbar-item to="/todo" icon="todo-o">待办</van-tabbar-item>
       <van-tabbar-item to="/order" icon="orders-o">下单</van-tabbar-item>
@@ -17,10 +19,15 @@ import { ref } from 'vue'
 const active = ref(0)
 </script>
 
-<style>
+<style scoped>
 .layout {
   height: 100vh;
   display: flex;
   flex-direction: column;
+}
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 50px;
 }
 </style>
