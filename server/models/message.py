@@ -7,9 +7,9 @@ from database import Base
 from datetime import datetime
 
 
-class Message(Base):
+class AppMessage(Base):
     """消息中心"""
-    __tablename__ = "messages"
+    __tablename__ = "app_messages"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     type = Column(String(20), comment="消息类型: system/order/audit/reminder/payment")

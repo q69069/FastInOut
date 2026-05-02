@@ -5,8 +5,9 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
+from datetime import datetime
 from database import get_db
-from models.message import Message
+from models.message import AppMessage as Message
 from routers.auth import get_current_user
 
 router = APIRouter(prefix="/messages", tags=["消息中心"])
