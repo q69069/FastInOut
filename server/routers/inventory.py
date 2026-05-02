@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from datetime import datetime
 from database import get_db
 from models.inventory import (
     Inventory, InventoryCheck, InventoryCheckItem,
@@ -148,7 +149,7 @@ def inventory_flow(
         if start_date:
             q = q.filter(PurchaseStockin.created_at >= start_date)
         if end_date:
-            q = q.filter(PurchaseStockin.created_at <= end_date + " 23:59:59")
+            q = q.filter(PurchaseStockin.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
         stockin_ids = [si.id for si in q.all()]
         if stockin_ids:
             items_q = db.query(PurchaseStockinItem).filter(PurchaseStockinItem.stockin_id.in_(stockin_ids))
@@ -174,7 +175,7 @@ def inventory_flow(
         if start_date:
             q = q.filter(PurchaseReturn.created_at >= start_date)
         if end_date:
-            q = q.filter(PurchaseReturn.created_at <= end_date + " 23:59:59")
+            q = q.filter(PurchaseReturn.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
         return_ids = [pr.id for pr in q.all()]
         if return_ids:
             items_q = db.query(PurchaseReturnItem).filter(PurchaseReturnItem.return_id.in_(return_ids))
@@ -200,7 +201,7 @@ def inventory_flow(
         if start_date:
             q = q.filter(SalesStockout.created_at >= start_date)
         if end_date:
-            q = q.filter(SalesStockout.created_at <= end_date + " 23:59:59")
+            q = q.filter(SalesStockout.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
         stockout_ids = [so.id for so in q.all()]
         if stockout_ids:
             items_q = db.query(SalesStockoutItem).filter(SalesStockoutItem.stockout_id.in_(stockout_ids))
@@ -226,7 +227,7 @@ def inventory_flow(
         if start_date:
             q = q.filter(SalesReturn.created_at >= start_date)
         if end_date:
-            q = q.filter(SalesReturn.created_at <= end_date + " 23:59:59")
+            q = q.filter(SalesReturn.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
         return_ids = [sr.id for sr in q.all()]
         if return_ids:
             items_q = db.query(SalesReturnItem).filter(SalesReturnItem.return_id.in_(return_ids))
@@ -250,7 +251,7 @@ def inventory_flow(
         if start_date:
             q = q.filter(InventoryTransfer.created_at >= start_date)
         if end_date:
-            q = q.filter(InventoryTransfer.created_at <= end_date + " 23:59:59")
+            q = q.filter(InventoryTransfer.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
         transfer_ids = [t.id for t in q.all()]
         if transfer_ids:
             items_q = db.query(InventoryTransferItem).filter(InventoryTransferItem.transfer_id.in_(transfer_ids))
@@ -289,7 +290,7 @@ def inventory_flow(
         if start_date:
             q = q.filter(OtherInventoryLog.created_at >= start_date)
         if end_date:
-            q = q.filter(OtherInventoryLog.created_at <= end_date + " 23:59:59")
+            q = q.filter(OtherInventoryLog.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
         for i in q.all():
             records.append({
                 "id": i.id, "warehouse_id": i.warehouse_id, "product_id": i.product_id,
@@ -352,7 +353,7 @@ def list_checks(
     if start_date:
         q = q.filter(InventoryCheck.created_at >= start_date)
     if end_date:
-        q = q.filter(InventoryCheck.created_at <= end_date + " 23:59:59")
+        q = q.filter(InventoryCheck.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
     total = q.count()
     items = q.order_by(InventoryCheck.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     result = []
@@ -481,7 +482,7 @@ def list_transfers(
     if start_date:
         q = q.filter(InventoryTransfer.created_at >= start_date)
     if end_date:
-        q = q.filter(InventoryTransfer.created_at <= end_date + " 23:59:59")
+        q = q.filter(InventoryTransfer.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
     total = q.count()
     items = q.order_by(InventoryTransfer.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     result = []
@@ -617,7 +618,7 @@ def list_other_log(
     if start_date:
         q = q.filter(OtherInventoryLog.created_at >= start_date)
     if end_date:
-        q = q.filter(OtherInventoryLog.created_at <= end_date + " 23:59:59")
+        q = q.filter(OtherInventoryLog.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
     total = q.count()
     items = q.order_by(OtherInventoryLog.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     return PaginatedResponse(data=[{
@@ -669,7 +670,7 @@ def turnover(start_date: str = Query(None), end_date: str = Query(None), warehou
     if start_date:
         q = q.filter(SalesStockout.created_at >= start_date)
     if end_date:
-        q = q.filter(SalesStockout.created_at <= end_date + " 23:59:59")
+        q = q.filter(SalesStockout.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
     stockouts = q.all()
     total_out = 0
     for so in stockouts:

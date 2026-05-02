@@ -48,6 +48,12 @@ const routes = [
         component: () => import('../views/suppliers/Index.vue'),
         meta: { title: '供应商管理' }
       },
+      {
+        path: 'supplier-reconciliation',
+        name: 'SupplierReconciliation',
+        component: () => import('../views/suppliers/Reconciliation.vue'),
+        meta: { title: '供应商对账' }
+      },
       // 采购
       {
         path: 'purchases',
@@ -112,6 +118,12 @@ const routes = [
         component: () => import('../views/finance/BankReconciliation.vue'),
         meta: { title: '银行对账' }
       },
+      {
+        path: 'invoices',
+        name: 'Invoices',
+        component: () => import('../views/finance/Invoices.vue'),
+        meta: { title: '发票管理' }
+      },
       // 报表
       {
         path: 'reports/profit',
@@ -130,6 +142,12 @@ const routes = [
         name: 'SalesRanking',
         component: () => import('../views/reports/SalesRanking.vue'),
         meta: { title: '销售排行' }
+      },
+      {
+        path: 'reports/trend',
+        name: 'TrendReport',
+        component: () => import('../views/reports/Trend.vue'),
+        meta: { title: '趋势图' }
       },
       // 促销
       {
@@ -156,6 +174,24 @@ const routes = [
         name: 'Backup',
         component: () => import('../views/system/Backup.vue'),
         meta: { title: '数据备份' }
+      },
+      {
+        path: 'system/print-templates',
+        name: 'PrintTemplates',
+        component: () => import('../views/system/PrintTemplates.vue'),
+        meta: { title: '打印模板' }
+      },
+      {
+        path: 'system/data-import',
+        name: 'DataImport',
+        component: () => import('../views/system/DataImport.vue'),
+        meta: { title: '数据导入' }
+      },
+      {
+        path: 'system/logs',
+        name: 'OperationLogs',
+        component: () => import('../views/system/Logs.vue'),
+        meta: { title: '操作日志' }
       },
       // 业务员
       {

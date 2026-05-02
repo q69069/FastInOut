@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from datetime import datetime
 from database import get_db
 from models.purchase import (
     PurchaseOrder, PurchaseOrderItem,
@@ -53,7 +54,7 @@ def list_purchase_orders(
     if start_date:
         q = q.filter(PurchaseOrder.created_at >= start_date)
     if end_date:
-        q = q.filter(PurchaseOrder.created_at <= end_date + " 23:59:59")
+        q = q.filter(PurchaseOrder.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
     if keyword:
         q = q.filter(PurchaseOrder.code.contains(keyword))
     total = q.count()
@@ -162,7 +163,7 @@ def list_purchase_stockins(
     if start_date:
         q = q.filter(PurchaseStockin.created_at >= start_date)
     if end_date:
-        q = q.filter(PurchaseStockin.created_at <= end_date + " 23:59:59")
+        q = q.filter(PurchaseStockin.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
     total = q.count()
     items = q.order_by(PurchaseStockin.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     return PaginatedResponse(data=[PurchaseStockinOut.model_validate(i) for i in items], total=total, page=page, page_size=page_size)
@@ -352,8 +353,8 @@ def supplier_statement(
         stockins_q = stockins_q.filter(PurchaseStockin.created_at >= start_date)
         returns_q = returns_q.filter(PurchaseReturn.created_at >= start_date)
     if end_date:
-        stockins_q = stockins_q.filter(PurchaseStockin.created_at <= end_date + " 23:59:59")
-        returns_q = returns_q.filter(PurchaseReturn.created_at <= end_date + " 23:59:59")
+        stockins_q = stockins_q.filter(PurchaseStockin.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+        returns_q = returns_q.filter(PurchaseReturn.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
 
     stockins = stockins_q.all()
     returns = returns_q.all()
@@ -384,7 +385,7 @@ def purchase_statistics(
     if start_date:
         q = q.filter(PurchaseStockin.created_at >= start_date)
     if end_date:
-        q = q.filter(PurchaseStockin.created_at <= end_date + " 23:59:59")
+        q = q.filter(PurchaseStockin.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
 
     stockins = q.all()
 

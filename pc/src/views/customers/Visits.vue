@@ -85,9 +85,9 @@ const customerList = ref([])
 const customerMap = ref({})
 
 const loadCustomers = async () => {
-  const res = await getCustomers({ page: 1, page_size: 9999 })
+  const res = await getCustomers({ page: 1, page_size: 100 })
   customerList.value = res.data || []
-  customerMap.value = Object.fromEntries(res.data.map(c => [c.id, c.name]))
+  customerMap.value = Object.fromEntries((res.data || []).map(c => [c.id, c.name]))
 }
 
 const loadData = async () => {

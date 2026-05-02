@@ -33,7 +33,7 @@
         <el-table-column label="规则" min-width="200">
           <template #default="{ row }">
             <span v-if="row.promo_type === 'threshold'">满 {{ row.threshold_amount }} 减 {{ row.discount_value }}</span>
-            <span v-else>{{ (row.discount_value * 10).toFixed(1) }} 折</span>
+            <span v-else>{{ ((row.discount_value || 0) * 10).toFixed(1) }} 折</span>
           </template>
         </el-table-column>
         <el-table-column prop="start_date" label="开始时间" width="180" />

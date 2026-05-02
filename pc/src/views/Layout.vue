@@ -22,6 +22,7 @@
           <el-menu-item index="/customers">客户管理</el-menu-item>
           <el-menu-item index="/customer-prices">客户价格等级</el-menu-item>
           <el-menu-item index="/suppliers">供应商管理</el-menu-item>
+          <el-menu-item index="/supplier-reconciliation">供应商对账</el-menu-item>
           <el-menu-item index="/customers/crm">客户关系管理</el-menu-item>
           <el-menu-item index="/units">单位管理</el-menu-item>
         </el-sub-menu>
@@ -63,6 +64,7 @@
           </template>
           <el-menu-item index="/finance">收支管理</el-menu-item>
           <el-menu-item index="/bank-reconciliation">银行对账</el-menu-item>
+          <el-menu-item index="/invoices">发票管理</el-menu-item>
         </el-sub-menu>
         <el-sub-menu index="reports">
           <template #title>
@@ -72,6 +74,7 @@
           <el-menu-item index="/reports/profit">利润统计</el-menu-item>
           <el-menu-item index="/reports/inventory">库存汇总</el-menu-item>
           <el-menu-item index="/reports/sales-ranking">销售排行</el-menu-item>
+          <el-menu-item index="/reports/trend">趋势图</el-menu-item>
         </el-sub-menu>
         <el-sub-menu v-if="authStore.isAdmin" index="system">
           <template #title>
@@ -80,6 +83,9 @@
           </template>
           <el-menu-item index="/system/roles">角色管理</el-menu-item>
           <el-menu-item index="/system/backup">数据备份</el-menu-item>
+          <el-menu-item index="/system/print-templates">打印模板</el-menu-item>
+          <el-menu-item index="/system/data-import">数据导入</el-menu-item>
+          <el-menu-item index="/system/logs">操作日志</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>

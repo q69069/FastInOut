@@ -53,8 +53,8 @@ const data = ref({})
 const cards = computed(() => [
   { title: '今日销售额', value: `¥${formatNum(data.value.today_sales)}`, icon: 'TrendCharts', color: '#409EFF' },
   { title: '库存总量', value: formatNum(data.value.total_stock_qty), icon: 'Box', color: '#67C23A' },
-  { title: '应收账款', value: `¥${formatNum(data.value.total_receivable)}`, icon: 'Wallet', color: '#E6A23C' },
-  { title: '应付账款', value: `¥${formatNum(data.value.total_payable)}`, icon: 'CreditCard', color: '#F56C6C' }
+  { title: '应收账款', value: `¥${formatNum(data.value.total_receivable)}`, icon: 'Money', color: '#E6A23C' },
+  { title: '应付账款', value: `¥${formatNum(data.value.total_payable)}`, icon: 'Wallet', color: '#F56C6C' }
 ])
 
 const formatNum = (n) => {

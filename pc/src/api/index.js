@@ -87,21 +87,49 @@ export const convertQuantity = (params) => api.post('/units/convert', null, { pa
 // 采购
 export const getPurchaseOrders = (params) => api.get('/purchase-orders', { params })
 export const createPurchaseOrder = (data) => api.post('/purchase-orders', data)
+export const getPurchaseOrder = (id) => api.get(`/purchase-orders/${id}`)
+export const updatePurchaseOrder = (id, data) => api.put(`/purchase-orders/${id}`, data)
+export const deletePurchaseOrder = (id) => api.delete(`/purchase-orders/${id}`)
+export const orderToStockin = (id) => api.post(`/purchase-orders/${id}/stockin`)
+
+// 采购入库
+export const getPurchaseStockins = (params) => api.get('/purchase-stockins', { params })
+export const createPurchaseStockin = (data) => api.post('/purchase-stockins', data)
+export const getPurchaseStockin = (id) => api.get(`/purchase-stockins/${id}`)
+export const updatePurchaseStockin = (id, data) => api.put(`/purchase-stockins/${id}`, data)
+export const deletePurchaseStockin = (id) => api.delete(`/purchase-stockins/${id}`)
+export const confirmPurchaseStockin = (id) => api.post(`/purchase-stockins/${id}/confirm`)
 
 // 采购退货
 export const getPurchaseReturns = (params) => api.get('/purchase-returns', { params })
 export const createPurchaseReturn = (data) => api.post('/purchase-returns', data)
 export const getPurchaseReturn = (id) => api.get(`/purchase-returns/${id}`)
+export const updatePurchaseReturn = (id, data) => api.put(`/purchase-returns/${id}`, data)
+export const deletePurchaseReturn = (id) => api.delete(`/purchase-returns/${id}`)
 export const confirmPurchaseReturn = (id) => api.post(`/purchase-returns/${id}/confirm`)
 
 // 销售
 export const getSalesOrders = (params) => api.get('/sales-orders', { params })
 export const createSalesOrder = (data) => api.post('/sales-orders', data)
+export const getSalesOrder = (id) => api.get(`/sales-orders/${id}`)
+export const updateSalesOrder = (id, data) => api.put(`/sales-orders/${id}`, data)
+export const deleteSalesOrder = (id) => api.delete(`/sales-orders/${id}`)
+export const orderToStockout = (id) => api.post(`/sales-orders/${id}/stockout`)
+
+// 销售出库
+export const getSalesStockouts = (params) => api.get('/sales-stockouts', { params })
+export const createSalesStockout = (data) => api.post('/sales-stockouts', data)
+export const getSalesStockout = (id) => api.get(`/sales-stockouts/${id}`)
+export const updateSalesStockout = (id, data) => api.put(`/sales-stockouts/${id}`, data)
+export const deleteSalesStockout = (id) => api.delete(`/sales-stockouts/${id}`)
+export const confirmSalesStockout = (id) => api.post(`/sales-stockouts/${id}/confirm`)
 
 // 销售退货
 export const getSalesReturns = (params) => api.get('/sales-returns', { params })
 export const createSalesReturn = (data) => api.post('/sales-returns', data)
 export const getSalesReturn = (id) => api.get(`/sales-returns/${id}`)
+export const updateSalesReturn = (id, data) => api.put(`/sales-returns/${id}`, data)
+export const deleteSalesReturn = (id) => api.delete(`/sales-returns/${id}`)
 export const confirmSalesReturn = (id) => api.post(`/sales-returns/${id}/confirm`)
 
 // 库存
@@ -139,6 +167,7 @@ export const getProfitReport = (params) => api.get('/reports/profit', { params }
 export const exportSalesReport = (params) => api.get('/reports/export/sales', { params, responseType: 'blob' })
 export const exportInventoryReport = () => api.get('/reports/export/inventory', { responseType: 'blob' })
 export const exportFinanceReport = (params) => api.get('/reports/export/finance', { params, responseType: 'blob' })
+export const getTrendReport = (params) => api.get('/reports/trend', { params })
 
 // 促销
 export const getPromotions = (params) => api.get('/promotions', { params })
@@ -185,10 +214,49 @@ export const createCustomerPrice = (data) => api.post('/customer-prices', data)
 export const updateCustomerPrice = (id, data) => api.put(`/customer-prices/${id}`, data)
 export const deleteCustomerPrice = (id) => api.delete(`/customer-prices/${id}`)
 export const queryCustomerPrice = (params) => api.get('/customer-prices/query', { params })
+export const smartPriceQuery = (params) => api.get('/customer-prices/price-query', { params })
+export const batchPriceQuery = (params) => api.get('/customer-prices/batch-query', { params })
+
+// 发票管理
+export const getInvoices = (params) => api.get('/invoices', { params })
+export const getInvoice = (id) => api.get(`/invoices/${id}`)
+export const createInvoice = (data) => api.post('/invoices', data)
+export const updateInvoice = (id, data) => api.put(`/invoices/${id}`, data)
+export const deleteInvoice = (id) => api.delete(`/invoices/${id}`)
+export const certifyInvoice = (id) => api.put(`/invoices/${id}/certify`)
+export const voidInvoice = (id) => api.put(`/invoices/${id}/void`)
+
+// 供应商对账
+export const getSupplierReconSummary = () => api.get('/supplier-recon/summary')
+export const getSupplierStatement = (params) => api.get('/supplier-recon/statement', { params })
 
 // 系统
 export const getEmployees = (params) => api.get('/employees', { params })
 export const getCategories = (params) => api.get('/categories', { params })
+export const getOperationLogs = (params) => api.get('/system/logs', { params })
+
+// 打印模板
+export const getPrintTemplates = (params) => api.get('/print-templates', { params })
+export const getPrintTemplate = (id) => api.get(`/print-templates/${id}`)
+export const createPrintTemplate = (data) => api.post('/print-templates', data)
+export const updatePrintTemplate = (id, data) => api.put(`/print-templates/${id}`, data)
+export const deletePrintTemplate = (id) => api.delete(`/print-templates/${id}`)
+export const getPrintTemplateTypes = () => api.get('/print-templates/types')
+export const previewPrint = (templateId, docType, docId) => api.get(`/print-templates/${templateId}/preview/${docType}/${docId}`)
+
+// 数据导入
+export const getImportTypes = () => api.get('/data-import/types')
+export const downloadImportTemplate = (type) => api.get(`/data-import/template/${type}`, { responseType: 'blob' })
+export const previewImport = (type, file) => {
+  const fd = new FormData()
+  fd.append('file', file)
+  return api.post(`/data-import/preview/${type}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+}
+export const executeImport = (type, file) => {
+  const fd = new FormData()
+  fd.append('file', file)
+  return api.post(`/data-import/execute/${type}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+}
 
 // 批次管理
 export const getBatches = (params) => api.get('/batches', { params })

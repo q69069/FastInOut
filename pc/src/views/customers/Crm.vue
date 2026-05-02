@@ -193,13 +193,15 @@ const contactDialogVisible = ref(false)
 const contactForm = ref({})
 
 const loadContacts = async () => {
-  const params = { ...contactQuery.value }
-  if (selectedCustomerId.value) {
-    params.customer_id = selectedCustomerId.value
-  }
-  const res = await getContacts(params)
-  contactList.value = res.data || []
-  contactTotal.value = res.total || 0
+  try {
+    const params = { ...contactQuery.value }
+    if (selectedCustomerId.value) {
+      params.customer_id = selectedCustomerId.value
+    }
+    const res = await getContacts(params)
+    contactList.value = res.data || []
+    contactTotal.value = res.total || 0
+  } catch (e) { console.error('[Crm] loadContacts error:', e) }
 }
 
 const showContactDialog = (row) => {
@@ -251,13 +253,15 @@ const visitDialogVisible = ref(false)
 const visitForm = ref({})
 
 const loadVisits = async () => {
-  const params = { ...visitQuery.value }
-  if (selectedCustomerId.value) {
-    params.customer_id = selectedCustomerId.value
-  }
-  const res = await getVisits(params)
-  visitList.value = res.data || []
-  visitTotal.value = res.total || 0
+  try {
+    const params = { ...visitQuery.value }
+    if (selectedCustomerId.value) {
+      params.customer_id = selectedCustomerId.value
+    }
+    const res = await getVisits(params)
+    visitList.value = res.data || []
+    visitTotal.value = res.total || 0
+  } catch (e) { console.error("[customerList]", e) }
 }
 
 const showVisitDialog = () => {
@@ -298,13 +302,13 @@ const handleCustomerChange = () => {
 }
 
 const loadCustomers = async () => {
-  const res = await getCustomers({ page: 1, page_size: 999 })
+  const res = await getCustomers({ page: 1, page_size: 100 })
   customerList.value = res.data || []
 }
 
-onMounted(() => {
-  loadCustomers()
-  loadContacts()
-  loadVisits()
+onMounted(async () => {
+  try {
+    await Promise.all([loadCustomers(), loadContacts(), loadVisits()])
+  } catch (e) { console.error("[customerList]", e) }
 })
 </script>

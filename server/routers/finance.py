@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from datetime import datetime
 from database import get_db
 from models.finance import Receipt, Payment
 from models.customer import Customer
@@ -41,7 +42,7 @@ def list_receipts(
     if start_date:
         q = q.filter(Receipt.created_at >= start_date)
     if end_date:
-        q = q.filter(Receipt.created_at <= end_date + " 23:59:59")
+        q = q.filter(Receipt.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
     total = q.count()
     items = q.order_by(Receipt.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     result = []
@@ -126,7 +127,7 @@ def list_payments(
     if start_date:
         q = q.filter(Payment.created_at >= start_date)
     if end_date:
-        q = q.filter(Payment.created_at <= end_date + " 23:59:59")
+        q = q.filter(Payment.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
     total = q.count()
     items = q.order_by(Payment.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     result = []
@@ -356,7 +357,7 @@ def finance_flow(
         if start_date:
             q = q.filter(Receipt.created_at >= start_date)
         if end_date:
-            q = q.filter(Receipt.created_at <= end_date + " 23:59:59")
+            q = q.filter(Receipt.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
         for r in q.all():
             records.append({
                 "id": r.id, "code": r.code, "type": "income",
@@ -370,7 +371,7 @@ def finance_flow(
         if start_date:
             q = q.filter(Payment.created_at >= start_date)
         if end_date:
-            q = q.filter(Payment.created_at <= end_date + " 23:59:59")
+            q = q.filter(Payment.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
         for p in q.all():
             records.append({
                 "id": p.id, "code": p.code, "type": "expense",

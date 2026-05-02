@@ -67,9 +67,10 @@ const warehouses = ref([])
 const query = ref({ warehouse_id: null })
 
 const summaryCards = computed(() => {
-  const totalProducts = tableData.value.length
-  const totalQuantity = tableData.value.reduce((s, r) => s + Number(r.quantity || 0), 0)
-  const totalValue = tableData.value.reduce((s, r) => s + Number(r.total_value || 0), 0)
+  const arr = Array.isArray(tableData.value) ? tableData.value : []
+  const totalProducts = arr.length
+  const totalQuantity = arr.reduce((s, r) => s + Number(r.quantity || 0), 0)
+  const totalValue = arr.reduce((s, r) => s + Number(r.total_value || 0), 0)
   return [
     { title: '商品种类', value: totalProducts, icon: 'Goods', color: '#409EFF' },
     { title: '库存总量', value: formatNum(totalQuantity), icon: 'Box', color: '#67C23A' },
@@ -121,7 +122,7 @@ const loadData = async () => {
   const params = {}
   if (query.value.warehouse_id) params.warehouse_id = query.value.warehouse_id
   const res = await getInventoryReport(params)
-  tableData.value = res.data || []
+  tableData.value = res.data?.items || res.data?.data || []
   await nextTick()
   initChart()
 }

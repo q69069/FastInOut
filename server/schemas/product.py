@@ -18,6 +18,7 @@ class ProductBase(BaseModel):
     stock_min: float = 0
     stock_max: float = 0
     image: Optional[str] = None
+    level_prices: Optional[str] = None  # JSON: {"VIP":50,"A":55,"B":58,"C":60}
     status: int = 1
     remark: Optional[str] = None
 
@@ -41,6 +42,7 @@ class ProductUpdate(BaseModel):
     stock_min: Optional[float] = None
     stock_max: Optional[float] = None
     image: Optional[str] = None
+    level_prices: Optional[str] = None
     status: Optional[int] = None
     remark: Optional[str] = None
 

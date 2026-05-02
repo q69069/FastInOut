@@ -30,12 +30,12 @@
         <el-table-column prop="employee_name" label="业务员" width="120" />
         <el-table-column label="提成比例" width="100">
           <template #default="{ row }">
-            {{ (row.commission_rate * 100).toFixed(1) }}%
+            {{ ((row.commission_rate || 0) * 100).toFixed(1) }}%
           </template>
         </el-table-column>
         <el-table-column label="目标金额" width="120">
           <template #default="{ row }">
-            {{ row.target_amount?.toFixed(2) }}
+            {{ (row.target_amount || 0).toFixed(2) }}
           </template>
         </el-table-column>
         <el-table-column label="实际销售" width="120">
@@ -125,24 +125,30 @@ const getOrderCount = (employeeId) => {
 }
 
 const loadList = async () => {
-  const res = await getSalesmen()
-  list.value = res.data || []
+  try {
+    const res = await getSalesmen()
+    list.value = res.data || []
+  } catch (e) { console.error("[list]", e) }
 }
 
 const loadStats = async () => {
-  const params = {}
-  if (dateRange.value && dateRange.value.length === 2) {
-    params.start_date = dateRange.value[0]
-    params.end_date = dateRange.value[1]
-  }
-  const res = await getSalesmanStats(params)
-  stats.value = res.data || []
-  renderChart()
+  try {
+    const params = {}
+    if (dateRange.value && dateRange.value.length === 2) {
+      params.start_date = dateRange.value[0]
+      params.end_date = dateRange.value[1]
+    }
+    const res = await getSalesmanStats(params)
+    stats.value = res.data || []
+    renderChart()
+  } catch (e) { console.error("[list]", e) }
 }
 
 const loadEmployees = async () => {
-  const res = await getEmployees({ page_size: 200 })
-  employees.value = res.data || []
+  try {
+    const res = await getEmployees({ page_size: 100 })
+    employees.value = res.data || []
+  } catch (e) { console.error("[list]", e) }
 }
 
 const showDialog = (row) => {
@@ -200,9 +206,9 @@ const renderChart = () => {
 }
 
 onMounted(async () => {
-  await loadEmployees()
-  await loadList()
-  await loadStats()
-  nextTick(() => renderChart())
+  try {
+    await Promise.all([loadEmployees(), loadList(), loadStats()])
+    nextTick(() => renderChart())
+  } catch (e) { console.error("[list]", e) }
 })
 </script>

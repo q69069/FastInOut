@@ -83,23 +83,29 @@ const customerList = ref([])
 const productList = ref([])
 
 const loadCustomers = async () => {
-  const res = await getCustomers({ page: 1, page_size: 9999 })
-  customerList.value = res.data || []
+  try {
+    const res = await getCustomers({ page: 1, page_size: 100 })
+    customerList.value = res.data || []
+  } catch (e) { console.error('[PriceLevel] loadCustomers error:', e) }
 }
 
 const loadProducts = async () => {
-  const res = await getProducts({ page: 1, page_size: 9999 })
-  productList.value = res.data || []
+  try {
+    const res = await getProducts({ page: 1, page_size: 100 })
+    productList.value = res.data || []
+  } catch (e) { console.error('[PriceLevel] loadProducts error:', e) }
 }
 
 const loadData = async () => {
-  const params = { page: query.value.page, page_size: query.value.page_size }
-  if (query.value.customer_id) {
-    params.customer_id = query.value.customer_id
-  }
-  const res = await getCustomerPrices(params)
-  list.value = res.data || []
-  total.value = res.total || 0
+  try {
+    const params = { page: query.value.page, page_size: query.value.page_size }
+    if (query.value.customer_id) {
+      params.customer_id = query.value.customer_id
+    }
+    const res = await getCustomerPrices(params)
+    list.value = res.data || []
+    total.value = res.total || 0
+  } catch (e) { console.error('[PriceLevel] loadData error:', e) }
 }
 
 const showDialog = (row) => {
@@ -135,9 +141,9 @@ const handleDelete = async (row) => {
   loadData()
 }
 
-onMounted(() => {
-  loadCustomers()
-  loadProducts()
-  loadData()
+onMounted(async () => {
+  try {
+    await Promise.all([loadCustomers(), loadProducts(), loadData()])
+  } catch (e) {}
 })
 </script>

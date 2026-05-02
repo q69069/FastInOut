@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from datetime import datetime
 from database import get_db
 from models.salesman import Salesman
 from models.employee import Employee
@@ -77,7 +78,7 @@ def salesman_stats(
         if start_date:
             q = q.filter(SalesOrder.created_at >= start_date)
         if end_date:
-            q = q.filter(SalesOrder.created_at <= end_date + " 23:59:59")
+            q = q.filter(SalesOrder.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
         orders = q.all()
         total_amount = sum(o.total_amount or 0 for o in orders)
         order_count = len(orders)

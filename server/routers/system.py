@@ -53,9 +53,16 @@ def init_system(db: Session = Depends(get_db), authorization: str = Header(None)
 @router.get("/logs", response_model=PaginatedResponse)
 def list_logs(
     page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
-    db: Session = Depends(get_db)
+    operator: str = Query(None), action: str = Query(None),
+    keyword: str = Query(None), db: Session = Depends(get_db)
 ):
     q = db.query(OperationLog)
+    if operator:
+        q = q.filter(OperationLog.operator.contains(operator))
+    if action:
+        q = q.filter(OperationLog.action == action)
+    if keyword:
+        q = q.filter(OperationLog.target.contains(keyword))
     total = q.count()
     items = q.order_by(OperationLog.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     return PaginatedResponse(data=[OperationLogOut.model_validate(i) for i in items], total=total, page=page, page_size=page_size)

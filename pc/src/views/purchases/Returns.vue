@@ -20,9 +20,11 @@
           </template>
         </el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="180" />
-        <el-table-column label="操作" width="100">
+        <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
+            <el-button v-if="row.status === 0" size="small" @click="showDialog(row)">编辑</el-button>
             <el-button v-if="row.status === 0" size="small" type="success" @click="handleConfirm(row)">确认</el-button>
+            <el-button v-if="row.status === 0" size="small" type="danger" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -94,8 +96,8 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { getPurchaseReturns, createPurchaseReturn, confirmPurchaseReturn, getProducts, getSuppliers, getWarehouses } from '../../api'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getPurchaseReturns, createPurchaseReturn, updatePurchaseReturn, deletePurchaseReturn, confirmPurchaseReturn, getProducts, getSuppliers, getWarehouses } from '../../api'
 
 const statusMap = { 0: '草稿', 1: '已确认' }
 const list = ref([])
@@ -124,9 +126,29 @@ const loadOptions = async () => {
   products.value = p.data || []
 }
 
-const showDialog = () => {
-  form.value = { supplier_id: null, warehouse_id: null, remark: '', items: [] }
+const showDialog = (row) => {
+  if (row) {
+    form.value = { ...row, items: [] }
+    loadReturnItems(row.id)
+  } else {
+    form.value = { supplier_id: null, warehouse_id: null, remark: '', items: [] }
+  }
   dialogVisible.value = true
+}
+
+const loadReturnItems = async (id) => {
+  try {
+    const res = await getPurchaseReturn(id)
+    if (res.data && res.data.items) {
+      form.value.items = res.data.items.map(item => ({
+        product_id: item.product_id,
+        quantity: item.quantity,
+        price: item.price
+      }))
+    }
+  } catch (e) {
+    console.error('[PurchaseReturn] loadReturnItems error:', e)
+  }
 }
 
 const addItem = () => {
@@ -134,15 +156,44 @@ const addItem = () => {
 }
 
 const handleSave = async () => {
-  await createPurchaseReturn(form.value)
-  ElMessage.success('创建成功')
+  if (!form.value.supplier_id) return ElMessage.warning('请选择供应商')
+  if (!form.value.warehouse_id) return ElMessage.warning('请选择仓库')
+  if (!form.value.items || form.value.items.length === 0) return ElMessage.warning('请添加商品')
+
+  const data = {
+    supplier_id: form.value.supplier_id,
+    warehouse_id: form.value.warehouse_id,
+    remark: form.value.remark,
+    items: form.value.items.map(item => ({
+      product_id: item.product_id,
+      quantity: item.quantity,
+      price: item.price,
+      amount: (item.quantity || 0) * (item.price || 0)
+    }))
+  }
+
+  if (form.value.id) {
+    await updatePurchaseReturn(form.value.id, data)
+    ElMessage.success('更新成功')
+  } else {
+    await createPurchaseReturn(data)
+    ElMessage.success('创建成功')
+  }
   dialogVisible.value = false
   loadData()
 }
 
 const handleConfirm = async (row) => {
+  await ElMessageBox.confirm('确认退货？库存将减少！', '提示', { type: 'warning' })
   await confirmPurchaseReturn(row.id)
   ElMessage.success('确认成功')
+  loadData()
+}
+
+const handleDelete = async (row) => {
+  await ElMessageBox.confirm('确定删除该退货单？', '提示', { type: 'warning' })
+  await deletePurchaseReturn(row.id)
+  ElMessage.success('删除成功')
   loadData()
 }
 

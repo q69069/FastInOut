@@ -65,7 +65,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="margin_rate" label="利润率" width="120">
-          <template #default="{ row }">{{ (row.margin_rate * 100).toFixed(2) }}%</template>
+          <template #default="{ row }">{{ ((row.margin_rate || 0) * 100).toFixed(2) }}%</template>
         </el-table-column>
       </el-table>
     </el-card>

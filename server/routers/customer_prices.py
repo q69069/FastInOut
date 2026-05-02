@@ -1,3 +1,4 @@
+import json
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from database import get_db
@@ -142,3 +143,91 @@ def delete_customer_price(price_id: int, db: Session = Depends(get_db)):
     db.delete(cp)
     db.commit()
     return ResponseModel(message="删除成功")
+
+
+@router.get("/price-query", response_model=ResponseModel)
+def smart_price_query(
+    customer_id: int = Query(...),
+    product_id: int = Query(...),
+    db: Session = Depends(get_db)
+):
+    """智能查价：专属价 > 等级价 > 零售价"""
+    customer = db.query(Customer).get(customer_id)
+    product = db.query(Product).get(product_id)
+    if not customer or not product:
+        raise HTTPException(status_code=400, detail="客户或商品不存在")
+
+    # 优先级1：客户专属价
+    cp = db.query(CustomerPrice).filter(
+        CustomerPrice.customer_id == customer_id,
+        CustomerPrice.product_id == product_id
+    ).first()
+    if cp:
+        return ResponseModel(data={
+            "price": cp.price, "source": "专属价",
+            "retail_price": product.retail_price, "level": customer.level
+        })
+
+    # 优先级2：等级价
+    if customer.level and product.level_prices:
+        try:
+            levels = json.loads(product.level_prices)
+            if customer.level in levels and levels[customer.level]:
+                return ResponseModel(data={
+                    "price": float(levels[customer.level]), "source": f"{customer.level}级价",
+                    "retail_price": product.retail_price, "level": customer.level
+                })
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    # 优先级3：零售价
+    return ResponseModel(data={
+        "price": product.retail_price, "source": "零售价",
+        "retail_price": product.retail_price, "level": customer.level
+    })
+
+
+@router.get("/batch-query", response_model=ResponseModel)
+def batch_price_query(
+    customer_id: int = Query(...),
+    db: Session = Depends(get_db)
+):
+    """批量查价：查询客户对所有商品的价格"""
+    customer = db.query(Customer).get(customer_id)
+    if not customer:
+        raise HTTPException(status_code=400, detail="客户不存在")
+
+    products = db.query(Product).filter(Product.status == 1).all()
+    # 该客户的所有专属价
+    cp_map = {}
+    for cp in db.query(CustomerPrice).filter(CustomerPrice.customer_id == customer_id).all():
+        cp_map[cp.product_id] = cp.price
+
+    result = []
+    for p in products:
+        price = None
+        source = "零售价"
+        # 专属价
+        if p.id in cp_map:
+            price = cp_map[p.id]
+            source = "专属价"
+        # 等级价
+        elif customer.level and p.level_prices:
+            try:
+                levels = json.loads(p.level_prices)
+                if customer.level in levels and levels[customer.level]:
+                    price = float(levels[customer.level])
+                    source = f"{customer.level}级价"
+            except (json.JSONDecodeError, ValueError):
+                pass
+        # 零售价
+        if price is None:
+            price = p.retail_price
+
+        result.append({
+            "product_id": p.id, "product_name": p.name, "spec": p.spec,
+            "unit": p.unit, "retail_price": p.retail_price,
+            "price": price, "source": source
+        })
+
+    return ResponseModel(data=result)
