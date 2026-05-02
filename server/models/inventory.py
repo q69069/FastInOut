@@ -46,6 +46,10 @@ class InventoryTransfer(Base):
     to_warehouse_id = Column(Integer, ForeignKey("warehouses.id"))
     operator_id = Column(Integer, ForeignKey("employees.id"))
     status = Column(Integer, default=1)  # 1=调拨中 2=已确认 3=已取消
+    audit_status = Column(String(20), default="pending", comment="审核状态 pending/approved/rejected")
+    auditor_id = Column(Integer, ForeignKey("employees.id"), comment="审核人ID")
+    audit_time = Column(DateTime, comment="审核时间")
+    audit_comment = Column(Text, comment="审核意见")
     remark = Column(String(500))
     created_at = Column(DateTime, server_default=func.now())
     confirmed_at = Column(DateTime)
