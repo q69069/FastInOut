@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, func
+from sqlalchemy.orm import relationship
 from database import Base
 
 
@@ -17,3 +18,5 @@ class Warehouse(Base):
     status = Column(Integer, default=1)  # 1=启用 0=禁用
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    routes = relationship("Route", back_populates="warehouse")

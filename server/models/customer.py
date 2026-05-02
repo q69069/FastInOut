@@ -19,6 +19,9 @@ class Customer(Base):
     bank_account = Column(String(100))  # 银行账号
     tax_number = Column(String(50))  # 税号
     remark = Column(String(500))
+    route_id = Column(Integer, ForeignKey("routes.id"), comment="所属路线")
+    salesman_ids = Column(String(200), comment="负责业务员IDs，逗号分隔")
+    default_warehouse_id = Column(Integer, ForeignKey("warehouses.id"), comment="默认仓库")
     status = Column(Integer, default=1)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

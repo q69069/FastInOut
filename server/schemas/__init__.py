@@ -13,3 +13,4 @@ from schemas.sales import *
 from schemas.finance import *
 from schemas.system import *
 from schemas.report import *
+from schemas.route import *

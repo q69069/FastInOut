@@ -24,6 +24,11 @@ class EmployeeUpdate(BaseModel):
     username: Optional[str] = None
     password: Optional[str] = None
     status: Optional[int] = None
+    role_type: Optional[str] = None
+    warehouse_ids: Optional[str] = None
+    route_ids: Optional[str] = None
+    bypass_audit: Optional[int] = None
+    online_status: Optional[str] = None
 
 
 class EmployeeOut(EmployeeBase):
