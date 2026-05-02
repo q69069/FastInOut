@@ -88,8 +88,7 @@ const handleSubmit = async () => {
       .filter(i => i.actual_stock >= 0)
       .map(i => ({
         product_id: i.product_id,
-        system_stock: i.system_stock || 0,
-        actual_stock: i.actual_stock
+        count_num: i.actual_stock
       }))
     await createInventoryCheck({
       warehouse_id: form.value.warehouse_id,

@@ -36,7 +36,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { showToast, showSuccessToast } from 'vant'
 import { useRouter } from 'vue-router'
-import { getWarehouses, getProducts, createLossReport } from '../api'
+import { getWarehouses, getProducts } from '../api'
+import api from '../api'
 
 const router = useRouter()
 const loading = ref(false)
@@ -80,12 +81,15 @@ const handleSubmit = async () => {
   }
   loading.value = true
   try {
-    await createLossReport({
-      warehouse_id: form.value.warehouse_id,
-      reason: form.value.reason,
-      remark: form.value.remark,
-      items: validItems.map(i => ({ product_id: i.product_id, quantity: i.quantity }))
-    })
+    for (const item of validItems) {
+      await api.post('/inventory/other-out', {
+        warehouse_id: form.value.warehouse_id,
+        product_id: item.product_id,
+        quantity: item.quantity,
+        reason: form.value.reason,
+        remark: form.value.remark
+      })
+    }
     showSuccessToast('报损成功')
     router.back()
   } catch (e) {
