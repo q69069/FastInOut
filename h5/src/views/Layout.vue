@@ -3,7 +3,7 @@
     <div class="content">
       <router-view />
     </div>
-    <van-tabbar v-model="active" route fixed safe-area-inset-bottom>
+    <van-tabbar v-model="active" fixed safe-area-inset-bottom>
       <van-tabbar-item v-for="tab in visibleTabs" :key="tab.path" :to="tab.path" :icon="tab.icon">{{ tab.name }}</van-tabbar-item>
     </van-tabbar>
   </div>
@@ -27,10 +27,11 @@ const allTabs = [
   { path: '/tools', name: '工具', icon: 'setting-o', roles: ['老板', '销售', '财务', '库管', '后台'] }
 ]
 
-const userRole = computed(() => localStorage.getItem('user_role') || '老板')
+const getUserRole = () => localStorage.getItem('user_role') || '老板'
 
 const visibleTabs = computed(() => {
-  return allTabs.filter(tab => tab.roles.includes(userRole.value))
+  const role = getUserRole()
+  return allTabs.filter(tab => tab.roles.includes(role))
 })
 
 watch(() => route.path, (path) => {
@@ -43,5 +44,5 @@ watch(() => route.path, (path) => {
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body, #app { height: 100%; }
 .layout { height: 100vh; display: flex; flex-direction: column; background: #f7f8fa; }
-.content { flex: 1; overflow-y: auto; padding-bottom: 50px; }
+.content { flex: 1; overflow-y: auto; padding-bottom: 60px; }
 </style>
