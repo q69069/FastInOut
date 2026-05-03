@@ -41,6 +41,7 @@ export default api
 // 认证
 export const login = (data) => api.post('/auth/login', data)
 export const getCurrentUser = () => api.get('/auth/current')
+export const getPermissions = (params) => api.get('/auth/permissions', { params })
 
 // 仪表盘
 export const getDashboard = () => api.get('/reports/dashboard')
