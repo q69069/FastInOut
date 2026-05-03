@@ -68,6 +68,13 @@ def auto_migrate():
         if 'default_warehouse_id' not in cust_cols:
             conn.execute(text('ALTER TABLE customers ADD COLUMN default_warehouse_id INTEGER'))
 
+        # sales_orders 新字段
+        so_cols = [c['name'] for c in inspector.get_columns('sales_orders')]
+        if 'route_id' not in so_cols:
+            conn.execute(text('ALTER TABLE sales_orders ADD COLUMN route_id INTEGER'))
+        if 'operator_id' not in so_cols:
+            conn.execute(text('ALTER TABLE sales_orders ADD COLUMN operator_id INTEGER'))
+
         # invoices 表（发票管理用）
         tables = inspector.get_table_names()
         if 'invoices' not in tables:
