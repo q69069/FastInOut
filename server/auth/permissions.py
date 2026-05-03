@@ -1,8 +1,37 @@
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException, Request, Header
 from sqlalchemy.orm import Session
 from database import get_db
 from models.employee import Employee
-from auth.permission_service import PermissionService
+from utils.auth import decode_access_token
+
+
+class PermissionContext:
+    """从JWT解析的用户权限上下文"""
+    def __init__(self, payload: dict):
+        self.user_id = payload.get("user_id")
+        self.username = payload.get("username")
+        self.roles = payload.get("roles", [])
+        self.modules = payload.get("modules", [])
+        self.permissions = payload.get("permissions", {})
+        self.operations = payload.get("operations", [])
+        self.warehouse_ids = payload.get("warehouse_ids", [])
+        self.route_ids = payload.get("route_ids", [])
+        self.bypass_audit = payload.get("bypass_audit", {})
+
+    @property
+    def is_admin(self):
+        return any(r.get("role_key") == "admin" for r in self.roles)
+
+
+def get_permission_context(authorization: str = Header(None)) -> PermissionContext:
+    """从Authorization头解析权限上下文"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="未登录")
+    token = authorization.replace("Bearer ", "")
+    payload = decode_access_token(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="token无效或已过期")
+    return PermissionContext(payload)
 
 
 class PermissionChecker:
@@ -12,9 +41,14 @@ class PermissionChecker:
         self.module_key = module_key
         self.operation = operation
 
-    async def __call__(self, request: Request, current_user: Employee = Depends(get_db.__self__), db: Session = Depends(get_db)):
-        # 注：这里简化处理，实际需要通过get_current_user获取current_user
-        pass
+    async def __call__(self, request: Request, ctx: PermissionContext = Depends(get_permission_context)):
+        # 检查模块权限
+        if self.module_key and self.module_key not in ctx.modules and not ctx.is_admin:
+            raise HTTPException(status_code=403, detail=f"无权访问模块: {self.module_key}")
+        # 检查操作权限
+        if self.operation and self.operation not in ctx.operations and not ctx.is_admin:
+            raise HTTPException(status_code=403, detail=f"无权执行操作: {self.operation}")
+        return ctx
 
 
 def require_module(module_key: str):

@@ -182,8 +182,11 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
         extra={
             "roles": perms["roles"],
             "modules": perms["modules"],
+            "permissions": perms["permissions"],
+            "operations": perms["operations"],
             "warehouse_ids": perms["warehouse_ids"],
             "route_ids": perms["route_ids"],
+            "bypass_audit": perms["bypass_audit"],
         }
     )
 
