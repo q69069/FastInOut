@@ -10,8 +10,17 @@ from models.employee import Employee
 from models.employee_role import EmployeeRole
 from schemas.role import RoleCreate, RoleUpdate, RoleOut, AssignRole
 from schemas.common import ResponseModel, PaginatedResponse
+from utils.cache import invalidate_user_caches
 
 router = APIRouter(prefix="/api/roles", tags=["角色管理"])
+
+
+def _invalidate_role_users_cache(db: Session, role_id: int):
+    """清除角色关联用户的权限缓存"""
+    employees = db.query(Employee).filter(Employee.role_id == role_id).all()
+    for emp in employees:
+        invalidate_user_caches(emp.id)
+
 
 DEFAULT_ROLES = [
     {"role_key": "admin", "name": "老板/管理员", "description": "全部功能+系统设置", "permissions_json": '["*"]'},
@@ -332,6 +341,8 @@ def update_role(role_id: int, req: RoleUpdate, db: Session = Depends(get_db)):
             ))
 
     db.commit()
+    # 清除该角色关联的所有用户的权限缓存
+    _invalidate_role_users_cache(db, role_id)
     return ResponseModel(data=_role_to_out(role, db))
 
 
@@ -358,4 +369,6 @@ def assign_role(req: AssignRole, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="角色不存在")
     employee.role_id = req.role_id
     db.commit()
+    # 清除该员工的权限缓存
+    invalidate_user_caches(req.employee_id)
     return ResponseModel(message=f"已将 {employee.name} 分配为 {role.name}")

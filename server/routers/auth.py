@@ -11,6 +11,10 @@ from models.employee_role import EmployeeRole
 from schemas.auth import LoginRequest, LoginResponse, CurrentUser
 from schemas.common import ResponseModel
 from utils.auth import verify_password, create_access_token, decode_access_token
+from utils.cache import (
+    get_permissions_cache, set_permissions_cache,
+    invalidate_user_caches, PERMISSIONS_CACHE_TTL
+)
 from datetime import datetime, timedelta
 import threading
 
@@ -182,6 +186,9 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
     # 构建完整权限信息
     perms = _build_user_permissions(user, db)
 
+    # 登录成功时清除旧缓存（确保权限变更生效）
+    invalidate_user_caches(user.id)
+
     # 构造增强JWT payload
     token = create_access_token(
         {"user_id": user.id, "username": user.username},
@@ -249,13 +256,23 @@ def get_permissions(
 ):
     # 如果指定了role_id，只返回该角色的权限
     if role_id:
+        # 尝试从缓存获取
+        cached = get_permissions_cache(user.id, role_id)
+        if cached is not None:
+            return ResponseModel(data=cached)
         role = db.query(Role).get(role_id)
         if not role:
             raise HTTPException(status_code=404, detail="角色不存在")
         perms = _build_user_permissions(user, db, filter_role_id=role_id)
+        set_permissions_cache(user.id, perms, role_id=role_id, ttl=PERMISSIONS_CACHE_TTL)
         return ResponseModel(data=perms)
     # 否则返回所有角色的合并权限
+    # 尝试从缓存获取
+    cached = get_permissions_cache(user.id)
+    if cached is not None:
+        return ResponseModel(data=cached)
     perms = _build_user_permissions(user, db)
+    set_permissions_cache(user.id, perms, ttl=PERMISSIONS_CACHE_TTL)
     return ResponseModel(data=perms)
 
 
