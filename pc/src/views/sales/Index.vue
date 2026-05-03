@@ -4,7 +4,7 @@
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
           <span>销售订单</span>
-          <el-button type="primary" @click="showDialog()">新增订单</el-button>
+          <el-button v-if="authStore.hasOperation('sales:create')" type="primary" @click="showDialog()">新增订单</el-button>
         </div>
       </template>
       <el-table :data="list" border stripe>
@@ -22,9 +22,9 @@
         <el-table-column prop="created_at" label="创建时间" width="180" />
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="row.status === 0" size="small" @click="showDialog(row)">编辑</el-button>
-            <el-button v-if="row.status === 0" size="small" type="primary" @click="handleStockout(row)">生成出库</el-button>
-            <el-button v-if="row.status === 0" size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button v-if="authStore.can('sales', 'edit') && row.status === 0" size="small" @click="showDialog(row)">编辑</el-button>
+            <el-button v-if="authStore.hasOperation('sales:create') && row.status === 0" size="small" type="primary" @click="handleStockout(row)">生成出库</el-button>
+            <el-button v-if="authStore.can('sales', 'delete') && row.status === 0" size="small" type="danger" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -98,7 +98,9 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getSalesOrders, createSalesOrder, updateSalesOrder, deleteSalesOrder, orderToStockout, getProducts, getCustomers, getWarehouses } from '../../api'
+import { useAuthStore } from '../../stores/auth'
 
+const authStore = useAuthStore()
 const statusMap = { 0: '草稿', 1: '已确认', 2: '已出库', 3: '已关闭' }
 const list = ref([])
 const total = ref(0)
