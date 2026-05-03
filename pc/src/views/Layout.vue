@@ -9,83 +9,83 @@
         active-text-color="#409EFF"
         router
       >
-        <el-menu-item index="/dashboard">
+        <el-menu-item v-if="authStore.hasModule('home') || authStore.hasModule('dashboard')" index="/dashboard">
           <el-icon><DataBoard /></el-icon>
           <span>首页</span>
         </el-menu-item>
-        <el-sub-menu index="archives">
+        <el-sub-menu v-if="authStore.hasModule('products') || authStore.hasModule('customers')" index="archives">
           <template #title>
             <el-icon><Folder /></el-icon>
             <span>档案</span>
           </template>
-          <el-menu-item index="/products">商品管理</el-menu-item>
-          <el-menu-item index="/customers">客户管理</el-menu-item>
-          <el-menu-item index="/customer-prices">客户价格等级</el-menu-item>
-          <el-menu-item index="/suppliers">供应商管理</el-menu-item>
-          <el-menu-item index="/supplier-reconciliation">供应商对账</el-menu-item>
-          <el-menu-item index="/customers/crm">客户关系管理</el-menu-item>
-          <el-menu-item index="/units">单位管理</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('products')" index="/products">商品管理</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('customers')" index="/customers">客户管理</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('customers')" index="/customer-prices">客户价格等级</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('suppliers')" index="/suppliers">供应商管理</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('suppliers')" index="/supplier-reconciliation">供应商对账</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('customers')" index="/customers/crm">客户关系管理</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('products')" index="/units">单位管理</el-menu-item>
         </el-sub-menu>
-        <el-sub-menu index="purchase">
+        <el-sub-menu v-if="authStore.hasModule('purchases')" index="purchase">
           <template #title>
             <el-icon><ShoppingCart /></el-icon>
             <span>采购</span>
           </template>
-          <el-menu-item index="/purchases">采购订单</el-menu-item>
-          <el-menu-item index="/purchase-returns">采购退货</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('purchases')" index="/purchases">采购订单</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('purchases')" index="/purchase-returns">采购退货</el-menu-item>
         </el-sub-menu>
-        <el-sub-menu index="sale">
+        <el-sub-menu v-if="authStore.hasModule('sales')" index="sale">
           <template #title>
             <el-icon><Sell /></el-icon>
             <span>销售</span>
           </template>
-          <el-menu-item index="/sales">销售订单</el-menu-item>
-          <el-menu-item index="/sales-returns">销售退货</el-menu-item>
-          <el-menu-item index="/salesmen">业务员管理</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('sales')" index="/sales">销售订单</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('sales')" index="/sales-returns">销售退货</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('salesmen')" index="/salesmen">业务员管理</el-menu-item>
         </el-sub-menu>
-        <el-menu-item index="/promotions">
+        <el-menu-item v-if="authStore.hasModule('promotions')" index="/promotions">
           <el-icon><PriceTag /></el-icon>
           <span>促销</span>
         </el-menu-item>
-        <el-sub-menu index="warehouse">
+        <el-sub-menu v-if="authStore.hasModule('inventory') || authStore.hasModule('warehouses')" index="warehouse">
           <template #title>
             <el-icon><Box /></el-icon>
             <span>仓库</span>
           </template>
-          <el-menu-item index="/inventory">库存查询</el-menu-item>
-          <el-menu-item index="/transfers">库存调拨</el-menu-item>
-          <el-menu-item index="/warehouses">仓库管理</el-menu-item>
-          <el-menu-item index="/batches">批次管理</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('inventory')" index="/inventory">库存查询</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('inventory')" index="/transfers">库存调拨</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('warehouses')" index="/warehouses">仓库管理</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('batches')" index="/batches">批次管理</el-menu-item>
         </el-sub-menu>
-        <el-sub-menu index="finance">
+        <el-sub-menu v-if="authStore.hasModule('finance')" index="finance">
           <template #title>
             <el-icon><Money /></el-icon>
             <span>财务</span>
           </template>
-          <el-menu-item index="/finance">收支管理</el-menu-item>
-          <el-menu-item index="/bank-reconciliation">银行对账</el-menu-item>
-          <el-menu-item index="/invoices">发票管理</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('finance')" index="/finance">收支管理</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('finance')" index="/bank-reconciliation">银行对账</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('finance')" index="/invoices">发票管理</el-menu-item>
         </el-sub-menu>
-        <el-sub-menu index="reports">
+        <el-sub-menu v-if="authStore.hasModule('reports')" index="reports">
           <template #title>
             <el-icon><DataBoard /></el-icon>
             <span>报表</span>
           </template>
-          <el-menu-item index="/reports/profit">利润统计</el-menu-item>
-          <el-menu-item index="/reports/inventory">库存汇总</el-menu-item>
-          <el-menu-item index="/reports/sales-ranking">销售排行</el-menu-item>
-          <el-menu-item index="/reports/trend">趋势图</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('reports')" index="/reports/profit">利润统计</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('reports')" index="/reports/inventory">库存汇总</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('reports')" index="/reports/sales-ranking">销售排行</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('reports')" index="/reports/trend">趋势图</el-menu-item>
         </el-sub-menu>
-        <el-sub-menu v-if="authStore.isAdmin" index="system">
+        <el-sub-menu v-if="authStore.hasModule('roles') || authStore.hasModule('employees')" index="system">
           <template #title>
             <el-icon><Setting /></el-icon>
             <span>系统</span>
           </template>
-          <el-menu-item index="/system/roles">角色管理</el-menu-item>
-          <el-menu-item index="/system/backup">数据备份</el-menu-item>
-          <el-menu-item index="/system/print-templates">打印模板</el-menu-item>
-          <el-menu-item index="/system/data-import">数据导入</el-menu-item>
-          <el-menu-item index="/system/logs">操作日志</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('roles')" index="/system/roles">角色管理</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('system')" index="/system/backup">数据备份</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('system')" index="/system/print-templates">打印模板</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('system')" index="/system/data-import">数据导入</el-menu-item>
+          <el-menu-item v-if="authStore.hasModule('system')" index="/system/logs">操作日志</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>

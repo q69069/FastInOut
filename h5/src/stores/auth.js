@@ -5,21 +5,47 @@ import { login as apiLogin, getCurrentUser } from '../api'
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('token') || '')
   const user = ref(null)
+  const modules = ref([])
+  const permissions = ref({})
+  const operations = ref([])
+  const warehouse_ids = ref([])
+  const route_ids = ref([])
 
   const isLoggedIn = computed(() => !!token.value)
+  const username = computed(() => user.value?.username || '')
   const displayName = computed(() => user.value?.name || user.value?.username || '')
+  const roleName = computed(() => user.value?.role_name || '')
+  const isAdmin = computed(() => {
+    if (permissions.value['*']) return true
+    if (operations.value.includes('*')) return true
+    const roles = user.value?.permissions?.roles || []
+    return roles.some(r => r.role_key === 'admin')
+  })
+
+  function hasModule(moduleKey) {
+    return modules.value.includes(moduleKey)
+  }
+
+  function hasOperation(operation) {
+    if (isAdmin.value) return true
+    return operations.value.includes(operation)
+  }
 
   async function fetchUser() {
     try {
       const res = await getCurrentUser()
       user.value = res.data || null
-      if (res.data?.position) {
-        localStorage.setItem('user_role', res.data.position)
-      } else if (res.data?.role) {
-        localStorage.setItem('user_role', res.data.role)
-      }
+      const perms = res.data?.permissions || {}
+      modules.value = perms.modules || []
+      permissions.value = perms.permissions || {}
+      operations.value = perms.operations || []
+      warehouse_ids.value = perms.warehouse_ids || []
+      route_ids.value = perms.route_ids || []
     } catch {
       user.value = null
+      modules.value = []
+      permissions.value = {}
+      operations.value = []
     }
   }
 
@@ -37,9 +63,17 @@ export const useAuthStore = defineStore('auth', () => {
   function logout() {
     token.value = ''
     user.value = null
+    modules.value = []
+    permissions.value = {}
+    operations.value = []
     localStorage.removeItem('token')
-    localStorage.removeItem('user_role')
   }
 
-  return { token, user, isLoggedIn, displayName, fetchUser, login, logout }
+  return {
+    token, user, isLoggedIn, username, displayName,
+    roleName, permissions, isAdmin,
+    modules, operations, warehouse_ids, route_ids,
+    hasModule, hasOperation,
+    login, fetchUser, logout
+  }
 })

@@ -5,10 +5,10 @@
     </div>
     <van-tabbar v-model="active" fixed safe-area-inset-bottom>
       <van-tabbar-item to="/home" icon="wap-home">首页</van-tabbar-item>
-      <van-tabbar-item to="/dashboard" icon="chart-trending-o">看板</van-tabbar-item>
-      <van-tabbar-item to="/customers" icon="friends">客户</van-tabbar-item>
-      <van-tabbar-item to="/performance" icon="graphic">业绩</van-tabbar-item>
-      <van-tabbar-item to="/tools" icon="setting-o">工具</van-tabbar-item>
+      <van-tabbar-item v-if="authStore.hasModule('dashboard')" to="/dashboard" icon="chart-trending-o">看板</van-tabbar-item>
+      <van-tabbar-item v-if="authStore.hasModule('customers')" to="/customers" icon="friends">客户</van-tabbar-item>
+      <van-tabbar-item v-if="authStore.hasModule('performance')" to="/performance" icon="graphic">业绩</van-tabbar-item>
+      <van-tabbar-item v-if="authStore.hasModule('tools') || authStore.hasModule('profile')" to="/tools" icon="setting-o">工具</van-tabbar-item>
     </van-tabbar>
   </div>
 </template>
@@ -16,8 +16,10 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { useAuthStore } from '../stores'
 
 const route = useRoute()
+const authStore = useAuthStore()
 const active = ref(0)
 
 watch(() => route.path, (path) => {
