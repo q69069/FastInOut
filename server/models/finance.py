@@ -15,6 +15,7 @@ class Receipt(Base):
     status = Column(Integer, default=0)  # 0=待确认 1=已确认
     matched = Column(Boolean, default=False)  # 银行对账匹配
     operator_id = Column(Integer, ForeignKey("employees.id"))
+    created_by = Column(Integer, default=0)
     remark = Column(Text)
     created_at = Column(DateTime, server_default=func.now())
     confirmed_at = Column(DateTime)
@@ -33,6 +34,7 @@ class Payment(Base):
     status = Column(Integer, default=0)  # 0=待确认 1=已确认
     matched = Column(Boolean, default=False)  # 银行对账匹配
     operator_id = Column(Integer, ForeignKey("employees.id"))
+    created_by = Column(Integer, default=0)
     remark = Column(Text)
     created_at = Column(DateTime, server_default=func.now())
     confirmed_at = Column(DateTime)
