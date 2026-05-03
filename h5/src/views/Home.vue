@@ -65,6 +65,37 @@
         </div>
       </div>
     </div>
+
+    <!-- 快捷入口卡片 -->
+    <div class="shortcut-card">
+      <div class="card-title">快捷功能</div>
+      <div class="shortcut-grid">
+        <div class="shortcut-item" @click="$router.push('/customers')">
+          <van-icon name="friends-o" />
+          <span>客户管理</span>
+        </div>
+        <div class="shortcut-item" @click="$router.push('/inventory')">
+          <van-icon name="logistics" />
+          <span>库存查询</span>
+        </div>
+        <div class="shortcut-item" @click="$router.push('/transfer')">
+          <van-icon name="exchange" />
+          <span>调拨单</span>
+        </div>
+        <div class="shortcut-item" @click="$router.push('/approve')">
+          <van-icon name="passed" />
+          <span>审核中心</span>
+        </div>
+        <div class="shortcut-item" @click="$router.push('/receivables')">
+          <van-icon name="balance-o" />
+          <span>应收应付</span>
+        </div>
+        <div class="shortcut-item" @click="$router.push('/employee')">
+          <van-icon name="manager-o" />
+          <span>员工管理</span>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -151,4 +182,18 @@ onMounted(loadData)
 .todo-item { display: flex; align-items: center; gap: 8px; }
 .todo-icon { color: #ff9a56; }
 .todo-text { font-size: 13px; color: #666; }
+.shortcut-card {
+  background: #fff;
+  margin: 0 12px 12px;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+.shortcut-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.shortcut-item {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 12px; background: #f7f8fa; border-radius: 8px;
+}
+.shortcut-item span { font-size: 12px; color: #666; }
+.shortcut-item :deep(.van-icon) { font-size: 24px; color: #1989fa; }
 </style>
