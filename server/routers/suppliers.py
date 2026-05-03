@@ -46,7 +46,7 @@ def list_suppliers(
     if category_id:
         q = q.filter(Supplier.category_id == category_id)
     total = q.count()
-    items = q.offset((page - 1) * page_size).limit(page_size).all()
+    items = q.order_by(Supplier.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     return PaginatedResponse(
         data=[SupplierOut.model_validate(i) for i in items],
         total=total, page=page, page_size=page_size
@@ -54,9 +54,10 @@ def list_suppliers(
 
 
 @router.post("", response_model=ResponseModel)
-def create_supplier(req: SupplierCreate, db: Session = Depends(get_db)):
+def create_supplier(req: SupplierCreate, authorization: str = Header(None), db: Session = Depends(get_db)):
     """新增供应商"""
-    sup = Supplier(**req.model_dump())
+    user = get_current_user(authorization, db)
+    sup = Supplier(**req.model_dump(), created_by=user.id)
     db.add(sup)
     db.commit()
     db.refresh(sup)
@@ -64,20 +65,28 @@ def create_supplier(req: SupplierCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{supplier_id}", response_model=ResponseModel)
-def get_supplier(supplier_id: int, db: Session = Depends(get_db)):
+def get_supplier(supplier_id: int, authorization: str = Header(None), db: Session = Depends(get_db)):
     """获取供应商详情"""
+    user = get_current_user(authorization, db)
     sup = db.query(Supplier).get(supplier_id)
     if not sup:
         raise HTTPException(status_code=404, detail="供应商不存在")
+    # 数据权限检查：非admin只能查看自己创建的
+    if user.role_id != 5 and sup.created_by != user.id:
+            raise HTTPException(status_code=403, detail="无权查看此供应商")
     return ResponseModel(data=SupplierOut.model_validate(sup))
 
 
 @router.put("/{supplier_id}", response_model=ResponseModel)
-def update_supplier(supplier_id: int, req: SupplierUpdate, db: Session = Depends(get_db)):
+def update_supplier(supplier_id: int, req: SupplierUpdate, authorization: str = Header(None), db: Session = Depends(get_db)):
     """更新供应商"""
+    user = get_current_user(authorization, db)
     sup = db.query(Supplier).get(supplier_id)
     if not sup:
         raise HTTPException(status_code=404, detail="供应商不存在")
+    # 权限检查：非admin只能编辑自己创建的
+    if user.role_id != 5 and sup.created_by != user.id:
+        raise HTTPException(status_code=403, detail="无权编辑此供应商")
     for k, v in req.model_dump(exclude_unset=True).items():
         setattr(sup, k, v)
     db.commit()
@@ -86,11 +95,15 @@ def update_supplier(supplier_id: int, req: SupplierUpdate, db: Session = Depends
 
 
 @router.delete("/{supplier_id}", response_model=ResponseModel)
-def delete_supplier(supplier_id: int, db: Session = Depends(get_db)):
+def delete_supplier(supplier_id: int, authorization: str = Header(None), db: Session = Depends(get_db)):
     """删除供应商"""
+    user = get_current_user(authorization, db)
     sup = db.query(Supplier).get(supplier_id)
     if not sup:
         raise HTTPException(status_code=404, detail="供应商不存在")
+    # 权限检查：非admin只能删除自己创建的
+    if user.role_id != 5 and sup.created_by != user.id:
+        raise HTTPException(status_code=403, detail="无权删除此供应商")
     db.delete(sup)
     db.commit()
     return ResponseModel(message="删除成功")
