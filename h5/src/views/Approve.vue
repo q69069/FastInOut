@@ -55,7 +55,7 @@
             </div>
           </div>
           <div class="card-actions">
-            <van-button v-if="item.status === '待审核'" size="small" type="primary" @click="handleApprove(item)">审核</van-button>
+            <van-button v-if="authStore.can('sales', 'audit') && item.status === '待审核'" size="small" type="primary" @click="handleApprove(item)">审核</van-button>
             <van-button size="small" @click="handleDetail(item)">详情</van-button>
           </div>
         </div>
@@ -75,8 +75,8 @@
           <van-field v-model="approveForm.remark" label="审核意见" placeholder="请输入审核意见" rows="2" autosize type="textarea" />
         </van-cell-group>
         <div class="popup-actions">
-          <van-button @click="handleReject" type="danger">驳回</van-button>
-          <van-button @click="handlePass" type="success">通过</van-button>
+          <van-button v-if="authStore.can('sales', 'audit')" @click="handleReject" type="danger">驳回</van-button>
+          <van-button v-if="authStore.can('sales', 'audit')" @click="handlePass" type="success">通过</van-button>
         </div>
       </div>
     </van-popup>
@@ -87,6 +87,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { showToast } from 'vant'
 import { getApproveList, approveBill, rejectBill } from '../api'
+import { useAuthStore } from '../stores/auth'
+
+const authStore = useAuthStore()
 
 const loading = ref(false)
 const finished = ref(false)

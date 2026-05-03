@@ -45,7 +45,7 @@ const router = createRouter({
 })
 
 // 默认允许访问的Tab（无权限时重定向）
-const DEFAULT_TABS = ['home', 'dashboard', 'customers', 'sales', 'inventory', 'performance', 'tools', 'profile']
+const DEFAULT_TABS = ['home', 'dashboard', 'customers', 'performance', 'inventory', 'finance', 'tools', 'profile']
 
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()

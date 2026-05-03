@@ -44,7 +44,8 @@
         <span>合计：</span>
         <span class="total-price">¥{{ totalAmount }}</span>
       </div>
-      <van-button type="primary" size="large" :loading="loading" @click="handleSubmit">提交采购</van-button>
+      <van-button v-if="authStore.can('purchases', 'create')" type="primary" size="large" :loading="loading" @click="handleSubmit">提交采购</van-button>
+      <van-button v-else type="default" size="large" disabled>无权限提交</van-button>
     </div>
 
     <!-- 供应商选择弹窗 -->
@@ -63,10 +64,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { showToast, showSuccessToast } from 'vant'
 import { useRouter, useRoute } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 import { getSuppliers, getWarehouses, getProducts, createPurchase } from '../api'
 
 const router = useRouter()
 const route = useRoute()
+const authStore = useAuthStore()
 const loading = ref(false)
 const showSupplierPopup = ref(false)
 const showWarehousePopup = ref(false)

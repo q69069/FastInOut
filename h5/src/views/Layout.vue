@@ -9,6 +9,8 @@
       <van-tabbar-item v-if="authStore.hasModule('customers')" to="/customers" icon="friends">客户</van-tabbar-item>
       <van-tabbar-item v-if="authStore.hasModule('performance')" to="/performance" icon="graphic">业绩</van-tabbar-item>
       <van-tabbar-item v-if="authStore.hasModule('tools') || authStore.hasModule('profile')" to="/tools" icon="setting-o">工具</van-tabbar-item>
+      <van-tabbar-item v-if="authStore.hasModule('inventory')" to="/inventory" icon="logistics">库存</van-tabbar-item>
+      <van-tabbar-item v-if="authStore.hasModule('finance')" to="/receivables" icon="balance-o">财务</van-tabbar-item>
     </van-tabbar>
   </div>
 </template>
@@ -27,7 +29,9 @@ watch(() => route.path, (path) => {
   else if (path === '/dashboard') active.value = 1
   else if (path === '/customers') active.value = 2
   else if (path === '/performance') active.value = 3
-  else if (path === '/tools') active.value = 4
+  else if (path === '/inventory') active.value = 4
+  else if (path === '/tools') active.value = 5
+  else if (path === '/receivables') active.value = 6
 }, { immediate: true })
 </script>
 

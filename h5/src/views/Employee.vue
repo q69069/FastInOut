@@ -30,7 +30,7 @@
             </div>
           </div>
           <div class="card-actions">
-            <van-button size="small" @click="handleEdit(item)">编辑</van-button>
+            <van-button v-if="authStore.can('employees', 'edit')" size="small" @click="handleEdit(item)">编辑</van-button>
           </div>
         </div>
       </van-list>
@@ -59,6 +59,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { showToast } from 'vant'
 import { getEmployees, createEmployee, updateEmployee } from '../api'
+import { useAuthStore } from '../stores/auth'
+
+const authStore = useAuthStore()
 
 const loading = ref(false)
 const finished = ref(false)
