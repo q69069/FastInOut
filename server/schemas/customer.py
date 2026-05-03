@@ -42,6 +42,9 @@ class CustomerUpdate(BaseModel):
 
 class CustomerOut(CustomerBase):
     id: int
+    route_id: Optional[int] = None  # 负责路线ID
+    salesman_ids: Optional[str] = None  # 负责业务员IDs，逗号分隔
+    default_warehouse_id: Optional[int] = None  # 默认仓库ID
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

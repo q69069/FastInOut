@@ -9,6 +9,7 @@ class SalesOrder(Base):
     code = Column(String(50), unique=True, nullable=False)  # XS+日期+序号
     customer_id = Column(Integer, ForeignKey("customers.id"))
     warehouse_id = Column(Integer, ForeignKey("warehouses.id"))
+    route_id = Column(Integer, ForeignKey("routes.id"), comment="路线ID")
     operator_id = Column(Integer, ForeignKey("employees.id"))
     total_amount = Column(Float, default=0)
     paid_amount = Column(Float, default=0)

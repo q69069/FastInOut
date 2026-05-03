@@ -8,6 +8,11 @@ const routes = [
     component: () => import('../views/Login.vue')
   },
   {
+    path: '/403',
+    name: 'Forbidden',
+    component: () => import('../views/403.vue')
+  },
+  {
     path: '/',
     component: () => import('../views/Layout.vue'),
     redirect: '/dashboard',
@@ -225,7 +230,7 @@ router.beforeEach(async (to, from, next) => {
     const moduleKey = to.meta.moduleKey
     if (moduleKey && !authStore.isAdmin && !authStore.hasModule(moduleKey)) {
       ElMessage.error('无权访问此页面')
-      next('/dashboard')
+      next('/403')
     } else {
       next()
     }
