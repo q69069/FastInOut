@@ -48,6 +48,17 @@ def auto_migrate():
         if 'online_status' not in emp_cols:
             conn.execute(text('ALTER TABLE employees ADD COLUMN online_status VARCHAR(10) DEFAULT "offline"'))
 
+        # roles 新字段
+        role_cols = [c['name'] for c in inspector.get_columns('roles')]
+        if 'role_key' not in role_cols:
+            conn.execute(text('ALTER TABLE roles ADD COLUMN role_key VARCHAR(20)'))
+        if 'is_system' not in role_cols:
+            conn.execute(text('ALTER TABLE roles ADD COLUMN is_system INTEGER DEFAULT 1'))
+        if 'sort_order' not in role_cols:
+            conn.execute(text('ALTER TABLE roles ADD COLUMN sort_order INTEGER DEFAULT 0'))
+        if 'status' not in role_cols:
+            conn.execute(text('ALTER TABLE roles ADD COLUMN status VARCHAR(10) DEFAULT "active"'))
+
         # customers 新字段
         cust_cols = [c['name'] for c in inspector.get_columns('customers')]
         if 'route_id' not in cust_cols:
@@ -196,16 +207,66 @@ def auto_migrate():
                 route_id INTEGER NOT NULL,
                 UNIQUE(employee_id, route_id)
             )'''))
+        # modules 表（权限模块）
+        if 'modules' not in tables:
+            conn.execute(text('''CREATE TABLE modules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                module_key VARCHAR(30) UNIQUE NOT NULL,
+                name VARCHAR(30) NOT NULL,
+                parent_id INTEGER,
+                module_type VARCHAR(10) DEFAULT 'page',
+                pc_view BOOLEAN DEFAULT 1,
+                h5_tab VARCHAR(20),
+                sort_order INTEGER DEFAULT 0,
+                icon VARCHAR(30),
+                path VARCHAR(100),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )'''))
+        # role_module_permissions 表
+        if 'role_module_permissions' not in tables:
+            conn.execute(text('''CREATE TABLE role_module_permissions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                role_id INTEGER NOT NULL,
+                module_id INTEGER NOT NULL,
+                can_view BOOLEAN DEFAULT 1,
+                can_create BOOLEAN DEFAULT 0,
+                can_edit BOOLEAN DEFAULT 0,
+                can_delete BOOLEAN DEFAULT 0,
+                can_audit BOOLEAN DEFAULT 0,
+                can_export BOOLEAN DEFAULT 0,
+                data_scope VARCHAR(20) DEFAULT 'all',
+                UNIQUE(role_id, module_id)
+            )'''))
+        # operation_permissions 表
+        if 'operation_permissions' not in tables:
+            conn.execute(text('''CREATE TABLE operation_permissions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                role_id INTEGER NOT NULL,
+                operation_key VARCHAR(50) NOT NULL,
+                allowed BOOLEAN DEFAULT 0,
+                data_scope VARCHAR(20) DEFAULT 'all',
+                UNIQUE(role_id, operation_key)
+            )'''))
+        # employee_roles 表
+        if 'employee_roles' not in tables:
+            conn.execute(text('''CREATE TABLE employee_roles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                employee_id INTEGER NOT NULL,
+                role_id INTEGER NOT NULL,
+                UNIQUE(employee_id, role_id)
+            )'''))
         conn.commit()
 
 auto_migrate()
 
 # 初始化默认角色
-from routers.roles import init_default_roles
+from routers.roles import init_default_roles, init_modules, init_role_permissions
 from routers.print_templates import init_default_templates
 db = SessionLocal()
 try:
     init_default_roles(db)
+    init_modules(db)
+    init_role_permissions(db)
     init_default_templates(db)
 finally:
     db.close()
