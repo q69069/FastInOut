@@ -48,7 +48,8 @@
         <span>合计：</span>
         <span class="total-price">¥{{ finalAmount }}</span>
       </div>
-      <van-button type="primary" size="large" :loading="loading" @click="handleSubmit">提交订单</van-button>
+      <van-button v-if="authStore.hasOperation('sales:create')" type="primary" size="large" :loading="loading" @click="handleSubmit">提交订单</van-button>
+      <van-button v-else type="default" size="large" disabled>无权限提交</van-button>
     </div>
 
     <!-- 客户选择弹窗 -->
@@ -67,9 +68,11 @@
 import { ref, computed, onMounted } from 'vue'
 import { showToast, showSuccessToast } from 'vant'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 import { getCustomers, getProducts, createSalesOrder } from '../api'
 
 const router = useRouter()
+const authStore = useAuthStore()
 const loading = ref(false)
 const showCustomerPopup = ref(false)
 

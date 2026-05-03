@@ -26,6 +26,19 @@ export const useAuthStore = defineStore('auth', () => {
     return modules.value.includes(moduleKey)
   }
 
+  function can(moduleKey, action) {
+    if (isAdmin.value) return true
+    const modPerms = permissions.value[moduleKey]
+    if (!modPerms) return false
+    if (action === 'view') return modPerms.view
+    if (action === 'create') return modPerms.create
+    if (action === 'edit') return modPerms.edit
+    if (action === 'delete') return modPerms.delete
+    if (action === 'audit') return modPerms.audit
+    if (action === 'export') return modPerms.export
+    return false
+  }
+
   function hasOperation(operation) {
     if (isAdmin.value) return true
     return operations.value.includes(operation)
@@ -73,7 +86,7 @@ export const useAuthStore = defineStore('auth', () => {
     token, user, isLoggedIn, username, displayName,
     roleName, permissions, isAdmin,
     modules, operations, warehouse_ids, route_ids,
-    hasModule, hasOperation,
+    hasModule, can, hasOperation,
     login, fetchUser, logout
   }
 })
