@@ -857,7 +857,226 @@ else:
 
 ---
 
-> 📝 方案版本：v1.0
+> 📝 方案版本：v1.1
 > 📅 编制日期：2026-05-03
 > 👤 编制：Hermes小A
 > 📖 下发给：小C（后端+PC端）+ 小A（H5端）+ 小Q（测试）+ 银月（消息推送权限）→ 多啦A梦审核
+
+---
+
+## 十三、PC端 UI/UX 优化（公子明确需求）
+
+### 13.1 多标签窗口
+
+**功能说明：**
+- 打开新模块 → 顶部出现新标签页
+- 可切换、可关闭、可右键"关闭其他"
+- 底部加"历史记录"快速回退
+- 右键可"固定"标签页
+
+**实现方案：**
+
+```typescript
+// stores/tabs.ts - 标签页管理
+export const useTabStore = defineStore('tabs', {
+  state: () => ({
+    tabs: [{ path: '/dashboard', title: '首页', closable: false, fixed: true }],
+    activeTab: '/dashboard',
+    history: []
+  }),
+  actions: {
+    addTab(route) {
+      if (this.tabs.find(t => t.path === route.path)) {
+        this.activeTab = route.path
+        return
+      }
+      this.tabs.push({ ...route, closable: true })
+      this.activeTab = route.path
+      this.history.push(route.path)
+    },
+    closeTab(path) {
+      const idx = this.tabs.findIndex(t => t.path === path)
+      if (idx !== -1) this.tabs.splice(idx, 1)
+    },
+    closeOther(path) {
+      this.tabs = this.tabs.filter(t => t.path === path || t.fixed)
+    },
+    pinTab(path) {
+      const tab = this.tabs.find(t => t.path === path)
+      if (tab) tab.fixed = true
+    }
+  }
+})
+```
+
+**右键菜单配置：**
+
+| 选项 | 功能 |
+|------|------|
+| 关闭 | 关闭当前标签 |
+| 关闭其他 | 关闭除固定和当前外的所有标签 |
+| 关闭全部 | 关闭所有可关闭标签 |
+| 固定 | 固定/取消固定标签（固定标签不可关闭） |
+
+**历史记录功能：**
+- 底部固定"历史"按钮，点击展开最近访问的10个页面
+- 支持快速回退到上一个页面
+
+---
+
+### 13.2 侧边栏 Hover 展开
+
+**功能说明：**
+- 鼠标移入 → 右侧滑出子模块面板
+- 鼠标移出 → 0.3秒延迟后自动收回
+- 子模块平铺展示，不挤占主内容区
+- 支持键盘快捷键（Alt+数字）
+
+**实现方案：**
+
+```vue
+<!-- SidebarHover.vue -->
+<template>
+  <div class="sidebar-container" 
+       @mouseenter="handleMouseEnter"
+       @mouseleave="handleMouseLeave">
+    
+    <!-- 收缩态：只显示图标 -->
+    <div class="sidebar-icons" :class="{ expanded: isExpanded }">
+      <div v-for="(item, idx) in menuItems" 
+           :key="item.key"
+           class="menu-item"
+           :class="{ active: activeMenu === item.key }"
+           @click="handleClick(item)"
+           @mouseenter="showSubmenu(item)">
+        <el-tooltip :content="item.label" placement="right">
+          <el-icon><component :is="item.icon" /></el-icon>
+        </el-tooltip>
+        <span v-if="isExpanded" class="menu-label">{{ item.label }}</span>
+      </div>
+    </div>
+
+    <!-- 悬停展开子面板 -->
+    <transition name="slide">
+      <div v-if="showPanel" class="submenu-panel">
+        <div class="submenu-header">{{ currentMenu.label }}</div>
+        <div class="submenu-items">
+          <div v-for="sub in currentMenu.children" 
+               :key="sub.path"
+               class="submenu-item"
+               @click="navigateTo(sub)">
+            {{ sub.label }}
+          </div>
+        </div>
+      </div>
+    </transition>
+  </div>
+</template>
+
+<script setup>
+const isExpanded = ref(false)
+const showPanel = ref(false)
+const activeMenu = ref('')
+const currentMenu = ref(null)
+let hideTimer = null
+
+function handleMouseEnter() {
+  clearTimeout(hideTimer)
+  isExpanded.value = true
+}
+
+function handleMouseLeave() {
+  hideTimer = setTimeout(() => {
+    isExpanded.value = false
+    showPanel.value = false
+  }, 300)
+}
+
+function showSubmenu(item) {
+  if (item.children?.length) {
+    currentMenu.value = item
+    showPanel.value = true
+    activeMenu.value = item.key
+  } else {
+    navigateTo(item)
+  }
+}
+</script>
+
+<style scoped>
+.sidebar-container {
+  display: flex;
+  position: relative;
+}
+
+.sidebar-icons {
+  width: 60px;
+  transition: width 0.3s ease;
+  background: #304156;
+}
+
+.sidebar-icons.expanded {
+  width: 200px;
+}
+
+.submenu-panel {
+  position: absolute;
+  left: 60px;
+  top: 0;
+  width: 200px;
+  height: 100%;
+  background: #304156;
+  box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+  z-index: 100;
+}
+
+.slide-enter-active, .slide-leave-active {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+.slide-enter-from, .slide-leave-to {
+  transform: translateX(-20px);
+  opacity: 0;
+}
+</style>
+```
+
+**键盘快捷键支持：**
+
+| 快捷键 | 功能 |
+|--------|------|
+| Alt + 1-9 | 快速切换到第1-9个菜单 |
+| Alt + D | 回到首页/仪表盘 |
+| Alt + B | 后退到上一个页面 |
+
+---
+
+### 13.3 标签页+侧边栏联动
+
+```typescript
+// 标签页点击 → 侧边栏高亮
+function onTabClick(tab) {
+  const menuItem = menuConfig.find(m => m.path === tab.path)
+  if (menuItem) {
+    activeMenu.value = menuItem.key
+    router.push(tab.path)
+  }
+}
+
+// 侧边栏点击 → 新增标签
+function onSidebarClick(item) {
+  tabStore.addTab({ path: item.path, title: item.label })
+  router.push(item.path)
+}
+```
+
+---
+
+### 13.4 实施优先级
+
+| 任务 | 预估 | 说明 |
+|------|------|------|
+| 多标签窗口 | 2天 | 标签页管理+右键菜单+历史记录 |
+| 侧边栏Hover展开 | 1.5天 | 动画+子面板+快捷键 |
+| 标签页+侧边栏联动 | 0.5天 | 状态同步 |
+
+**预计总工时：4天**
