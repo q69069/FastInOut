@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime
@@ -11,15 +11,34 @@ from models.sales import (
 from models.customer import Customer
 from models.product import Product
 from models.inventory import Inventory
+from models.employee import Employee
 from schemas.sales import (
     SalesOrderCreate, SalesOrderUpdate, SalesOrderOut, SalesOrderItemOut,
     SalesStockoutCreate, SalesStockoutOut, SalesStockoutItemOut,
     SalesReturnCreate, SalesReturnOut
 )
 from schemas.common import ResponseModel, PaginatedResponse
+from utils.data_filter import DataFilter
 from datetime import datetime
 
 router = APIRouter(prefix="/api", tags=["销售"])
+
+
+def get_current_user(authorization: str = None, db: Session = Depends(get_db)) -> Employee:
+    """从请求头解析当前用户"""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="未登录")
+    from utils.auth import decode_access_token
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="token格式错误")
+    token = authorization.replace("Bearer ", "")
+    payload = decode_access_token(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="token无效")
+    user = db.query(Employee).get(payload.get("user_id"))
+    if not user:
+        raise HTTPException(status_code=401, detail="用户不存在")
+    return user
 
 
 def _gen_code(prefix: str, db: Session, model, max_retries: int = 5) -> str:
@@ -53,9 +72,13 @@ def list_sales_orders(
     status: int = Query(None), customer_id: int = Query(None),
     start_date: str = Query(None), end_date: str = Query(None),
     keyword: str = Query(None),
+    authorization: str = Header(None),
     db: Session = Depends(get_db)
 ):
+    user = get_current_user(authorization, db)
     q = db.query(SalesOrder)
+    # 应用数据权限过滤
+    q = DataFilter.apply_scope(q, SalesOrder, user, db, scope_field="route_id", module_key="sales")
     if status is not None:
         q = q.filter(SalesOrder.status == status)
     if customer_id:

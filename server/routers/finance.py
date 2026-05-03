@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.orm import Session
 from datetime import datetime
 from database import get_db
@@ -7,14 +7,33 @@ from models.customer import Customer
 from models.supplier import Supplier
 from models.sales import SalesStockout
 from models.purchase import PurchaseStockin
+from models.employee import Employee
 from schemas.finance import (
     ReceiptCreate, ReceiptOut, PaymentCreate, PaymentOut,
     PreReceiptCreate, PrePaymentCreate, PreToReceivable, PreToPayable
 )
 from schemas.common import ResponseModel, PaginatedResponse
+from utils.data_filter import DataFilter
+from utils.auth import decode_access_token
 from datetime import datetime
 
 router = APIRouter(prefix="/api/finance", tags=["财务"])
+
+
+def get_current_user(authorization: str = None, db: Session = Depends(get_db)) -> Employee:
+    """从请求头解析当前用户"""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="未登录")
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="token格式错误")
+    token = authorization.replace("Bearer ", "")
+    payload = decode_access_token(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="token无效")
+    user = db.query(Employee).get(payload.get("user_id"))
+    if not user:
+        raise HTTPException(status_code=401, detail="用户不存在")
+    return user
 
 
 def _gen_code(prefix: str, db: Session, model) -> str:
@@ -30,9 +49,13 @@ def list_receipts(
     customer_id: int = Query(None), payment_method: str = Query(None),
     start_date: str = Query(None), end_date: str = Query(None),
     receipt_type: str = Query(None),
+    authorization: str = Header(None),
     db: Session = Depends(get_db)
 ):
+    user = get_current_user(authorization, db)
     q = db.query(Receipt)
+    # 应用数据权限过滤（财务按客户路线过滤）
+    q = DataFilter.apply_scope(q, Receipt, user, db, scope_field="customer_id", module_key="finance")
     if customer_id:
         q = q.filter(Receipt.customer_id == customer_id)
     if payment_method:
