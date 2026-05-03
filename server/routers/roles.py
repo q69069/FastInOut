@@ -187,16 +187,40 @@ def init_role_permissions(db: Session):
     db.commit()
 
 
-def _role_to_out(role: Role) -> RoleOut:
-    try:
-        perms = json.loads(role.permissions_json or "[]")
-    except (json.JSONDecodeError, TypeError):
-        perms = []
+def _role_to_out(role: Role, db: Session) -> RoleOut:
+    # 获取模块权限
+    module_perms = db.query(RoleModulePermission).filter(
+        RoleModulePermission.role_id == role.id
+    ).all()
+    module_permissions = []
+    for mp in module_perms:
+        mod = db.query(Module).get(mp.module_id)
+        if mod:
+            module_permissions.append({
+                "module_key": mod.module_key,
+                "can_view": mp.can_view,
+                "can_create": mp.can_create,
+                "can_edit": mp.can_edit,
+                "can_delete": mp.can_delete,
+                "can_audit": mp.can_audit,
+                "can_export": mp.can_export,
+                "data_scope": mp.data_scope,
+            })
+
+    # 获取操作权限
+    op_perms = db.query(OperationPermission).filter(
+        OperationPermission.role_id == role.id,
+        OperationPermission.allowed == True
+    ).all()
+    operations = [op.operation_key for op in op_perms]
+
     return RoleOut(
         id=role.id,
         name=role.name,
         description=role.description,
-        permissions=perms,
+        role_key=role.role_key,
+        module_permissions=module_permissions,
+        operations=operations,
         created_at=role.created_at,
     )
 
@@ -211,7 +235,7 @@ def list_roles(
     total = q.count()
     items = q.order_by(Role.id).offset((page - 1) * page_size).limit(page_size).all()
     return PaginatedResponse(
-        data=[_role_to_out(i) for i in items],
+        data=[_role_to_out(i, db) for i in items],
         total=total, page=page, page_size=page_size
     )
 
@@ -219,7 +243,7 @@ def list_roles(
 @router.get("/all", response_model=ResponseModel)
 def list_all_roles(db: Session = Depends(get_db)):
     roles = db.query(Role).order_by(Role.id).all()
-    return ResponseModel(data=[_role_to_out(r) for r in roles])
+    return ResponseModel(data=[_role_to_out(r, db) for r in roles])
 
 
 @router.post("", response_model=ResponseModel)
@@ -230,12 +254,38 @@ def create_role(req: RoleCreate, db: Session = Depends(get_db)):
     role = Role(
         name=req.name,
         description=req.description,
-        permissions_json=json.dumps(req.permissions, ensure_ascii=False),
+        role_key=req.role_key,
     )
     db.add(role)
     db.commit()
     db.refresh(role)
-    return ResponseModel(data=_role_to_out(role))
+
+    # 保存模块权限
+    for mp in req.module_permissions:
+        mod = db.query(Module).filter(Module.module_key == mp.module_key).first()
+        if mod:
+            db.add(RoleModulePermission(
+                role_id=role.id,
+                module_id=mod.id,
+                can_view=mp.can_view,
+                can_create=mp.can_create,
+                can_edit=mp.can_edit,
+                can_delete=mp.can_delete,
+                can_audit=mp.can_audit,
+                can_export=mp.can_export,
+                data_scope=mp.data_scope,
+            ))
+
+    # 保存操作权限
+    for op_key in req.operations:
+        db.add(OperationPermission(
+            role_id=role.id,
+            operation_key=op_key,
+            allowed=True,
+        ))
+
+    db.commit()
+    return ResponseModel(data=_role_to_out(role, db))
 
 
 @router.put("/{role_id}", response_model=ResponseModel)
@@ -247,11 +297,42 @@ def update_role(role_id: int, req: RoleUpdate, db: Session = Depends(get_db)):
         role.name = req.name
     if req.description is not None:
         role.description = req.description
-    if req.permissions is not None:
-        role.permissions_json = json.dumps(req.permissions, ensure_ascii=False)
     db.commit()
-    db.refresh(role)
-    return ResponseModel(data=_role_to_out(role))
+
+    # 更新模块权限
+    if req.module_permissions is not None:
+        # 删除旧的
+        db.query(RoleModulePermission).filter(RoleModulePermission.role_id == role_id).delete()
+        # 添加新的
+        for mp in req.module_permissions:
+            mod = db.query(Module).filter(Module.module_key == mp.module_key).first()
+            if mod:
+                db.add(RoleModulePermission(
+                    role_id=role.id,
+                    module_id=mod.id,
+                    can_view=mp.can_view,
+                    can_create=mp.can_create,
+                    can_edit=mp.can_edit,
+                    can_delete=mp.can_delete,
+                    can_audit=mp.can_audit,
+                    can_export=mp.can_export,
+                    data_scope=mp.data_scope,
+                ))
+
+    # 更新操作权限
+    if req.operations is not None:
+        # 删除旧的
+        db.query(OperationPermission).filter(OperationPermission.role_id == role_id).delete()
+        # 添加新的
+        for op_key in req.operations:
+            db.add(OperationPermission(
+                role_id=role.id,
+                operation_key=op_key,
+                allowed=True,
+            ))
+
+    db.commit()
+    return ResponseModel(data=_role_to_out(role, db))
 
 
 @router.delete("/{role_id}", response_model=ResponseModel)
