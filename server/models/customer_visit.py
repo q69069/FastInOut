@@ -14,4 +14,5 @@ class CustomerVisit(Base):
     result = Column(Text)  # 拜访结果
     next_plan = Column(Text)  # 下次计划
     operator = Column(String(50))  # 拜访人
+    created_by = Column(Integer, default=0)
     created_at = Column(DateTime, server_default=func.now())

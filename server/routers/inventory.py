@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime
@@ -11,12 +11,28 @@ from models.inventory import (
 from models.product import Product
 from models.warehouse import Warehouse
 from models.system import Message
+from models.employee import Employee
 from schemas.common import ResponseModel, PaginatedResponse
+from utils.data_filter import DataFilter
+from utils.auth import decode_access_token
 from datetime import datetime
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
 router = APIRouter(prefix="/api/inventory", tags=["仓库管理"])
+
+
+def get_current_user(authorization: str = None, db: Session = Depends(get_db)) -> Employee:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="未登录")
+    token = authorization.replace("Bearer ", "")
+    payload = decode_access_token(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="token无效")
+    user = db.query(Employee).get(payload.get("user_id"))
+    if not user:
+        raise HTTPException(status_code=401, detail="用户不存在")
+    return user
 
 
 # ========== Schemas ==========
@@ -84,9 +100,13 @@ def list_inventory(
     warehouse_id: int = Query(None),
     product_id: int = Query(None),
     keyword: str = Query(None),
+    authorization: str = Header(None),
     db: Session = Depends(get_db)
 ):
+    user = get_current_user(authorization, db)
     q = db.query(Inventory)
+    # 应用数据权限过滤 - 库存按仓库权限过滤
+    q = DataFilter.apply_scope(q, Inventory, user, db, scope_field="warehouse_id", module_key="inventory")
     if warehouse_id:
         q = q.filter(Inventory.warehouse_id == warehouse_id)
     if product_id:

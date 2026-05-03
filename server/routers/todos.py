@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
 from database import get_db
+from utils.data_filter import DataFilter
 from routers.auth import get_current_user
 from models.sales import SalesOrder
 from models.purchase import PurchaseOrder
@@ -28,8 +29,10 @@ def list_todos(
 ):
     todos = []
 
-    # 获取待审核的销售订单
-    pending_sales = db.query(SalesOrder).filter(SalesOrder.status == 0).all()
+    # 获取待审核的销售订单（应用数据权限过滤）
+    q = db.query(SalesOrder).filter(SalesOrder.status == 0)
+    q = DataFilter.apply_scope(q, SalesOrder, current_user, db, scope_field="route_id", module_key="sales")
+    pending_sales = q.all()
     for so in pending_sales:
         todos.append(TodoItem(
             id=f"sales_{so.id}",
@@ -39,8 +42,10 @@ def list_todos(
             type="sales"
         ))
 
-    # 获取待审核的采购订单
-    pending_purchases = db.query(PurchaseOrder).filter(PurchaseOrder.status == 0).all()
+    # 获取待审核的采购订单（应用数据权限过滤）
+    q = db.query(PurchaseOrder).filter(PurchaseOrder.status == 0)
+    q = DataFilter.apply_scope(q, PurchaseOrder, current_user, db, scope_field="route_id", module_key="purchases")
+    pending_purchases = q.all()
     for po in pending_purchases:
         todos.append(TodoItem(
             id=f"purchase_{po.id}",
