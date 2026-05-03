@@ -59,13 +59,21 @@
           </div>
         </div>
         <div class="tab-actions">
-          <el-dropdown @command="handleTabAction">
+          <el-dropdown @command="handleTabAction" trigger="click">
             <span class="tab-more">&#8226;&#8226;&#8226;</span>
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="close-others">关闭其他</el-dropdown-item>
                 <el-dropdown-item command="close-all">关闭所有</el-dropdown-item>
                 <el-dropdown-item command="refresh">刷新当前</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+          <el-dropdown @command="handleUserAction" trigger="click">
+            <span class="user-info">{{ authStore.displayName }} ({{ authStore.roleName }})</span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="logout">退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -344,6 +352,14 @@ const handleTabAction = (cmd) => {
   }
 }
 
+// 用户操作（退出登录）
+const handleUserAction = (cmd) => {
+  if (cmd === 'logout') {
+    authStore.logout()
+    router.push('/login')
+  }
+}
+
 // 快捷键 Alt+数字
 const handleKeydown = (e) => {
   if (e.altKey && e.key >= '1' && e.key <= '9') {
@@ -580,6 +596,21 @@ onUnmounted(() => {
 
 .tab-more:hover {
   color: #409eff;
+}
+
+.user-info {
+  cursor: pointer;
+  padding: 4px 12px;
+  font-size: 13px;
+  color: #606266;
+  border-radius: 4px;
+  background: #f5f7fa;
+  margin-left: 8px;
+}
+
+.user-info:hover {
+  color: #409eff;
+  background: #ecf5ff;
 }
 
 .context-menu {
