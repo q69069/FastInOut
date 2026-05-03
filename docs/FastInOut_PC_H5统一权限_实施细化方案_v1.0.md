@@ -1322,7 +1322,169 @@ const hidePopupDelay = () => {
 
 ---
 
-> 📝 方案版本：v1.1.1
+## 十五、多角色支持（2026-05-03更新）
+
+### 15.1 修改需求
+
+**当前问题：**
+- LoginResponse 只返回单个 role_id / role_name
+- 前端无法显示用户的所有角色
+- 无法进行角色切换
+
+**需求目标：**
+- LoginResponse 返回 roles 数组，包含用户所有角色
+- 前端 authStore 支持多角色存储
+- 支持角色切换，切换后刷新权限
+
+### 15.2 后端改造
+
+**schemas/auth.py - LoginResponse：**
+
+```python
+class LoginResponse(BaseModel):
+    token: str
+    user_id: int
+    username: str
+    name: str
+    position: Optional[str] = None
+    role_id: Optional[int] = None  # 主角色ID（兼容旧版）
+    role_name: Optional[str] = None  # 主角色名称
+    roles: List[dict] = []  # 所有角色列表
+    permissions: Dict[str, Any] = {}
+```
+
+**routers/auth.py - login 接口：**
+
+```python
+@router.post("/login", response_model=ResponseModel)
+def login(req: LoginRequest, db: Session = Depends(get_db)):
+    # ... 验证逻辑 ...
+    
+    perms = _build_user_permissions(user, db)
+    
+    # 获取所有角色信息
+    all_roles = perms.get("roles", [])
+    # 主角色为第一个（优先级最高）
+    primary_role = all_roles[0] if all_roles else None
+    primary_role_id = primary_role.get("id") if primary_role else user.role_id
+    primary_role_name = primary_role.get("name") if primary_role else role_name
+
+    return ResponseModel(data=LoginResponse(
+        token=token,
+        user_id=user.id,
+        username=user.username,
+        name=user.name,
+        position=user.position,
+        role_id=primary_role_id,
+        role_name=primary_role_name,
+        roles=all_roles,  # 新增：所有角色列表
+        permissions=perms,
+    ))
+```
+
+**routers/auth.py - /permissions 接口支持角色过滤：**
+
+```python
+@router.get("/permissions", response_model=ResponseModel)
+def get_permissions(
+    role_id: int = None,  # 新增：可选的角色ID参数
+    user: Employee = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # 如果指定了role_id，只返回该角色的权限
+    if role_id:
+        perms = _build_user_permissions(user, db, filter_role_id=role_id)
+        return ResponseModel(data=perms)
+    # 否则返回所有角色的合并权限
+    perms = _build_user_permissions(user, db)
+    return ResponseModel(data=perms)
+```
+
+### 15.3 前端改造
+
+**stores/auth.js - 多角色支持：**
+
+```javascript
+export const useAuthStore = defineStore('auth', () => {
+  const token = ref(localStorage.getItem('token') || '')
+  const user = ref(null)
+  const roles = ref([])  // 所有角色列表
+  const currentRoleId = ref(null)  // 当前选中的角色ID
+  
+  // ... modules, permissions, operations ...
+  
+  // 当前角色的角色信息
+  const currentRole = computed(() => {
+    return roles.value.find(r => r.id === currentRoleId.value) || roles.value[0] || null
+  })
+  
+  // 切换角色
+  async function switchRole(roleId) {
+    if (!roles.value.find(r => r.id === roleId)) {
+      console.error('[Auth] 角色不存在:', roleId)
+      return
+    }
+    currentRoleId.value = roleId
+    // 重新获取该角色的权限
+    await fetchPermissionsForRole(roleId)
+    localStorage.setItem('currentRoleId', String(roleId))
+  }
+  
+  async function fetchUser() {
+    const res = await getCurrentUser()
+    user.value = res.data || null
+    roles.value = res.data?.roles || []
+    
+    // 恢复上次选中的角色，或默认选第一个
+    const savedRoleId = localStorage.getItem('currentRoleId')
+    const defaultRole = savedRoleId
+      ? roles.value.find(r => r.id === parseInt(savedRoleId))
+      : roles.value[0]
+    if (defaultRole) {
+      currentRoleId.value = defaultRole.id
+    }
+    // ... 设置权限 ...
+  }
+  
+  function logout() {
+    // ... 清空状态 ...
+    localStorage.removeItem('currentRoleId')
+  }
+  
+  return {
+    // ... 其他导出 ...
+    roles, currentRole, currentRoleId,
+    switchRole
+  }
+})
+```
+
+### 15.4 角色切换流程
+
+```
+1. 用户登录 → /api/auth/login → 返回 roles[] + permissions
+2. 前端存储 roles[] 和 currentRoleId
+3. 用户点击角色切换 → authStore.switchRole(newRoleId)
+4. 前端调用 /api/auth/permissions?role_id=xxx → 获取新角色权限
+5. 前端更新 modules/permissions/operations
+6. UI 自动刷新，显示新角色的菜单和按钮
+```
+
+### 15.5 实施状态
+
+| 任务 | 状态 | 说明 |
+|------|------|------|
+| schemas/auth.py - LoginResponse | ✅ 已完成 | 新增 roles 字段 |
+| schemas/auth.py - CurrentUser | ✅ 已完成 | 新增 roles 字段 |
+| routers/auth.py - login | ✅ 已完成 | 返回所有角色信息 |
+| routers/auth.py - current | ✅ 已完成 | 返回所有角色信息 |
+| routers/auth.py - permissions | ✅ 已完成 | 支持 role_id 参数过滤 |
+| pc/src/stores/auth.js | ✅ 已完成 | 多角色存储 + switchRole |
+| 文档更新 | ✅ 已完成 | 本章节记录修改内容 |
+
+---
+
+> 📝 方案版本：v1.1.2
 > 📅 编制日期：2026-05-03
 > 👤 编制：Hermes小A
 > 📖 下发给：小C（后端+PC端）+ 小A（H5端）+ 小Q（测试）+ 银月（消息推送权限）→ 多啦A梦审核

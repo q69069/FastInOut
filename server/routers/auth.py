@@ -80,7 +80,7 @@ def _get_user_permissions(user: Employee, db: Session) -> tuple:
     return role.name, perms
 
 
-def _build_user_permissions(user: Employee, db: Session) -> dict:
+def _build_user_permissions(user: Employee, db: Session, filter_role_id: int = None) -> dict:
     """构建完整的用户权限信息"""
     # 获取员工的所有角色
     emp_roles = db.query(EmployeeRole).filter(EmployeeRole.employee_id == user.id).all()
@@ -88,8 +88,14 @@ def _build_user_permissions(user: Employee, db: Session) -> dict:
     if user.role_id and user.role_id not in role_ids:
         role_ids.append(user.role_id)
 
+    # 如果指定了filter_role_id，只使用该角色
+    if filter_role_id:
+        if filter_role_id not in role_ids:
+            return {"roles": [], "modules": [], "permissions": {}, "operations": [], "warehouse_ids": [], "route_ids": [], "bypass_audit": {}}
+        role_ids = [filter_role_id]
+
     if not role_ids:
-        return {"modules": [], "permissions": {}, "operations": [], "warehouse_ids": [], "route_ids": [], "bypass_audit": {}}
+        return {"roles": [], "modules": [], "permissions": {}, "operations": [], "warehouse_ids": [], "route_ids": [], "bypass_audit": {}}
 
     # 获取角色信息
     roles = db.query(Role).filter(Role.id.in_(role_ids)).all()
@@ -191,14 +197,22 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
     )
 
     role_name, _ = _get_user_permissions(user, db)
+    # 获取所有角色信息
+    all_roles = perms.get("roles", [])
+    # 主角色为第一个（优先级最高）
+    primary_role = all_roles[0] if all_roles else None
+    primary_role_id = primary_role.get("id") if primary_role else user.role_id
+    primary_role_name = primary_role.get("name") if primary_role else role_name
+
     return ResponseModel(data=LoginResponse(
         token=token,
         user_id=user.id,
         username=user.username,
         name=user.name,
         position=user.position,
-        role_id=user.role_id,
-        role_name=role_name,
+        role_id=primary_role_id,
+        role_name=primary_role_name,
+        roles=all_roles,
         permissions=perms,
     ))
 
@@ -218,12 +232,29 @@ def current_user(user: Employee = Depends(get_current_user), db: Session = Depen
     perms = _build_user_permissions(user, db)
     data = CurrentUser.model_validate(user)
     data.role_name = role_name
+    # 获取所有角色信息
+    all_roles = perms.get("roles", [])
+    primary_role = all_roles[0] if all_roles else None
+    data.role_id = primary_role.get("id") if primary_role else user.role_id
+    data.roles = all_roles
     data.permissions = perms
     return ResponseModel(data=data)
 
 
 @router.get("/permissions", response_model=ResponseModel)
-def get_permissions(user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_permissions(
+    role_id: int = None,
+    user: Employee = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # 如果指定了role_id，只返回该角色的权限
+    if role_id:
+        role = db.query(Role).get(role_id)
+        if not role:
+            raise HTTPException(status_code=404, detail="角色不存在")
+        perms = _build_user_permissions(user, db, filter_role_id=role_id)
+        return ResponseModel(data=perms)
+    # 否则返回所有角色的合并权限
     perms = _build_user_permissions(user, db)
     return ResponseModel(data=perms)
 
