@@ -14,3 +14,4 @@ from schemas.finance import *
 from schemas.system import *
 from schemas.report import *
 from schemas.route import *
+from schemas.vehicle import *

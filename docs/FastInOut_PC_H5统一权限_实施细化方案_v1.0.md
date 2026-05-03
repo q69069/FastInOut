@@ -1484,7 +1484,126 @@ export const useAuthStore = defineStore('auth', () => {
 
 ---
 
-> 📝 方案版本：v1.1.2
+## 十六、vehicle.py 权限统一（2026-05-03更新）
+
+### 16.1 问题分析
+
+**原始 vehicle.py 问题：**
+- 所有查询接口没有 get_current_user 鉴权
+- 所有写操作（create/update/delete）没有数据权限检查
+- 没有接入 DataFilter.apply_scope 数据过滤
+- 车辆数据（车销出库/回库/报损）按 route_id/warehouse_id 过滤缺失
+- 没有 created_by 字段追踪创建人
+
+### 16.2 改造内容
+
+**routers/vehicle.py - 统一改造：**
+
+```python
+router = APIRouter(prefix="/api/vehicle", tags=["车销"])
+
+# 所有接口添加 authorization 参数
+@router.get("/sales-outs", response_model=PaginatedResponse)
+def list_vehicle_sales_outs(
+    page: int = Query(1), page_size: int = Query(20),
+    status: str = Query(None),
+    authorization: str = Header(None),  # 新增
+    db: Session = Depends(get_db)
+):
+    user = get_current_user(authorization, db)
+    q = db.query(VehicleSalesOut)
+
+    # 数据权限过滤 - 按路线过滤
+    q = DataFilter.apply_scope(q, VehicleSalesOut, user, db, scope_field="employee_id", module_key="sales")
+
+    if status:
+        q = q.filter(VehicleSalesOut.status == status)
+
+    total = q.count()
+    items = q.order_by(VehicleSalesOut.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+
+    return PaginatedResponse(data=[VehicleSalesOutResponse.model_validate(i) for i in items], total=total, page=page, page_size=page_size)
+```
+
+**更新/删除权限检查：**
+
+```python
+@router.put("/sales-outs/{id}", response_model=ResponseModel)
+def update_vehicle_sales_out(id: int, ..., authorization: str = Header(None), db: Session = Depends(get_db)):
+    user = get_current_user(authorization, db)
+    obj = db.query(VehicleSalesOut).filter(VehicleSalesOut.id == id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="记录不存在")
+
+    # 只能编辑草稿状态
+    if obj.status != "draft":
+        raise HTTPException(status_code=400, detail="只有草稿状态可编辑")
+
+    # 数据权限：只能编辑自己的单据（非admin）
+    if user.role_id != 5 and obj.employee_id != user.id:
+        raise HTTPException(status_code=403, detail="无权编辑此单据")
+
+    # ... 更新逻辑 ...
+```
+
+**删除权限检查：**
+
+```python
+@router.delete("/sales-outs/{id}")
+def delete_vehicle_sales_out(id: int, authorization: str = Header(None), db: Session = Depends(get_db)):
+    user = get_current_user(authorization, db)
+    obj = db.query(VehicleSalesOut).filter(VehicleSalesOut.id == id).first()
+
+    if user.role_id != 5 and obj.employee_id != user.id:
+        raise HTTPException(status_code=403, detail="无权删除此单据")
+
+    if obj.status != "draft":
+        raise HTTPException(status_code=400, detail="只有草稿状态可删除")
+
+    db.delete(obj)
+    db.commit()
+```
+
+### 16.3 新增 schemas/vehicle.py
+
+```python
+from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime
+
+class VehicleSalesOutResponse(BaseModel):
+    id: int
+    code: str
+    employee_id: Optional[int] = None
+    vehicle_warehouse_id: Optional[int] = None
+    total_amount: float = 0
+    remark: Optional[str] = None
+    status: str = "draft"
+    audit_status: str = "pending"
+    auditor_id: Optional[int] = None
+    audit_time: Optional[datetime] = None
+    audit_comment: Optional[str] = None
+    created_at: Optional[datetime] = None
+    confirmed_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+```
+
+### 16.4 实施状态
+
+| 任务 | 状态 | 说明 |
+|------|------|------|
+| vehicle.py - get_current_user | ✅ 已完成 | 所有接口添加鉴权 |
+| vehicle.py - DataFilter.apply_scope | ✅ 已完成 | 查询接口数据过滤 |
+| vehicle.py - update权限检查 | ✅ 已完成 | 只能编辑自己草稿 |
+| vehicle.py - delete权限检查 | ✅ 已完成 | 只能删除自己草稿 |
+| schemas/vehicle.py | ✅ 已完成 | 新建响应模型 |
+| schemas/__init__.py | ✅ 已完成 | 导出vehicle模块 |
+| 文档更新 | ✅ 已完成 | 本章节记录修改内容 |
+
+---
+
+> 📝 方案版本：v1.1.3
 > 📅 编制日期：2026-05-03
 > 👤 编制：Hermes小A
 > 📖 下发给：小C（后端+PC端）+ 小A（H5端）+ 小Q（测试）+ 银月（消息推送权限）→ 多啦A梦审核
