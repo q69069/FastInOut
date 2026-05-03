@@ -1080,3 +1080,249 @@ function onSidebarClick(item) {
 | 标签页+侧边栏联动 | 0.5天 | 状态同步 |
 
 **预计总工时：4天**
+
+---
+
+## 十四、侧边栏交互修改（2026-05-03更新）
+
+### 14.1 修改需求
+
+**侧边栏状态：**
+- 始终保持 220px 展开宽度，不收缩
+- 主模块纵向排列在侧边栏里
+
+**Hover 浮层小窗口：**
+- 鼠标悬停在主模块上 → 在该主模块右侧弹出浮层（约 200px 宽）
+- 显示该主模块下的所有子模块列表
+- 浮层有背景色和边框，像个下拉菜单
+
+**交互细节：**
+- 鼠标离开主模块 → 浮层延迟 200ms 消失
+- 鼠标进到浮层 → 浮层继续保持显示
+- 子模块可点击跳转
+
+**UI 优化（好看协调）：**
+- 侧边栏背景色和整体设计风格协调
+- 主模块和子模块的字体大小、间距协调
+- 浮层有圆角、轻微阴影
+- hover 的时候主模块有高亮背景色
+- 子模块 hover 也有背景色变化
+
+### 14.2 实现方案
+
+**Layout.vue 核心逻辑：**
+
+```vue
+<template>
+  <el-container style="height:100vh">
+    <!-- 侧边栏 - 始终展开220px -->
+    <div class="sidebar-wrapper">
+      <el-aside width="220px" class="sidebar" style="background:#1f2d3d">
+        <div class="logo">FastInOut</div>
+
+        <!-- 主模块列表 -->
+        <div class="main-modules">
+          <div
+            v-for="item in visibleMainModules"
+            :key="item.key"
+            class="main-module"
+            :class="{ active: activePopup === item.key }"
+            @mouseenter="showPopup(item)"
+          >
+            <el-icon><component :is="item.icon" /></el-icon>
+            <span>{{ item.label }}</span>
+          </div>
+        </div>
+      </el-aside>
+
+      <!-- Hover浮层 - 子模块列表 -->
+      <transition name="popup-fade">
+        <div
+          v-if="activePopup && currentSubModules.length > 0"
+          class="submenu-popup"
+          @mouseenter="keepPopup"
+          @mouseleave="hidePopupDelay"
+        >
+          <div class="popup-header">{{ currentPopupLabel }}</div>
+          <div class="submenu-list">
+            <div
+              v-for="sub in currentSubModules"
+              :key="sub.path"
+              class="submenu-item"
+              @click="openTab(sub.path, sub.label)"
+            >
+              {{ sub.label }}
+            </div>
+          </div>
+        </div>
+      </transition>
+    </div>
+  </el-container>
+</template>
+
+<script setup>
+// 主模块定义
+const mainModules = [
+  {
+    key: 'home',
+    label: '首页',
+    icon: 'DataBoard',
+    submodules: [{ path: '/dashboard', label: '首页' }]
+  },
+  {
+    key: 'archives',
+    label: '档案',
+    icon: 'Folder',
+    submodules: [
+      { path: '/products', label: '商品管理', module: 'products' },
+      { path: '/customers', label: '客户管理', module: 'customers' },
+      // ... 更多子模块
+    ]
+  },
+  // ... 更多主模块
+]
+
+// 弹窗相关状态
+const activePopup = ref(null)
+let hideTimer = null
+
+const showPopup = (item) => {
+  clearTimeout(hideTimer)
+  activePopup.value = item.key
+}
+
+const keepPopup = () => {
+  clearTimeout(hideTimer)
+}
+
+const hidePopupDelay = () => {
+  hideTimer = setTimeout(() => {
+    activePopup.value = null
+  }, 200)
+}
+</script>
+
+<style scoped>
+/* 侧边栏基础样式 */
+.sidebar-wrapper {
+  display: flex;
+  flex-shrink: 0;
+  z-index: 100;
+  position: relative;
+}
+
+.sidebar {
+  background: #1f2d3d;
+}
+
+.logo {
+  height: 60px;
+  line-height: 60px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: bold;
+  color: #fff;
+  background: #1a1a1a;
+  letter-spacing: 2px;
+}
+
+.main-modules {
+  padding: 8px 0;
+}
+
+.main-module {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  color: #bfcbd9;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  gap: 10px;
+}
+
+.main-module:hover,
+.main-module.active {
+  background: rgba(64, 158, 255, 0.15);
+  color: #409eff;
+}
+
+/* 浮层样式 */
+.submenu-popup {
+  position: absolute;
+  left: 220px;
+  top: 0;
+  width: 200px;
+  min-height: 200px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e4e7ed;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.popup-header {
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  background: #f5f7fa;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.submenu-list {
+  padding: 8px 0;
+}
+
+.submenu-item {
+  padding: 10px 16px;
+  font-size: 13px;
+  color: #606266;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.submenu-item:hover {
+  background: #ecf5ff;
+  color: #409eff;
+}
+
+/* 动画 */
+.popup-fade-enter-active,
+.popup-fade-leave-active {
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.popup-fade-enter-from,
+.popup-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-10px);
+}
+</style>
+```
+
+### 14.3 与旧版对比
+
+| 特性 | 旧版（hover收缩） | 新版（hover浮层） |
+|------|------------------|-------------------|
+| 侧边栏宽度 | 60px收缩 / 220px展开 | 始终220px固定 |
+| 子模块显示 | el-sub-menu展开 | 浮层popup显示 |
+| 交互方式 | 点击展开菜单 | hover显示浮层 |
+| 动画效果 | width过渡 | opacity+transform过渡 |
+
+### 14.4 实施状态
+
+| 任务 | 状态 | 说明 |
+|------|------|------|
+| Layout.vue 改造 | ✅ 已完成 | 实现hover浮层交互 |
+| 权限过滤 | ✅ 已完成 | visibleMainModules 根据 hasModule 过滤 |
+| UI美化 | ✅ 已完成 | 圆角8px + 阴影 + hover高亮 |
+| 文档更新 | ✅ 已完成 | 本章节记录修改内容 |
+
+---
+
+> 📝 方案版本：v1.1.1
+> 📅 编制日期：2026-05-03
+> 👤 编制：Hermes小A
+> 📖 下发给：小C（后端+PC端）+ 小A（H5端）+ 小Q（测试）+ 银月（消息推送权限）→ 多啦A梦审核

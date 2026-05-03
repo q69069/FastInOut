@@ -1,103 +1,46 @@
 <template>
   <el-container style="height:100vh">
-    <!-- Hover展开侧边栏 -->
-    <div
-      class="sidebar-wrapper"
-      @mouseenter="expandSidebar"
-      @mouseleave="collapseSidebar"
-    >
-      <el-aside :width="collapsed ? '60px' : '220px'" class="sidebar" style="background:#304156;transition:width 0.3s">
-        <div class="logo" :class="{ collapsed: collapsed }">
-          {{ collapsed ? 'FIO' : 'FastInOut' }}
+    <!-- 侧边栏 - 始终展开220px -->
+    <div class="sidebar-wrapper">
+      <el-aside width="220px" class="sidebar" style="background:#1f2d3d">
+        <div class="logo">FastInOut</div>
+
+        <!-- 主模块列表 -->
+        <div class="main-modules">
+          <div
+            v-for="item in visibleMainModules"
+            :key="item.key"
+            class="main-module"
+            :class="{ active: activePopup === item.key }"
+            @mouseenter="showPopup(item)"
+          >
+            <el-icon><component :is="item.icon" /></el-icon>
+            <span>{{ item.label }}</span>
+          </div>
         </div>
-        <el-menu
-          :default-active="currentTab.path"
-          background-color="#304156"
-          text-color="#bfcbd9"
-          active-text-color="#409EFF"
-          :collapse="collapsed"
-          :collapse-transition="false"
-        >
-          <el-menu-item v-if="authStore.hasModule('home') || authStore.hasModule('dashboard')" index="/dashboard" @click="openTab('/dashboard', '首页')">
-            <el-icon><DataBoard /></el-icon>
-            <span>首页</span>
-          </el-menu-item>
-          <el-sub-menu v-if="authStore.hasModule('products') || authStore.hasModule('customers')" index="archives">
-            <template #title>
-              <el-icon><Folder /></el-icon>
-              <span>档案</span>
-            </template>
-            <el-menu-item v-if="authStore.hasModule('products')" index="/products" @click="openTab('/products', '商品管理')">商品管理</el-menu-item>
-            <el-menu-item v-if="authStore.hasModule('customers')" index="/customers" @click="openTab('/customers', '客户管理')">客户管理</el-menu-item>
-            <el-menu-item v-if="authStore.hasModule('customers')" index="/customer-prices" @click="openTab('/customer-prices', '客户价格等级')">客户价格等级</el-menu-item>
-            <el-menu-item v-if="authStore.hasModule('suppliers')" index="/suppliers" @click="openTab('/suppliers', '供应商管理')">供应商管理</el-menu-item>
-            <el-menu-item v-if="authStore.hasModule('suppliers')" index="/supplier-reconciliation" @click="openTab('/supplier-reconciliation', '供应商对账')">供应商对账</el-menu-item>
-            <el-menu-item v-if="authStore.hasModule('customers')" index="/customers/crm" @click="openTab('/customers/crm', '客户关系管理')">客户关系管理</el-menu-item>
-            <el-menu-item v-if="authStore.hasModule('products')" index="/units" @click="openTab('/units', '单位管理')">单位管理</el-menu-item>
-          </el-sub-menu>
-          <el-sub-menu v-if="authStore.hasModule('purchases')" index="purchase">
-            <template #title>
-              <el-icon><ShoppingCart /></el-icon>
-              <span>采购</span>
-            </template>
-            <el-menu-item v-if="authStore.hasModule('purchases')" index="/purchases" @click="openTab('/purchases', '采购订单')">采购订单</el-menu-item>
-            <el-menu-item v-if="authStore.hasModule('purchases')" index="/purchase-returns" @click="openTab('/purchase-returns', '采购退货')">采购退货</el-menu-item>
-          </el-sub-menu>
-          <el-sub-menu v-if="authStore.hasModule('sales')" index="sale">
-            <template #title>
-              <el-icon><Sell /></el-icon>
-              <span>销售</span>
-            </template>
-            <el-menu-item v-if="authStore.hasModule('sales')" index="/sales" @click="openTab('/sales', '销售订单')">销售订单</el-menu-item>
-            <el-menu-item v-if="authStore.hasModule('sales')" index="/sales-returns" @click="openTab('/sales-returns', '销售退货')">销售退货</el-menu-item>
-            <el-menu-item v-if="authStore.hasModule('salesmen')" index="/salesmen" @click="openTab('/salesmen', '业务员管理')">业务员管理</el-menu-item>
-          </el-sub-menu>
-          <el-menu-item v-if="authStore.hasModule('promotions')" index="/promotions" @click="openTab('/promotions', '促销')">
-            <el-icon><PriceTag /></el-icon>
-            <span>促销</span>
-          </el-menu-item>
-          <el-sub-menu v-if="authStore.hasModule('inventory') || authStore.hasModule('warehouses')" index="warehouse">
-            <template #title>
-              <el-icon><Box /></el-icon>
-              <span>仓库</span>
-            </template>
-            <el-menu-item v-if="authStore.hasModule('inventory')" index="/inventory" @click="openTab('/inventory', '库存查询')">库存查询</el-menu-item>
-            <el-menu-item v-if="authStore.hasModule('inventory')" index="/transfers" @click="openTab('/transfers', '库存调拨')">库存调拨</el-menu-item>
-            <el-menu-item v-if="authStore.hasModule('warehouses')" index="/warehouses" @click="openTab('/warehouses', '仓库管理')">仓库管理</el-menu-item>
-            <el-menu-item v-if="authStore.hasModule('batches')" index="/batches" @click="openTab('/batches', '批次管理')">批次管理</el-menu-item>
-          </el-sub-menu>
-          <el-sub-menu v-if="authStore.hasModule('finance')" index="finance">
-            <template #title>
-              <el-icon><Money /></el-icon>
-              <span>财务</span>
-            </template>
-            <el-menu-item v-if="authStore.hasModule('finance')" index="/finance" @click="openTab('/finance', '收支管理')">收支管理</el-menu-item>
-            <el-menu-item v-if="authStore.hasModule('finance')" index="/bank-reconciliation" @click="openTab('/bank-reconciliation', '银行对账')">银行对账</el-menu-item>
-            <el-menu-item v-if="authStore.hasModule('finance')" index="/invoices" @click="openTab('/invoices', '发票管理')">发票管理</el-menu-item>
-          </el-sub-menu>
-          <el-sub-menu v-if="authStore.hasModule('reports')" index="reports">
-            <template #title>
-              <el-icon><DataBoard /></el-icon>
-              <span>报表</span>
-            </template>
-            <el-menu-item v-if="authStore.hasModule('reports')" index="/reports/profit" @click="openTab('/reports/profit', '利润统计')">利润统计</el-menu-item>
-            <el-menu-item v-if="authStore.hasModule('reports')" index="/reports/inventory" @click="openTab('/reports/inventory', '库存汇总')">库存汇总</el-menu-item>
-            <el-menu-item v-if="authStore.hasModule('reports')" index="/reports/sales-ranking" @click="openTab('/reports/sales-ranking', '销售排行')">销售排行</el-menu-item>
-            <el-menu-item v-if="authStore.hasModule('reports')" index="/reports/trend" @click="openTab('/reports/trend', '趋势图')">趋势图</el-menu-item>
-          </el-sub-menu>
-          <el-sub-menu v-if="authStore.hasModule('roles') || authStore.hasModule('employees')" index="system">
-            <template #title>
-              <el-icon><Setting /></el-icon>
-              <span>系统</span>
-            </template>
-            <el-menu-item v-if="authStore.hasModule('roles')" index="/system/roles" @click="openTab('/system/roles', '角色管理')">角色管理</el-menu-item>
-            <el-menu-item v-if="authStore.hasModule('system')" index="/system/backup" @click="openTab('/system/backup', '数据备份')">数据备份</el-menu-item>
-            <el-menu-item v-if="authStore.hasModule('system')" index="/system/print-templates" @click="openTab('/system/print-templates', '打印模板')">打印模板</el-menu-item>
-            <el-menu-item v-if="authStore.hasModule('system')" index="/system/data-import" @click="openTab('/system/data-import', '数据导入')">数据导入</el-menu-item>
-            <el-menu-item v-if="authStore.hasModule('system')" index="/system/logs" @click="openTab('/system/logs', '操作日志')">操作日志</el-menu-item>
-          </el-sub-menu>
-        </el-menu>
       </el-aside>
+
+      <!-- Hover浮层 - 子模块列表 -->
+      <transition name="popup-fade">
+        <div
+          v-if="activePopup && currentSubModules.length > 0"
+          class="submenu-popup"
+          @mouseenter="keepPopup"
+          @mouseleave="hidePopupDelay"
+        >
+          <div class="popup-header">{{ currentPopupLabel }}</div>
+          <div class="submenu-list">
+            <div
+              v-for="sub in currentSubModules"
+              :key="sub.path"
+              class="submenu-item"
+              @click="openTab(sub.path, sub.label)"
+            >
+              {{ sub.label }}
+            </div>
+          </div>
+        </div>
+      </transition>
     </div>
 
     <el-container>
@@ -169,25 +112,157 @@
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores'
+import {
+  DataBoard, Folder, ShoppingCart, Sell, PriceTag, Box,
+  Money, Setting, Document
+} from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
-// 侧边栏状态
-const collapsed = ref(true)
-let hoverTimer = null
+// 侧边栏主模块定义
+const mainModules = [
+  {
+    key: 'home',
+    label: '首页',
+    icon: 'DataBoard',
+    submodules: [
+      { path: '/dashboard', label: '首页' }
+    ]
+  },
+  {
+    key: 'archives',
+    label: '档案',
+    icon: 'Folder',
+    submodules: [
+      { path: '/products', label: '商品管理', module: 'products' },
+      { path: '/customers', label: '客户管理', module: 'customers' },
+      { path: '/customer-prices', label: '客户价格等级', module: 'customers' },
+      { path: '/suppliers', label: '供应商管理', module: 'suppliers' },
+      { path: '/supplier-reconciliation', label: '供应商对账', module: 'suppliers' },
+      { path: '/customers/crm', label: '客户关系管理', module: 'customers' },
+      { path: '/units', label: '单位管理', module: 'products' }
+    ]
+  },
+  {
+    key: 'purchase',
+    label: '采购',
+    icon: 'ShoppingCart',
+    submodules: [
+      { path: '/purchases', label: '采购订单', module: 'purchases' },
+      { path: '/purchase-returns', label: '采购退货', module: 'purchases' }
+    ]
+  },
+  {
+    key: 'sale',
+    label: '销售',
+    icon: 'Sell',
+    submodules: [
+      { path: '/sales', label: '销售订单', module: 'sales' },
+      { path: '/sales-returns', label: '销售退货', module: 'sales' },
+      { path: '/salesmen', label: '业务员管理', module: 'sales' }
+    ]
+  },
+  {
+    key: 'promotions',
+    label: '促销',
+    icon: 'PriceTag',
+    submodules: [
+      { path: '/promotions', label: '促销方案', module: 'promotions' }
+    ]
+  },
+  {
+    key: 'warehouse',
+    label: '仓库',
+    icon: 'Box',
+    submodules: [
+      { path: '/inventory', label: '库存查询', module: 'inventory' },
+      { path: '/transfers', label: '库存调拨', module: 'inventory' },
+      { path: '/warehouses', label: '仓库管理', module: 'warehouses' },
+      { path: '/batches', label: '批次管理', module: 'batches' }
+    ]
+  },
+  {
+    key: 'finance',
+    label: '财务',
+    icon: 'Money',
+    submodules: [
+      { path: '/finance', label: '收支管理', module: 'finance' },
+      { path: '/bank-reconciliation', label: '银行对账', module: 'finance' },
+      { path: '/invoices', label: '发票管理', module: 'finance' }
+    ]
+  },
+  {
+    key: 'reports',
+    label: '报表',
+    icon: 'Document',
+    submodules: [
+      { path: '/reports/profit', label: '利润统计', module: 'reports' },
+      { path: '/reports/inventory', label: '库存汇总', module: 'reports' },
+      { path: '/reports/sales-ranking', label: '销售排行', module: 'reports' },
+      { path: '/reports/trend', label: '趋势图', module: 'reports' }
+    ]
+  },
+  {
+    key: 'system',
+    label: '系统',
+    icon: 'Setting',
+    submodules: [
+      { path: '/system/roles', label: '角色管理', module: 'roles' },
+      { path: '/system/backup', label: '数据备份', module: 'system' },
+      { path: '/system/print-templates', label: '打印模板', module: 'system' },
+      { path: '/system/data-import', label: '数据导入', module: 'system' },
+      { path: '/system/logs', label: '操作日志', module: 'system' }
+    ]
+  }
+]
 
-const expandSidebar = () => {
-  clearTimeout(hoverTimer)
-  collapsed.value = false
+// 根据权限过滤可见的主模块
+const visibleMainModules = computed(() => {
+  return mainModules.filter(m => {
+    if (m.key === 'home') return true
+    if (m.key === 'archives') return authStore.hasModule('products') || authStore.hasModule('customers')
+    if (m.key === 'warehouse') return authStore.hasModule('inventory') || authStore.hasModule('warehouses')
+    if (m.key === 'system') return authStore.hasModule('roles') || authStore.hasModule('system')
+    return authStore.hasModule(m.key)
+  })
+})
+
+// 弹窗相关
+const activePopup = ref(null)
+let hideTimer = null
+
+const showPopup = (item) => {
+  clearTimeout(hideTimer)
+  activePopup.value = item.key
 }
 
-const collapseSidebar = () => {
-  hoverTimer = setTimeout(() => {
-    collapsed.value = true
-  }, 300)
+const keepPopup = () => {
+  clearTimeout(hideTimer)
 }
+
+const hidePopupDelay = () => {
+  hideTimer = setTimeout(() => {
+    activePopup.value = null
+  }, 200)
+}
+
+const currentPopupLabel = computed(() => {
+  const m = mainModules.find(m => m.key === activePopup.value)
+  return m ? m.label : ''
+})
+
+const currentSubModules = computed(() => {
+  const m = mainModules.find(m => m.key === activePopup.value)
+  if (!m) return []
+
+  // 根据权限过滤子模块
+  return m.submodules.filter(sub => {
+    if (!sub.module || authStore.isAdmin) return true
+    return authStore.hasModule(sub.module)
+  })
+})
 
 // 标签页管理
 const tabs = ref([
@@ -197,12 +272,15 @@ const currentTab = computed(() => tabs.value.find(t => t.path === route.path) ||
 const keepAliveRoutes = computed(() => tabs.value.map(t => t.path.replace('/', '')))
 
 const openTab = (path, title) => {
+  activePopup.value = null
   const existing = tabs.value.find(t => t.path === path)
   if (existing) {
     router.push(path)
     return
   }
-  tabs.value.push({ path, title, pinned: false })
+  if (tabs.value.length < 10) {
+    tabs.value.push({ path, title, pinned: false })
+  }
   router.push(path)
 }
 
@@ -289,7 +367,6 @@ watch(() => route.path, (newPath) => {
   const title = meta.title || '未命名'
   const existing = tabs.value.find(t => t.path === newPath)
   if (!existing && newPath !== '/login') {
-    // 新页面自动加标签，最多保留10个
     if (tabs.value.length < 10) {
       tabs.value.push({ path: newPath, title, pinned: false })
     }
@@ -304,6 +381,7 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', handleClick)
   document.removeEventListener('keydown', handleKeydown)
+  clearTimeout(hideTimer)
 })
 </script>
 
@@ -312,28 +390,108 @@ onUnmounted(() => {
   display: flex;
   flex-shrink: 0;
   z-index: 100;
+  position: relative;
 }
 
 .sidebar {
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .logo {
   height: 60px;
   line-height: 60px;
   text-align: center;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: bold;
   color: #fff;
-  background: #263445;
-  transition: all 0.3s;
-}
-
-.logo.collapsed {
-  font-size: 14px;
+  background: #1a1a1a;
   letter-spacing: 2px;
 }
 
+.main-modules {
+  flex: 1;
+  padding: 8px 0;
+  overflow-y: auto;
+}
+
+.main-module {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  color: #bfcbd9;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  gap: 10px;
+}
+
+.main-module:hover,
+.main-module.active {
+  background: rgba(64, 158, 255, 0.15);
+  color: #409eff;
+}
+
+.main-module .el-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+/* 浮层样式 */
+.submenu-popup {
+  position: absolute;
+  left: 220px;
+  top: 0;
+  width: 200px;
+  min-height: 200px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e4e7ed;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.popup-header {
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  background: #f5f7fa;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.submenu-list {
+  padding: 8px 0;
+}
+
+.submenu-item {
+  padding: 10px 16px;
+  font-size: 13px;
+  color: #606266;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.submenu-item:hover {
+  background: #ecf5ff;
+  color: #409eff;
+}
+
+/* 动画 */
+.popup-fade-enter-active,
+.popup-fade-leave-active {
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.popup-fade-enter-from,
+.popup-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-10px);
+}
+
+/* 标签栏样式 */
 .tab-bar {
   height: 42px;
   background: #fff;
