@@ -1,6 +1,13 @@
 # FastInOut 完整后续开发计划
 
-> 📅 编制：2026-05-04 | 👤 Hermes小A | 版本：v1.0
+> 📅 编制：2026-05-04 | 👤 Hermes小A | 版本：v1.1（小C审查修订）
+>
+> **v1.1 修订内容**（基于代码实际状态审查）：
+> 1. Phase 0 从1天缩减为0.5天 — 三级权限表/模块表/角色扩展字段已全部建好
+> 2. `audit_log` → `http_audit_log` — 避免与现有审批记录表 `audit_logs` 命名冲突
+> 3. 车销模块标注现有模型 — VehicleSalesOut/Return/Loss 已有简化CRUD，Phase B需重建完整体系
+> 4. 新增「前端同步改动清单」— 目录重组需同步修改PC+H5两端API路径
+> 5. 数据过滤/权限缓存/预收付冲抵标注为已完成
 > 
 > **本文档是 FastInOut 项目的唯一开发入口。**
 > 包含：完整架构、分期计划、逐模块实现细节、状态机定义、数据库迁移脚本、前后端改动清单、测试策略。
@@ -121,33 +128,37 @@ FastInOut/
 | 采购退货 | `purchase_returns` (PurchaseReturn) | ⚠️ | 订单层；缺执行凭证层 |
 | **盘点单** | `inventory_checks` (InventoryCheck) | ⚠️ | 缺整仓锁定、差异审核 |
 | **费用管理** | 无 | ❌ | 完全缺失 |
-| **往来账** | 无 | ❌ | 完全缺失 |
-| **车销系统** | 无 | ❌ | vehicle/vehicle_load/settlement/vehicle_inventory 全部缺失 |
-| **审计日志** | 无 | ❌ | 完全缺失 |
-| 角色权限 | `roles` + permissions_json | ❌ | JSON字符串，无 module+operation 三级模型 |
+| **往来账** | 无 | ❌ | 完全缺失（但客户/供应商对账端点已有） |
+| **车销系统** | `vehicle_sales_outs`/`vehicle_returns`/`vehicle_losses` | ⚠️ | 已有简化CRUD，缺Vehicle主档/VehicleInventory/VehicleLoad/Settlement |
+| **审计日志** | `operation_logs`表已有 | ⚠️ | 缺 old_value/new_value diff 跟踪和 HTTP 自动拦截中间件 |
+| 角色权限 | 三级模型已建好 | ✅ | module/role_module_permission/operation_permission 表+服务层已就位，**仅 auth 中间件还在用旧 JSON** |
 | 员工 | `employees` | ⚠️ | 缺 `report_to` |
 | 商品 | `products` | ⚠️ | 缺 `min_price` |
+| 数据过滤 | `DataFilter.apply_scope()` | ✅ | 已实现，已在多个 router 使用 |
+| 权限缓存 | `utils/cache.py` SimpleCache | ✅ | 5分钟TTL，登录/角色变更时自动失效 |
+| 预收/预付冲抵 | `finance.py` | ✅ | `/pre-receipt`、`/pre-payment`、`/pre-to-receivable`、`/pre-to-payable` 已实现 |
 
-### 2.2 三大架构硬伤
+### 2.2 架构硬伤（v1.1 修订）
 
-| # | 硬伤 | 后果 |
-|---|------|------|
-| 1 | 权限是 JSON 字符串 `'["sales","*"]'` | v2.4 的 module_key/operation_key 全体系无法落地 |
-| 2 | 状态全是 INT(0/1/2/3) | 8 态流转(pending/settling/settled/voided/locked...)无法表达 |
-| 3 | 无 audit_log 表 + 中间件 | 防作弊体系第一块砖就没铺 |
+| # | 硬伤 | 后果 | 当前状态 |
+|---|------|------|---------|
+| 1 | auth 中间件仍用 `permissions_json` | 三级权限模型已建但未接入中间件 | **半完成** — 表+服务层就位，需迁移中间件 |
+| 2 | 状态全是 INT(0/1/2/3) | 8 态流转(pending/settling/settled/voided/locked...)无法表达 | **未开始** |
+| 3 | 无 HTTP 审计中间件 | 防作弊体系第一块砖就没铺 | **未开始** — `operation_logs` 表有但无自动拦截 |
 
-> ⚠️ **Phase 0 必须解决这三件事，否则后续开发是在沙子上盖楼。**
+> ⚠️ **Phase 0 需解决硬伤 #2 和 #3，硬伤 #1 已半完成（中间件迁移可在 Phase A 逐步推进）。**
 
 ---
 
 ## 三、分期开发总览
 
 ```
-Phase 0: 基础设施（1天）          ← 立即开始
-  ├── 数据库 Migration（新表+字段）
-  ├── 审计中间件
+Phase 0: 基础设施（0.5天）        ← 立即开始（v1.1修订：权限表已建好，工作量减半）
+  ├── 数据库 Migration（新表+字段，跳过权限表/模块表）
+  ├── HTTP 审计中间件 + http_audit_log 表
   ├── 状态枚举定义
-  └── 目录重组（改名不改逻辑）
+  ├── services 层（inventory_service）
+  └── 目录重组（改名不改逻辑）+ 前端同步
 
 Phase A: P0 核心业务（8-10天）
   Day 1-2: 销售单（最核心，状态最复杂）
@@ -170,10 +181,24 @@ Phase D: 风控增强（3-4天）
 
 ---
 
-## 四、Phase 0：基础设施（Day 1）
+## 四、Phase 0：基础设施（0.5天）
 
 ### 目标
 建好地基，不改业务逻辑，确保现有功能不受影响。
+
+### 4.0 已完成项（v1.1 标注）
+
+> 以下在前期开发中已实现，Phase 0 **跳过**：
+> - ✅ roles 扩展字段（role_key/is_system/sort_order/status）— 模型已加，auto_migrate 自动处理
+> - ✅ module 表 — 模型 `models/module.py` 已建，19个模块种子数据已初始化
+> - ✅ role_module_permission 表 — 模型 `models/role_module_permission.py` 已建
+> - ✅ operation_permission 表 — 模型 `models/operation_permission.py` 已建
+> - ✅ employee_roles 多对多表 — 模型 `models/employee_role.py` 已建
+> - ✅ PermissionService 服务层 — `auth/permission_service.py` 已实现
+> - ✅ PermissionChecker + DataFilter — `auth/permissions.py` 已实现
+> - ✅ 权限缓存 — `utils/cache.py` SimpleCache 5分钟TTL
+> - ✅ 预收/预付冲抵 — `finance.py` 4个端点已实现
+> - ✅ 客户/供应商对账 — `sales.py`/`purchases.py` statement 端点已有
 
 ### 4.1 数据库 Migration
 
@@ -181,68 +206,17 @@ Phase D: 风控增强（3-4天）
 
 ```sql
 -- ═══════════════════════════════════════════
--- Phase 0 Migration：建新表不改旧表
--- 旧表继续服务现有 API，新模块用新表
+-- Phase 0 Migration v1.1：仅新建表+扩展字段
+-- 权限表/模块表/角色扩展 已在 auto_migrate 中处理，此处跳过
 -- ═══════════════════════════════════════════
 
--- 1. roles 扩展（保留兼容旧字段）
-ALTER TABLE roles ADD COLUMN role_key VARCHAR(20);
-ALTER TABLE roles ADD COLUMN is_system BOOLEAN DEFAULT 0;
-ALTER TABLE roles ADD COLUMN sort_order INTEGER DEFAULT 0;
-ALTER TABLE roles ADD COLUMN status VARCHAR(10) DEFAULT 'active';
-
-UPDATE roles SET role_key = 'admin', is_system = 1, sort_order = 1 WHERE name = '管理员';
-UPDATE roles SET role_key = 'sales', is_system = 1, sort_order = 3 WHERE name = '业务员';
-UPDATE roles SET role_key = 'warehouse', is_system = 1, sort_order = 5 WHERE name = '仓管';
-UPDATE roles SET role_key = 'finance', is_system = 1, sort_order = 4 WHERE name = '财务';
-INSERT OR IGNORE INTO roles (name, role_key, is_system, sort_order, description) 
-VALUES ('主管/文员', 'supervisor', 1, 2, '档案+采购+销售+报表');
-
--- 2. module 表（v2.4 完整 39 个模块）
-CREATE TABLE IF NOT EXISTS module (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    module_key VARCHAR(30) UNIQUE NOT NULL,
-    name VARCHAR(30) NOT NULL,
-    parent_id INTEGER,
-    module_type VARCHAR(10) DEFAULT 'page',
-    pc_view BOOLEAN DEFAULT 1,
-    h5_tab VARCHAR(20),
-    sort_order INTEGER DEFAULT 0,
-    icon VARCHAR(30),
-    path VARCHAR(100),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- 3. role_module_permission 表
-CREATE TABLE IF NOT EXISTS role_module_permission (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    role_id INTEGER NOT NULL,
-    module_id INTEGER NOT NULL,
-    can_view BOOLEAN DEFAULT 1,
-    can_create BOOLEAN DEFAULT 0,
-    can_edit BOOLEAN DEFAULT 0,
-    can_delete BOOLEAN DEFAULT 0,
-    can_audit BOOLEAN DEFAULT 0,
-    can_export BOOLEAN DEFAULT 0,
-    data_scope VARCHAR(20) DEFAULT 'all',
-    UNIQUE(role_id, module_id)
-);
-
--- 4. operation_permission 表
-CREATE TABLE IF NOT EXISTS operation_permission (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    role_id INTEGER NOT NULL,
-    operation_key VARCHAR(50) NOT NULL,
-    allowed BOOLEAN DEFAULT 0,
-    UNIQUE(role_id, operation_key)
-);
-
--- 5. audit_log 表
-CREATE TABLE IF NOT EXISTS audit_log (
+-- 1. http_audit_log 表（HTTP请求审计，区别于现有 audit_logs 审批记录表）
+CREATE TABLE IF NOT EXISTS http_audit_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
-    action VARCHAR(50) NOT NULL,
-    entity_type VARCHAR(30) NOT NULL,
+    method VARCHAR(10) NOT NULL,
+    path VARCHAR(200) NOT NULL,
+    entity_type VARCHAR(30),
     entity_id INTEGER,
     old_value TEXT,
     new_value TEXT,
@@ -251,13 +225,13 @@ CREATE TABLE IF NOT EXISTS audit_log (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. employee 扩展
+-- 2. employee 扩展
 ALTER TABLE employees ADD COLUMN report_to INTEGER REFERENCES employees(id);
 
--- 7. product 扩展
+-- 3. product 扩展
 ALTER TABLE products ADD COLUMN min_price FLOAT DEFAULT 0;
 
--- 8. 新建 sales_deliveries（替代 sales_stockouts）
+-- 4. 新建 sales_deliveries（替代 sales_stockouts）
 CREATE TABLE IF NOT EXISTS sales_deliveries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     delivery_no VARCHAR(30) UNIQUE NOT NULL,
@@ -285,7 +259,7 @@ CREATE TABLE IF NOT EXISTS sales_deliveries (
            (warehouse_id IS NOT NULL AND vehicle_id IS NULL))
 );
 
--- 9. 新建 purchase_receipts（替代 purchase_stockins）
+-- 5. 新建 purchase_receipts（替代 purchase_stockins）
 CREATE TABLE IF NOT EXISTS purchase_receipts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     receipt_no VARCHAR(30) UNIQUE NOT NULL,
@@ -299,31 +273,36 @@ CREATE TABLE IF NOT EXISTS purchase_receipts (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     remark TEXT
 );
+
+-- 6. employee.report_to 初始化
+UPDATE employees SET report_to = 1 WHERE report_to IS NULL AND id != 1;
 ```
 
 ### 4.2 审计中间件
 
-**文件：`server/middleware/__init__.py`**（空文件）
+**文件：`server/middleware/__init__.py`**（已存在，空文件）
 
 **文件：`server/middleware/audit.py`**
 
 ```python
 from fastapi import Request
 from database import SessionLocal
-from models.audit_log import AuditLog
+from models.http_audit_log import HttpAuditLog
 import json
 import logging
 
 logger = logging.getLogger(__name__)
 
 async def audit_middleware(request: Request, call_next):
-    """拦截所有 POST/PUT/DELETE，自动记录 audit_log。
-    
-    基础字段（user_id, action, entity_type, IP）在中间件层自动填写。
+    """拦截所有 POST/PUT/DELETE，自动记录 http_audit_log。
+
+    基础字段（user_id, method, path, entity_type, IP）在中间件层自动填写。
     敏感状态变更的 old_value/new_value 在 Service 层显式调用 audit_service.log_change()。
+
+    注意：不与现有 audit_logs（审批记录表）混淆。
     """
     response = await call_next(request)
-    
+
     if request.method in ("POST", "PUT", "DELETE"):
         db = SessionLocal()
         try:
@@ -332,10 +311,11 @@ async def audit_middleware(request: Request, call_next):
                 # 从 path 提取 entity_type（如 /api/sales-deliveries/123 → sales-deliveries）
                 path_parts = request.url.path.strip('/').split('/')
                 entity_type = path_parts[1] if len(path_parts) > 1 else 'unknown'
-                
-                log = AuditLog(
+
+                log = HttpAuditLog(
                     user_id=user_id,
-                    action=f"{request.method}:{request.url.path}",
+                    method=request.method,
+                    path=request.url.path,
                     entity_type=entity_type,
                     ip_address=request.client.host if request.client else '',
                     user_agent=request.headers.get('user-agent', '')
@@ -346,7 +326,7 @@ async def audit_middleware(request: Request, call_next):
             logger.error(f"Audit middleware error: {e}")
         finally:
             db.close()
-    
+
     return response
 ```
 
@@ -357,6 +337,8 @@ from middleware.audit import audit_middleware
 # 在 CORS 之后、路由之前注册
 app.middleware("http")(audit_middleware)
 ```
+
+> ⚠️ **命名说明**：现有 `models/audit.py` → `audit_logs` 表是**审批记录**（approve/reject），新表命名为 `http_audit_log` 避免冲突。
 
 ### 4.3 状态枚举
 
@@ -417,19 +399,31 @@ class VehicleLoadStatus:
 ```
 操作（按顺序执行）：
 
-1. mkdir server/middleware
-2. mkdir server/services
-3. 创建 server/middleware/__init__.py, server/middleware/audit.py
-4. 创建 server/services/__init__.py, server/services/inventory_service.py, server/services/audit_service.py
-5. 创建 server/utils/status.py
-6. 复制 routers/sales.py → routers/sales_order.py（不改内容）
-7. 复制 routers/purchases.py → routers/purchase_order.py（不改内容）
-8. main.py: 注册 audit 中间件
-9. main.py: 将 'sales' 导入改为 'sales_order'（路由不变）
-10. main.py: 将 'purchases' 导入改为 'purchase_order'（路由不变）
+1. mkdir server/services
+2. 创建 server/services/__init__.py, server/services/inventory_service.py
+3. 创建 server/utils/status.py
+4. 创建 server/models/http_audit_log.py
+5. 复制 routers/sales.py → routers/sales_order.py（不改内容）
+6. 复制 routers/purchases.py → routers/purchase_order.py（不改内容）
+7. main.py: 注册 audit 中间件
+8. main.py: 将 'sales' 导入改为 'sales_order'（路由不变）
+9. main.py: 将 'purchases' 导入改为 'purchase_order'（路由不变）
 
 ⚠️ 不删旧文件，确保现有 API 正常运行。
 ```
+
+### 4.4.1 前端同步改动（v1.1 新增）
+
+> 目录重组会改变后端路由前缀，前端 API 路径必须同步修改，否则功能断裂。
+
+| 改动 | PC 端 (`pc/src/`) | H5 端 (`h5/src/`) |
+|------|-------------------|-------------------|
+| API 路径 | `api/index.js` 中 `/api/sales` → `/api/sales-orders` | `api/index.js` 同步修改 |
+| 路由 | `router/index.js` 路由 path 和 component 路径 | `router/index.js` 同步修改 |
+| 视图目录 | `views/sales/` → `views/sales_order/` | 对应页面路径修改 |
+| Layout 菜单 | `Layout.vue` 子模块 path 更新 | `Layout.vue` Tabbar path 更新 |
+
+**关键原则**：后端改名和前端改名必须在同一个 commit 中完成，不允许中间状态。
 
 ### 4.5 models 拆分
 
@@ -443,8 +437,8 @@ class VehicleLoadStatus:
    → PurchaseStockin 保留但标记 @deprecated
    → 新增 PurchaseReturnDelivery（采购退货出库单）
 
-3. models/audit_log.py → 新建
-4. models/role.py → 加字段
+3. models/http_audit_log.py → 新建（HTTP请求审计，非审批记录）
+4. models/role.py → 已有 role_key/is_system/sort_order/status，无需改动
 5. models/employee.py → 加 report_to
 6. models/product.py → 加 min_price
 ```
@@ -654,7 +648,7 @@ class InventoryService:
 
 ### Day 9-10：审计报告 + 联调
 
-基于 Phase 0 自动积累的 `audit_log`，实现：
+基于 Phase 0 自动积累的 `http_audit_log`，实现：
 - 按时间/用户/实体类型筛选
 - 操作审计视图（PC 端 `views/audit_log/Index.vue`）
 - 全模块联调：销售→采购→盘点→费用→报表→审计 端到端测试
@@ -667,15 +661,27 @@ class InventoryService:
 - Phase A 销售单/退货单已完成
 - Phase A 审计日志已运行
 
+### ⚠️ 现有车销模型说明（v1.1 补充）
+
+> 当前已有简化版车销模型（`models/vehicle.py`）：
+> - `VehicleSalesOut` — 车销出库（String status="draft"，已有 CRUD）
+> - `VehicleReturn` — 车销退货（String status="draft"，已有 CRUD）
+> - `VehicleLoss` — 车销报损（String status="draft"，已有 CRUD）
+> - `vehicle.py` router — 已有完整 CRUD 端点
+>
+> **这些是简化模型**，不满足 v2.4 完整车销需求（无 Vehicle 主档、无 VehicleInventory 车上库存、无 VehicleLoad 装车单、无 Settlement 交账）。
+>
+> **策略**：保留旧模型和 API 不动（H5 端可能已在使用），Phase B 新建完整体系，旧模型标记 @deprecated。
+
 ### Day 1-2：车辆 + 装车
 
-**新建 models/vehicle.py**：
+**新建 models/vehicle_v2.py**（避免与现有 vehicle.py 冲突）：
 ```python
-class Vehicle(Base):       # 车辆档案
-class VehicleInventory(Base):  # 车上库存
+class Vehicle(Base):       # 车辆档案（新增）
+class VehicleInventory(Base):  # 车上库存（新增）
 class VehicleLoad(Base):   # 装车单 (draft→pending→loaded→partial_return→returned)
 class VehicleLoadItem(Base):   # 装车明细 (含 returned_quantity)
-class VehicleReturn(Base): # 退库记录
+class VehicleReturn(Base): # 退库记录（新建，与旧 VehicleReturn 不同）
 ```
 
 **装车逻辑**：装车单审核→仓库库存扣减→车上库存增加
@@ -794,7 +800,7 @@ draft → pending → loaded → partial_return → returned
 
 ### 10.1 核心新表（按 Phase 执行）
 
-**Phase 0**：见 §4.1
+**Phase 0**：见 §4.1（v1.1修订：跳过权限表/模块表，仅新建 http_audit_log + 扩展字段 + 新业务表）
 
 **Phase A Day 1-2**：
 ```sql
@@ -908,14 +914,13 @@ UPDATE employees SET report_to = 1 WHERE report_to IS NULL AND id != 1;
 
 | # | 文件 | 操作 | Phase |
 |---|------|------|:---:|
-| 1 | `server/middleware/__init__.py` | 新建 | 0 |
-| 2 | `server/middleware/audit.py` | 新建 | 0 |
-| 3 | `server/utils/status.py` | 新建 | 0 |
-| 4 | `server/services/__init__.py` | 新建 | 0 |
-| 5 | `server/services/inventory_service.py` | 新建 | 0 |
-| 6 | `server/services/audit_service.py` | 新建 | 0 |
-| 7 | `server/migrations/001_phase0_baseline.sql` | 新建 | 0 |
-| 8 | `server/main.py` | 修改（注册中间件+路由） | 0 |
+| 1 | `server/middleware/audit.py` | 新建（middleware/__init__.py 已存在） | 0 |
+| 2 | `server/utils/status.py` | 新建 | 0 |
+| 3 | `server/services/__init__.py` | 新建 | 0 |
+| 4 | `server/services/inventory_service.py` | 新建 | 0 |
+| 5 | `server/models/http_audit_log.py` | 新建 | 0 |
+| 6 | `server/migrations/001_phase0_baseline.sql` | 新建（v1.1修订版） | 0 |
+| 7 | `server/main.py` | 修改（注册中间件+路由） | 0 |
 | 9 | `server/models/sales.py` | 修改（新增 SalesDelivery） | A1-2 |
 | 10 | `server/routers/sales_order.py` | 从 sales.py 复制改名 | A1-2 |
 | 11 | `server/routers/sales_delivery.py` | 新建 | A1-2 |
@@ -957,6 +962,8 @@ UPDATE employees SET report_to = 1 WHERE report_to IS NULL AND id != 1;
 | 14 | `pc/src/views/settlement/Index.vue` | 新建 | B5-6 |
 | 15 | H5 端 | 新建（车销开单） | B3-4 |
 
+> ⚠️ **前端同步原则**（v1.1 新增）：后端路由改名时，PC 端和 H5 端的 API 路径、路由配置、Layout 菜单必须在同一个 commit 中同步修改。
+
 ---
 
 ## 十二、测试策略
@@ -965,7 +972,7 @@ UPDATE employees SET report_to = 1 WHERE report_to IS NULL AND id != 1;
 
 | Phase | 关键测试点 |
 |-------|-----------|
-| 0 | audit_log 是否自动记录所有 POST/PUT/DELETE；旧 API 是否正常运行 |
+| 0 | http_audit_log 是否自动记录所有 POST/PUT/DELETE；旧 API 是否正常运行 |
 | A1-2 | 开单→扣库存✓；当日作废→库存回滚✓；跨日作废被拒绝✓；红冲→负金额冲销单✓ |
 | A3-4 | 采购入库→库存增加✓；采购退货出库→仓管确认→财务确认✓ |
 | A5-6 | 整仓盘点锁定✓；费用报销→上级审批✓ |
@@ -991,12 +998,12 @@ UPDATE employees SET report_to = 1 WHERE report_to IS NULL AND id != 1;
 
 | 风险 | 概率 | 影响 | 缓解 |
 |------|:---:|------|------|
-| 表改名导致旧功能崩溃 | 中 | 高 | Phase 0 只建新表不改旧表，旧 API 照跑 |
+| SalesStockout→SalesDelivery 旧数据丢失 | 高 | 高 | 保留旧表，写数据迁移脚本，双表并行运行过渡期 |
 | 状态迁移脚本有 bug | 中 | 高 | Phase B Day 1 就写并测试，不等到 Day 5 |
 | 审计中间件性能问题 | 低 | 中 | 异步写入，不阻塞请求响应 |
-| 前端菜单改名导致链接失效 | 低 | 低 | 保留旧路由重定向 |
+| 目录重组后前端404 | 中 | 中 | PC+H5 的 api/index.js 必须同步改路径，改完立即测试 |
 | Phase A 销售单状态机理解偏差 | 中 | 高 | Day 1-2 优先完成状态机单测 |
-| 权限模型从 JSON 迁移到 module+operation 太晚 | 高 | 高 | Phase 0 建好表结构，Phase A 逐步迁移 |
+| auth 中间件迁移失败 | 中 | 中 | 表+服务层已就位，Phase A 逐步迁移，旧JSON作为 fallback |
 
 ---
 
@@ -1009,6 +1016,11 @@ UPDATE employees SET report_to = 1 WHERE report_to IS NULL AND id != 1;
 | 审计中间件前置到 Phase 0 | 横切关注点，后期补成本太高 | v2.4 |
 | 退货 settled 仅在交账审核时触发 | 非车销 finance_confirmed 即终态 | v2.4 |
 | 费用阈值可配置 | 防止拆单绕过，财务可下调至 50 元 | v2.3 |
+| http_audit_log 命名 | 避免与现有 audit_logs（审批记录）命名冲突 | v1.1 |
+| 车销旧模型保留 | VehicleSalesOut/Return/Loss 已有CRUD，H5可能在用，Phase B 新建完整体系 | v1.1 |
+| Phase 0 缩减至0.5天 | 权限表/模块表/角色扩展已在前期完成，无需重复建设 | v1.1 |
+| 旧车销模型保留 | H5端可能已在使用，新体系并行建 | v1.1 |
+| Phase 0 缩减至0.5天 | 权限表/模块表/角色扩展已建好 | v1.1 |
 
 ---
 
