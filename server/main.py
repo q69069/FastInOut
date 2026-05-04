@@ -6,6 +6,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base, SessionLocal
+# Phase 0: 导入新模型，确保 Base.metadata.create_all 建表
+import models.http_audit_log
+import models.sales_delivery
+import models.purchase_receipt
 from routers import (
     auth, company, warehouses, employees,
     categories, products, customers, suppliers,
@@ -34,6 +38,8 @@ def auto_migrate():
             conn.execute(text('ALTER TABLE products ADD COLUMN purchase_price REAL DEFAULT 0'))
         if 'cost_price' not in col_names:
             conn.execute(text('ALTER TABLE products ADD COLUMN cost_price REAL DEFAULT 0'))
+        if 'min_price' not in col_names:
+            conn.execute(text('ALTER TABLE products ADD COLUMN min_price REAL DEFAULT 0'))
 
         # employees 新字段
         emp_cols = [c['name'] for c in inspector.get_columns('employees')]
@@ -47,6 +53,8 @@ def auto_migrate():
             conn.execute(text('ALTER TABLE employees ADD COLUMN bypass_audit INTEGER DEFAULT 0'))
         if 'online_status' not in emp_cols:
             conn.execute(text('ALTER TABLE employees ADD COLUMN online_status VARCHAR(10) DEFAULT "offline"'))
+        if 'report_to' not in emp_cols:
+            conn.execute(text('ALTER TABLE employees ADD COLUMN report_to INTEGER'))
 
         # roles 新字段
         role_cols = [c['name'] for c in inspector.get_columns('roles')]
@@ -292,6 +300,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Phase 0: HTTP 审计中间件
+from middleware.audit import AuditMiddleware
+app.add_middleware(AuditMiddleware)
 
 # 注册路由
 app.include_router(auth.router)
