@@ -1667,4 +1667,66 @@ def get_user_permissions(employee_id, db):
 【装车单】  draft → pending → loaded → partial_return → returned
 
 【审计日志】Phase 0 中间件拦截所有 POST/PUT/DELETE → INSERT audit_log（只追加不可删）
+
+---
+
+## 附录：v2.5 实施状态与后续开发计划
+
+> 📅 更新：2026-05-04 | 👤 更新：小C
+>
+> 本附录记录 v2.4 方案的实际实施状态、角色统一确认、H5 全功能计划，以及后续开发路线。
+> 详细开发计划见配套文档：`FASTINOUT_DEVELOPMENT_PLAN.md`
+
+### A. 角色 key 统一确认（v2.5）
+
+| 角色 | role_key | PC端 | H5端 | 状态 |
+|------|:---:|------|------|:---:|
+| 老板/管理员 | `admin` | 全部功能 | 全部功能 | ✅ 统一 |
+| 主管/文员 | `supervisor` | 档案+采购+销售+报表 | 同PC | ✅ 统一 |
+| 业务员 | `sales` | 销售+客户+自己路线 | 同PC | ✅ 统一 |
+| 财务 | `finance` | 财务+报表+对账+费用 | 同PC | ✅ 统一 |
+| 库管 | `warehouse` | 仓库+出入库+盘点+报损 | 同PC | ✅ 统一 |
+
+> 所有端（PC/H5/小程序）统一使用 admin/supervisor/sales/warehouse/finance 五个 role_key。
+> 前端权限判断统一使用 `authStore.hasModule(moduleKey)` 和 `authStore.can(moduleKey, action)`。
+
+### B. 39模块实施状态（2026-05-04）
+
+| 分类 | 已完成 | 模块列表 |
+|------|:---:|------|
+| 档案类(12) | 9/12 | ✅ dashboard/customers/suppliers/products/units/warehouses/batches/employees/routes |
+| | | ❌ brands/channels/customer_levels（纯CRUD，字段已有） |
+| 业务类(11) | 10/11 | ✅ sales_order/sales_delivery/sales_return/sales_return_dlv/purchase_order/purchase_return/purchase_receipt/inventory/stocktaking/damage_report |
+| | | ❌ purchase_return_dlv（采购退货出库单） |
+| 车销(2) | 2/2 | ✅ vehicle_load/settlement |
+| 财务(4) | 4/4 | ✅ finance/advance_payment/expenses/account_ledger |
+| 报表(4) | 4/4 | ✅ report_sales/report_purchase/report_inventory/report_finance |
+| 营销+系统(6) | 6/6 | ✅ promotions/roles/company_config/backup/audit_log/commission |
+| 风控(1) | 1/1 | ✅ monitor（异常交易监控）+ reconciliation（对账确认） |
+| **合计** | **36/39** | 缺：brands/channels/customer_levels/purchase_return_dlv |
+
+### C. H5 全功能计划（v2.5 新增）
+
+> H5 端不再局限于"业务员极简版"，而是实现 PC 端全部功能的移动端适配。
+
+| H5 Tab | 对应PC模块 | 功能范围 | 状态 |
+|--------|-----------|---------|:---:|
+| 首页 | dashboard | 经营看板+待办 | ✅ 已有 |
+| 客户 | customers | 客户管理+拜访+CRM | ✅ 已有 |
+| 销售 | sales_order+sales_delivery+sales_return | 开单+退货+审核 | ✅ 已有 |
+| 库存 | inventory | 库存查询+调拨 | ✅ 已有 |
+| 财务 | finance+account_ledger | 收付款+往来账 | ✅ 已有 |
+| 工具 | tools | 扫码+打印+数据导入 | ✅ 已有 |
+| 我的 | profile | 业绩+设置+消息 | ✅ 已有 |
+
+### D. 后续开发路线
+
+详见 `FASTINOUT_DEVELOPMENT_PLAN.md`，当前进度：
+
+- **Phase 0 基础设施** ✅ 完成（状态枚举+审计中间件+库存服务层）
+- **Phase A P0核心业务** ✅ 完成（销售单/采购入库/费用/盘点/退货/审计/往来账）
+- **Phase B 车销+交账** ✅ 完成（装车/交账/预收付）
+- **Phase C P1完善** ✅ 完成（报损/提成/公司设置/增强报表/对账）
+- **Phase D 风控增强** ✅ 完成（异常监控/对账确认）
+- **待做**：brands/channels/customer_levels/purchase_return_dlv（4个模块）+ PC/H5前端联调测试
 ```
