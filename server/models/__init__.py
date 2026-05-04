@@ -24,3 +24,7 @@ from models.promotion import Promotion
 from models.bank import BankStatement
 from models.print_template import PrintTemplate
 from models.invoice import Invoice
+from models.http_audit_log import HttpAuditLog
+from models.sales_delivery import SalesDelivery, SalesDeliveryItem
+from models.purchase_receipt import PurchaseReceipt, PurchaseReceiptItem
+from models.expense import ExpenseCategory, Expense

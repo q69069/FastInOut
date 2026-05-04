@@ -15,3 +15,6 @@ from schemas.system import *
 from schemas.report import *
 from schemas.route import *
 from schemas.vehicle import *
+from schemas.sales_delivery import *
+from schemas.purchase_receipt import *
+from schemas.expense import *
