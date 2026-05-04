@@ -65,3 +65,29 @@ export const updateRole = (data) => api.put(`/roles/${data.id}`, data)
 export const getCompanySettings = () => api.get('/company')
 export const updateCompanySettings = (data) => api.put('/company', data)
 export const backupData = () => api.post('/backup')
+
+// ========== 车销流程（Phase B） ==========
+
+// 装车单
+export const getVehicleLoads = (params) => api.get('/vehicle-loads', { params })
+export const createVehicleLoad = (data) => api.post('/vehicle-loads', data)
+export const getVehicleLoad = (id) => api.get(`/vehicle-loads/${id}`)
+export const confirmVehicleLoad = (id) => api.post(`/vehicle-loads/${id}/confirm`)
+export const returnVehicleLoad = (id) => api.post(`/vehicle-loads/${id}/return`)
+
+// 销售单（车销开单）
+export const getSalesDeliveries = (params) => api.get('/sales-deliveries', { params })
+export const createSalesDelivery = (data) => api.post('/sales-deliveries', data)
+export const getSalesDelivery = (id) => api.get(`/sales-deliveries/${id}`)
+export const voidSalesDelivery = (id, data) => api.post(`/sales-deliveries/${id}/void`, data)
+
+// 交账
+export const getSettlements = (params) => api.get('/settlements', { params })
+export const createSettlement = (data) => api.post('/settlements', data)
+export const getSettlement = (id) => api.get(`/settlements/${id}`)
+export const getPendingDeliveries = (params) => api.get('/settlements/pending-deliveries', { params })
+
+// 退货单
+export const getReturnDeliveries = (params) => api.get('/return-deliveries', { params })
+export const getReturnDelivery = (id) => api.get(`/return-deliveries/${id}`)
+export const warehouseConfirmReturn = (id) => api.post(`/return-deliveries/${id}/warehouse-confirm`)

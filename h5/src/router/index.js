@@ -34,7 +34,11 @@ const routes = [
       { path: 'supplier', name: 'Supplier', component: () => import('../views/Supplier.vue'), meta: { moduleKey: 'suppliers' } },
       { path: 'purchase', name: 'Purchase', component: () => import('../views/Purchase.vue'), meta: { moduleKey: 'purchases' } },
       { path: 'settings', name: 'Settings', component: () => import('../views/Settings.vue'), meta: { moduleKey: 'system' } },
-      { path: 'roles', name: 'Roles', component: () => import('../views/Roles.vue'), meta: { moduleKey: 'roles' } }
+      { path: 'roles', name: 'Roles', component: () => import('../views/Roles.vue'), meta: { moduleKey: 'roles' } },
+      // Phase B: 车销流程
+      { path: 'vehicle-load', name: 'VehicleLoad', component: () => import('../views/VehicleLoad.vue'), meta: { moduleKey: 'inventory' } },
+      { path: 'vehicle-sales', name: 'VehicleSales', component: () => import('../views/VehicleSales.vue'), meta: { moduleKey: 'sales' } },
+      { path: 'settlement', name: 'Settlement', component: () => import('../views/Settlement.vue'), meta: { moduleKey: 'sales' } }
     ]
   }
 ]

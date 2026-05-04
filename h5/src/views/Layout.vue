@@ -5,12 +5,11 @@
     </div>
     <van-tabbar v-model="active" fixed safe-area-inset-bottom>
       <van-tabbar-item to="/home" icon="wap-home">首页</van-tabbar-item>
-      <van-tabbar-item v-if="authStore.hasModule('dashboard')" to="/dashboard" icon="chart-trending-o">看板</van-tabbar-item>
-      <van-tabbar-item v-if="authStore.hasModule('customers')" to="/customers" icon="friends">客户</van-tabbar-item>
-      <van-tabbar-item v-if="authStore.hasModule('performance')" to="/performance" icon="graphic">业绩</van-tabbar-item>
-      <van-tabbar-item v-if="authStore.hasModule('tools') || authStore.hasModule('profile')" to="/tools" icon="setting-o">工具</van-tabbar-item>
-      <van-tabbar-item v-if="authStore.hasModule('inventory')" to="/inventory" icon="logistics">库存</van-tabbar-item>
-      <van-tabbar-item v-if="authStore.hasModule('finance')" to="/receivables" icon="balance-o">财务</van-tabbar-item>
+      <van-tabbar-item v-if="authStore.hasModule('sales')" to="/vehicle-sales" icon="shopping-cart-o">车销</van-tabbar-item>
+      <van-tabbar-item v-if="authStore.hasModule('inventory')" to="/vehicle-load" icon="logistics">装车</van-tabbar-item>
+      <van-tabbar-item v-if="authStore.hasModule('customers')" to="/customers" icon="friends-o">客户</van-tabbar-item>
+      <van-tabbar-item v-if="authStore.hasModule('sales')" to="/settlement" icon="balance-o">交账</van-tabbar-item>
+      <van-tabbar-item to="/tools" icon="setting-o">我的</van-tabbar-item>
     </van-tabbar>
   </div>
 </template>
@@ -24,14 +23,18 @@ const route = useRoute()
 const authStore = useAuthStore()
 const active = ref(0)
 
+const tabPathMap = {
+  '/home': 0,
+  '/vehicle-sales': 1,
+  '/vehicle-load': 2,
+  '/customers': 3,
+  '/settlement': 4,
+  '/tools': 5,
+  '/account': 5
+}
+
 watch(() => route.path, (path) => {
-  if (path === '/home') active.value = 0
-  else if (path === '/dashboard') active.value = 1
-  else if (path === '/customers') active.value = 2
-  else if (path === '/performance') active.value = 3
-  else if (path === '/inventory') active.value = 4
-  else if (path === '/tools') active.value = 5
-  else if (path === '/receivables') active.value = 6
+  active.value = tabPathMap[path] ?? 0
 }, { immediate: true })
 </script>
 
