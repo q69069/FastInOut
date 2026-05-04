@@ -3,8 +3,10 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models.product import Product
 from models.inventory import Inventory
+from models.employee import Employee
 from schemas.product import ProductCreate, ProductUpdate, ProductOut
 from schemas.common import ResponseModel, PaginatedResponse
+from deps import get_current_user
 
 router = APIRouter(prefix="/api/products", tags=["商品"])
 
@@ -34,7 +36,7 @@ def list_products(
 
 
 @router.post("", response_model=ResponseModel)
-def create_product(req: ProductCreate, db: Session = Depends(get_db)):
+def create_product(req: ProductCreate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     if req.code:
         existing = db.query(Product).filter(Product.code == req.code).first()
         if existing:
@@ -63,7 +65,7 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{product_id}", response_model=ResponseModel)
-def update_product(product_id: int, req: ProductUpdate, db: Session = Depends(get_db)):
+def update_product(product_id: int, req: ProductUpdate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     prod = db.query(Product).get(product_id)
     if not prod:
         raise HTTPException(status_code=404, detail="商品不存在")
@@ -80,7 +82,7 @@ def update_product(product_id: int, req: ProductUpdate, db: Session = Depends(ge
 
 
 @router.delete("/{product_id}", response_model=ResponseModel)
-def delete_product(product_id: int, db: Session = Depends(get_db)):
+def delete_product(product_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     prod = db.query(Product).get(product_id)
     if not prod:
         raise HTTPException(status_code=404, detail="商品不存在")

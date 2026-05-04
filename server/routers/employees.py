@@ -5,6 +5,7 @@ from models.employee import Employee
 from schemas.employee import EmployeeCreate, EmployeeUpdate, EmployeeOut
 from schemas.common import ResponseModel, PaginatedResponse
 from utils.auth import hash_password
+from deps import get_current_user, require_role
 
 router = APIRouter(prefix="/api/employees", tags=["员工"])
 
@@ -28,7 +29,7 @@ def list_employees(
 
 
 @router.post("", response_model=ResponseModel)
-def create_employee(req: EmployeeCreate, db: Session = Depends(get_db)):
+def create_employee(req: EmployeeCreate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     if req.username:
         existing = db.query(Employee).filter(Employee.username == req.username).first()
         if existing:
@@ -53,7 +54,7 @@ def get_employee(employee_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{employee_id}", response_model=ResponseModel)
-def update_employee(employee_id: int, req: EmployeeUpdate, db: Session = Depends(get_db)):
+def update_employee(employee_id: int, req: EmployeeUpdate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     emp = db.query(Employee).get(employee_id)
     if not emp:
         raise HTTPException(status_code=404, detail="员工不存在")
@@ -73,7 +74,7 @@ def update_employee(employee_id: int, req: EmployeeUpdate, db: Session = Depends
 
 
 @router.delete("/{employee_id}", response_model=ResponseModel)
-def delete_employee(employee_id: int, db: Session = Depends(get_db)):
+def delete_employee(employee_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     emp = db.query(Employee).get(employee_id)
     if not emp:
         raise HTTPException(status_code=404, detail="员工不存在")

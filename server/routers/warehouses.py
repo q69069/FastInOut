@@ -4,8 +4,10 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models.warehouse import Warehouse
 from models.inventory import Inventory
+from models.employee import Employee
 from schemas.warehouse import WarehouseCreate, WarehouseUpdate, WarehouseOut
 from schemas.common import ResponseModel, PaginatedResponse
+from deps import get_current_user, require_role
 
 router = APIRouter(prefix="/api/warehouses", tags=["仓库"])
 
@@ -34,7 +36,7 @@ def list_warehouses(
 
 
 @router.post("", response_model=ResponseModel)
-def create_warehouse(req: WarehouseCreate, db: Session = Depends(get_db)):
+def create_warehouse(req: WarehouseCreate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     if req.warehouse_type not in VALID_WAREHOUSE_TYPES:
         raise HTTPException(status_code=400, detail=f"无效的仓库类型: {req.warehouse_type}")
     existing = db.query(Warehouse).filter(Warehouse.code == req.code).first()
@@ -60,7 +62,7 @@ def get_warehouse(warehouse_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{warehouse_id}", response_model=ResponseModel)
-def update_warehouse(warehouse_id: int, req: WarehouseUpdate, db: Session = Depends(get_db)):
+def update_warehouse(warehouse_id: int, req: WarehouseUpdate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     wh = db.query(Warehouse).get(warehouse_id)
     if not wh:
         raise HTTPException(status_code=404, detail="仓库不存在")
@@ -79,7 +81,7 @@ def update_warehouse(warehouse_id: int, req: WarehouseUpdate, db: Session = Depe
 
 
 @router.delete("/{warehouse_id}", response_model=ResponseModel)
-def delete_warehouse(warehouse_id: int, db: Session = Depends(get_db)):
+def delete_warehouse(warehouse_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     wh = db.query(Warehouse).get(warehouse_id)
     if not wh:
         raise HTTPException(status_code=404, detail="仓库不存在")
@@ -92,7 +94,7 @@ def delete_warehouse(warehouse_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{warehouse_id}/default", response_model=ResponseModel)
-def set_default_warehouse(warehouse_id: int, db: Session = Depends(get_db)):
+def set_default_warehouse(warehouse_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     wh = db.query(Warehouse).get(warehouse_id)
     if not wh:
         raise HTTPException(status_code=404, detail="仓库不存在")

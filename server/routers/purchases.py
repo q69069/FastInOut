@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime
@@ -10,13 +10,14 @@ from models.purchase import (
 )
 from models.supplier import Supplier
 from models.inventory import Inventory
+from models.employee import Employee
 from schemas.purchase import (
     PurchaseOrderCreate, PurchaseOrderUpdate, PurchaseOrderOut, PurchaseOrderItemOut,
     PurchaseStockinCreate, PurchaseStockinOut, PurchaseStockinItemOut,
     PurchaseReturnCreate, PurchaseReturnOut
 )
 from schemas.common import ResponseModel, PaginatedResponse
-from datetime import datetime
+from deps import get_current_user, require_owner_or_admin
 
 router = APIRouter(prefix="/api", tags=["采购"])
 
@@ -63,7 +64,7 @@ def list_purchase_orders(
 
 
 @router.post("/purchase-orders", response_model=ResponseModel)
-def create_purchase_order(req: PurchaseOrderCreate, db: Session = Depends(get_db)):
+def create_purchase_order(req: PurchaseOrderCreate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     code = _gen_code("CG", db, PurchaseOrder)
     total = sum(item.amount or (item.quantity * item.price) for item in req.items)
     order = PurchaseOrder(code=code, supplier_id=req.supplier_id, warehouse_id=req.warehouse_id, total_amount=total, remark=req.remark)
@@ -90,7 +91,7 @@ def get_purchase_order(order_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/purchase-orders/{order_id}", response_model=ResponseModel)
-def update_purchase_order(order_id: int, req: PurchaseOrderUpdate, db: Session = Depends(get_db)):
+def update_purchase_order(order_id: int, req: PurchaseOrderUpdate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     order = db.query(PurchaseOrder).get(order_id)
     if not order:
         raise HTTPException(status_code=404, detail="采购订单不存在")
@@ -114,7 +115,7 @@ def update_purchase_order(order_id: int, req: PurchaseOrderUpdate, db: Session =
 
 
 @router.delete("/purchase-orders/{order_id}", response_model=ResponseModel)
-def delete_purchase_order(order_id: int, db: Session = Depends(get_db)):
+def delete_purchase_order(order_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     order = db.query(PurchaseOrder).get(order_id)
     if not order:
         raise HTTPException(status_code=404, detail="采购订单不存在")
@@ -126,7 +127,7 @@ def delete_purchase_order(order_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/purchase-orders/{order_id}/stockin", response_model=ResponseModel)
-def order_to_stockin(order_id: int, db: Session = Depends(get_db)):
+def order_to_stockin(order_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     order = db.query(PurchaseOrder).get(order_id)
     if not order:
         raise HTTPException(status_code=404, detail="采购订单不存在")
@@ -170,7 +171,7 @@ def list_purchase_stockins(
 
 
 @router.post("/purchase-stockins", response_model=ResponseModel)
-def create_purchase_stockin(req: PurchaseStockinCreate, db: Session = Depends(get_db)):
+def create_purchase_stockin(req: PurchaseStockinCreate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     code = _gen_code("RK", db, PurchaseStockin)
     total = sum(item.amount or (item.quantity * item.price) for item in req.items)
     si = PurchaseStockin(code=code, order_id=req.order_id, supplier_id=req.supplier_id, warehouse_id=req.warehouse_id, total_amount=total, remark=req.remark)
@@ -197,7 +198,7 @@ def get_purchase_stockin(stockin_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/purchase-stockins/{stockin_id}", response_model=ResponseModel)
-def update_purchase_stockin(stockin_id: int, req: PurchaseStockinCreate, db: Session = Depends(get_db)):
+def update_purchase_stockin(stockin_id: int, req: PurchaseStockinCreate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     si = db.query(PurchaseStockin).get(stockin_id)
     if not si:
         raise HTTPException(status_code=404, detail="入库单不存在")
@@ -221,7 +222,7 @@ def update_purchase_stockin(stockin_id: int, req: PurchaseStockinCreate, db: Ses
 
 
 @router.delete("/purchase-stockins/{stockin_id}", response_model=ResponseModel)
-def delete_purchase_stockin(stockin_id: int, db: Session = Depends(get_db)):
+def delete_purchase_stockin(stockin_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     si = db.query(PurchaseStockin).get(stockin_id)
     if not si:
         raise HTTPException(status_code=404, detail="入库单不存在")
@@ -235,7 +236,7 @@ def delete_purchase_stockin(stockin_id: int, db: Session = Depends(get_db)):
 
 # ========== 入库确认 ==========
 @router.post("/purchase-stockins/{stockin_id}/confirm", response_model=ResponseModel)
-def confirm_stockin(stockin_id: int, db: Session = Depends(get_db)):
+def confirm_stockin(stockin_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     si = db.query(PurchaseStockin).get(stockin_id)
     if not si:
         raise HTTPException(status_code=404, detail="入库单不存在")
@@ -285,7 +286,7 @@ def list_purchase_returns(
 
 
 @router.post("/purchase-returns", response_model=ResponseModel)
-def create_purchase_return(req: PurchaseReturnCreate, db: Session = Depends(get_db)):
+def create_purchase_return(req: PurchaseReturnCreate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     code = _gen_code("TH", db, PurchaseReturn)
     total = sum(item.amount or (item.quantity * item.price) for item in req.items)
     ret = PurchaseReturn(code=code, stockin_id=req.stockin_id, supplier_id=req.supplier_id, warehouse_id=req.warehouse_id, total_amount=total, remark=req.remark)
@@ -309,7 +310,7 @@ def get_purchase_return(return_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/purchase-returns/{return_id}/confirm", response_model=ResponseModel)
-def confirm_purchase_return(return_id: int, db: Session = Depends(get_db)):
+def confirm_purchase_return(return_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     ret = db.query(PurchaseReturn).get(return_id)
     if not ret:
         raise HTTPException(status_code=404, detail="退货单不存在")

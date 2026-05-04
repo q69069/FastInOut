@@ -3,11 +3,13 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models.unit import Unit, UnitConversion
 from models.product import Product
+from models.employee import Employee
 from schemas.unit import (
     UnitCreate, UnitUpdate, UnitOut,
     UnitConversionCreate, UnitConversionOut, ProductUnitConfig
 )
 from schemas.common import ResponseModel, PaginatedResponse
+from deps import get_current_user
 
 router = APIRouter(prefix="/api/units", tags=["单位管理"])
 
@@ -27,7 +29,7 @@ def list_units(
 
 
 @router.post("", response_model=ResponseModel)
-def create_unit(req: UnitCreate, db: Session = Depends(get_db)):
+def create_unit(req: UnitCreate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     existing = db.query(Unit).filter(Unit.name == req.name).first()
     if existing:
         raise HTTPException(status_code=400, detail="单位名称已存在")
@@ -46,7 +48,7 @@ def list_all_units(db: Session = Depends(get_db)):
 
 
 @router.put("/{unit_id}", response_model=ResponseModel)
-def update_unit(unit_id: int, req: UnitUpdate, db: Session = Depends(get_db)):
+def update_unit(unit_id: int, req: UnitUpdate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     unit = db.query(Unit).get(unit_id)
     if not unit:
         raise HTTPException(status_code=404, detail="单位不存在")
@@ -58,7 +60,7 @@ def update_unit(unit_id: int, req: UnitUpdate, db: Session = Depends(get_db)):
 
 
 @router.delete("/{unit_id}", response_model=ResponseModel)
-def delete_unit(unit_id: int, db: Session = Depends(get_db)):
+def delete_unit(unit_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     unit = db.query(Unit).get(unit_id)
     if not unit:
         raise HTTPException(status_code=404, detail="单位不存在")
@@ -103,7 +105,7 @@ def list_conversions(
 
 
 @router.post("/conversions", response_model=ResponseModel)
-def create_conversion(req: UnitConversionCreate, db: Session = Depends(get_db)):
+def create_conversion(req: UnitConversionCreate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     # 验证商品存在
     product = db.query(Product).get(req.product_id)
     if not product:
@@ -131,7 +133,7 @@ def create_conversion(req: UnitConversionCreate, db: Session = Depends(get_db)):
 
 
 @router.delete("/conversions/{conv_id}", response_model=ResponseModel)
-def delete_conversion(conv_id: int, db: Session = Depends(get_db)):
+def delete_conversion(conv_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     conv = db.query(UnitConversion).get(conv_id)
     if not conv:
         raise HTTPException(status_code=404, detail="换算关系不存在")

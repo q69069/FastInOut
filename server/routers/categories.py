@@ -3,12 +3,14 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models.category import Category, CustomerCategory, SupplierCategory
 from models.product import Product
+from models.employee import Employee
 from schemas.category import (
     CategoryCreate, CategoryUpdate, CategoryOut,
     CustomerCategoryCreate, CustomerCategoryUpdate, CustomerCategoryOut,
     SupplierCategoryCreate, SupplierCategoryUpdate, SupplierCategoryOut
 )
 from schemas.common import ResponseModel
+from deps import get_current_user
 
 router = APIRouter(prefix="/api", tags=["分类"])
 
@@ -33,7 +35,7 @@ def list_categories(tree: bool = False, db: Session = Depends(get_db)):
 
 
 @router.post("/categories", response_model=ResponseModel)
-def create_category(req: CategoryCreate, db: Session = Depends(get_db)):
+def create_category(req: CategoryCreate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     cat = Category(**req.model_dump())
     db.add(cat)
     db.commit()
@@ -42,7 +44,7 @@ def create_category(req: CategoryCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/categories/{cat_id}", response_model=ResponseModel)
-def update_category(cat_id: int, req: CategoryUpdate, db: Session = Depends(get_db)):
+def update_category(cat_id: int, req: CategoryUpdate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     cat = db.query(Category).get(cat_id)
     if not cat:
         raise HTTPException(status_code=404, detail="分类不存在")
@@ -54,7 +56,7 @@ def update_category(cat_id: int, req: CategoryUpdate, db: Session = Depends(get_
 
 
 @router.delete("/categories/{cat_id}", response_model=ResponseModel)
-def delete_category(cat_id: int, db: Session = Depends(get_db)):
+def delete_category(cat_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     cat = db.query(Category).get(cat_id)
     if not cat:
         raise HTTPException(status_code=404, detail="分类不存在")
@@ -77,7 +79,7 @@ def list_customer_categories(db: Session = Depends(get_db)):
 
 
 @router.post("/customer-categories", response_model=ResponseModel)
-def create_customer_category(req: CustomerCategoryCreate, db: Session = Depends(get_db)):
+def create_customer_category(req: CustomerCategoryCreate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     cat = CustomerCategory(**req.model_dump())
     db.add(cat)
     db.commit()
@@ -98,7 +100,7 @@ def update_customer_category(cat_id: int, req: CustomerCategoryUpdate, db: Sessi
 
 
 @router.delete("/customer-categories/{cat_id}", response_model=ResponseModel)
-def delete_customer_category(cat_id: int, db: Session = Depends(get_db)):
+def delete_customer_category(cat_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     cat = db.query(CustomerCategory).get(cat_id)
     if not cat:
         raise HTTPException(status_code=404, detail="分类不存在")
@@ -119,7 +121,7 @@ def list_supplier_categories(db: Session = Depends(get_db)):
 
 
 @router.post("/supplier-categories", response_model=ResponseModel)
-def create_supplier_category(req: SupplierCategoryCreate, db: Session = Depends(get_db)):
+def create_supplier_category(req: SupplierCategoryCreate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     cat = SupplierCategory(**req.model_dump())
     db.add(cat)
     db.commit()
@@ -140,7 +142,7 @@ def update_supplier_category(cat_id: int, req: SupplierCategoryUpdate, db: Sessi
 
 
 @router.delete("/supplier-categories/{cat_id}", response_model=ResponseModel)
-def delete_supplier_category(cat_id: int, db: Session = Depends(get_db)):
+def delete_supplier_category(cat_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     cat = db.query(SupplierCategory).get(cat_id)
     if not cat:
         raise HTTPException(status_code=404, detail="分类不存在")
