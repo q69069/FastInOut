@@ -16,6 +16,7 @@ from models.expense import Expense
 from models.employee import Employee
 from schemas.common import ResponseModel, PaginatedResponse
 from utils.status import SettlementStatus
+from utils.role_check import require_role
 
 router = APIRouter(prefix="/api", tags=["交账"])
 
@@ -193,8 +194,7 @@ def get_settlement(settlement_id: int, db: Session = Depends(get_db)):
 def audit_settlement(settlement_id: int, data: dict, authorization: str = Header(None), db: Session = Depends(get_db)):
     """财务审核交账单 — 通过/驳回"""
     user = get_current_user(authorization, db)
-    if user.role_id not in (5, 4):
-        raise HTTPException(403, "只有财务或管理员可以审核交账")
+    require_role(user, db, "finance", "admin", message="只有财务或管理员可以审核交账")
     s = db.query(Settlement).get(settlement_id)
     if not s:
         raise HTTPException(404, "交账单不存在")

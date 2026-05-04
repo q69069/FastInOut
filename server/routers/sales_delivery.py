@@ -19,6 +19,7 @@ from schemas.sales_delivery import (
 from schemas.common import ResponseModel, PaginatedResponse
 from services.inventory_service import InventoryService
 from utils.status import SalesDeliveryStatus
+from utils.role_check import require_role, require_owner_or_admin
 
 router = APIRouter(prefix="/api", tags=["销售单"])
 
@@ -191,8 +192,7 @@ def void_sales_delivery(
         raise HTTPException(400, "只能作废当日的销售单，跨日请使用红冲")
 
     # 校验操作人
-    if user.role_id != 5 and delivery.created_by != user.id:
-        raise HTTPException(403, "只能作废自己开的单")
+    require_owner_or_admin(user, delivery.created_by, db, "只能作废自己开的单")
 
     # 回滚库存
     items = db.query(SalesDeliveryItem).filter(
@@ -231,8 +231,7 @@ def reverse_sales_delivery(
         raise HTTPException(400, f"当前状态 {delivery.status} 不允许红冲")
 
     # 只有主管/admin可以红冲
-    if user.role_id != 5:
-        raise HTTPException(403, "只有管理员可以红冲")
+    require_role(user, db, "admin", "supervisor", message="只有管理员可以红冲")
 
     # 回滚库存
     items = db.query(SalesDeliveryItem).filter(

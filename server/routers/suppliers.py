@@ -7,6 +7,7 @@ from schemas.supplier import SupplierCreate, SupplierUpdate, SupplierOut
 from schemas.common import ResponseModel, PaginatedResponse
 from utils.data_filter import DataFilter
 from utils.auth import decode_access_token
+from utils.role_check import require_role, require_owner_or_admin
 
 router = APIRouter(prefix="/api/suppliers", tags=["供应商"])
 
@@ -72,8 +73,7 @@ def get_supplier(supplier_id: int, authorization: str = Header(None), db: Sessio
     if not sup:
         raise HTTPException(status_code=404, detail="供应商不存在")
     # 数据权限检查：非admin只能查看自己创建的
-    if user.role_id != 5 and sup.created_by != user.id:
-            raise HTTPException(status_code=403, detail="无权查看此供应商")
+    require_owner_or_admin(user, sup.created_by, db, "无权查看此供应商")
     return ResponseModel(data=SupplierOut.model_validate(sup))
 
 
@@ -85,8 +85,7 @@ def update_supplier(supplier_id: int, req: SupplierUpdate, authorization: str = 
     if not sup:
         raise HTTPException(status_code=404, detail="供应商不存在")
     # 权限检查：非admin只能编辑自己创建的
-    if user.role_id != 5 and sup.created_by != user.id:
-        raise HTTPException(status_code=403, detail="无权编辑此供应商")
+    require_owner_or_admin(user, sup.created_by, db, "无权编辑此供应商")
     for k, v in req.model_dump(exclude_unset=True).items():
         setattr(sup, k, v)
     db.commit()
@@ -102,8 +101,7 @@ def delete_supplier(supplier_id: int, authorization: str = Header(None), db: Ses
     if not sup:
         raise HTTPException(status_code=404, detail="供应商不存在")
     # 权限检查：非admin只能删除自己创建的
-    if user.role_id != 5 and sup.created_by != user.id:
-        raise HTTPException(status_code=403, detail="无权删除此供应商")
+    require_owner_or_admin(user, sup.created_by, db, "无权删除此供应商")
     db.delete(sup)
     db.commit()
     return ResponseModel(message="删除成功")

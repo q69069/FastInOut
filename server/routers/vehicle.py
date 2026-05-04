@@ -12,6 +12,7 @@ from schemas.vehicle import VehicleSalesOutResponse, VehicleReturnResponse, Vehi
 from schemas.common import ResponseModel, PaginatedResponse
 from utils.data_filter import DataFilter
 from utils.auth import decode_access_token
+from utils.role_check import require_role, is_admin, is_owner_or_admin
 
 router = APIRouter(prefix="/api/vehicle", tags=["车销"])
 
@@ -74,8 +75,7 @@ def get_vehicle_sales_out(id: int, authorization: str = Header(None), db: Sessio
 
     # 数据权限检查
     route_ids = DataFilter._parse_ids(user.route_ids)
-    if route_ids and obj.employee_id not in [user.id] and user.role_id != 5:  # 非admin
-        # 检查是否有权限看这条数据
+    if route_ids and obj.employee_id not in [user.id] and not is_admin(user, db):
         pass  # 简化检查
 
     return VehicleSalesOutResponse.model_validate(obj)
@@ -133,7 +133,7 @@ def update_vehicle_sales_out(
         raise HTTPException(status_code=400, detail="只有草稿状态可编辑")
 
     # 数据权限：只能编辑自己的单据（非admin）
-    if user.role_id != 5 and obj.employee_id != user.id:
+    if not is_owner_or_admin(user, obj.employee_id, db):
         raise HTTPException(status_code=403, detail="无权编辑此单据")
 
     if vehicle_warehouse_id is not None:
@@ -159,7 +159,7 @@ def delete_vehicle_sales_out(id: int, authorization: str = Header(None), db: Ses
         raise HTTPException(status_code=404, detail="记录不存在")
 
     # 数据权限：只能删除自己的草稿单据（非admin）
-    if user.role_id != 5 and obj.employee_id != user.id:
+    if not is_owner_or_admin(user, obj.employee_id, db):
         raise HTTPException(status_code=403, detail="无权删除此单据")
 
     if obj.status != "draft":

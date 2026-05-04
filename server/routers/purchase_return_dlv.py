@@ -21,6 +21,7 @@ from schemas.purchase_return_dlv import (
 )
 from schemas.common import ResponseModel, PaginatedResponse
 from services.inventory_service import InventoryService
+from utils.role_check import require_role, require_owner_or_admin
 
 router = APIRouter(prefix="/api", tags=["采购退货出库单"])
 
@@ -193,9 +194,8 @@ def warehouse_confirm_return_dlv(
     if dlv.status != "pending":
         raise HTTPException(400, f"当前状态「{STATUS_TEXT.get(dlv.status, dlv.status)}」不允许仓管确认")
 
-    # 权限校验：仓管(3)或管理员(5)
-    if user.role_id not in (3, 5):
-        raise HTTPException(403, "只有仓管或管理员可以确认退货出库")
+    # 权限校验：仓管或管理员
+    require_role(user, db, "warehouse", "admin", message="只有仓管或管理员可以确认退货出库")
 
     items = db.query(PurchaseReturnDeliveryItem).filter(
         PurchaseReturnDeliveryItem.return_dlv_id == dlv_id
@@ -234,9 +234,8 @@ def finance_confirm_return_dlv(
     if dlv.status != "warehouse_confirmed":
         raise HTTPException(400, f"当前状态「{STATUS_TEXT.get(dlv.status, dlv.status)}」不允许财务确认")
 
-    # 权限校验：财务(4)或管理员(5)
-    if user.role_id not in (4, 5):
-        raise HTTPException(403, "只有财务或管理员可以确认退货冲账")
+    # 权限校验：财务或管理员
+    require_role(user, db, "finance", "admin", message="只有财务或管理员可以确认退货冲账")
 
     # 冲减供应商应付
     supplier = db.query(Supplier).get(dlv.supplier_id)
@@ -267,8 +266,7 @@ def delete_purchase_return_dlv(
         raise HTTPException(400, f"当前状态「{STATUS_TEXT.get(dlv.status, dlv.status)}」不允许删除，已确认的单据不能删除")
 
     # 权限校验：管理员或创建人
-    if user.role_id != 5 and dlv.created_by != user.id:
-        raise HTTPException(403, "只有管理员或创建人可以删除")
+    require_owner_or_admin(user, dlv.created_by, db, "只有管理员或创建人可以删除")
 
     db.query(PurchaseReturnDeliveryItem).filter(
         PurchaseReturnDeliveryItem.return_dlv_id == dlv_id

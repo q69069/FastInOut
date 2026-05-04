@@ -13,8 +13,10 @@ from schemas.finance import (
     PreReceiptCreate, PrePaymentCreate, PreToReceivable, PreToPayable
 )
 from schemas.common import ResponseModel, PaginatedResponse
+from utils.auth import has_role
 from utils.data_filter import DataFilter
 from utils.auth import decode_access_token
+from utils.role_check import require_role, require_owner_or_admin
 from datetime import datetime
 
 router = APIRouter(prefix="/api/finance", tags=["财务"])
@@ -108,8 +110,7 @@ def get_receipt(receipt_id: int, authorization: str = Header(None), db: Session 
     r = db.query(Receipt).get(receipt_id)
     if not r:
         raise HTTPException(status_code=404, detail="收款单不存在")
-    if user.role_id != 5 and r.created_by != user.id:
-        raise HTTPException(status_code=403, detail="无权查看此收款单")
+    require_owner_or_admin(user, r.created_by, db, "无权查看此收款单")
     customer = db.query(Customer).get(r.customer_id)
     return ResponseModel(data={
         "id": r.id, "code": r.code, "customer_id": r.customer_id,
@@ -127,12 +128,9 @@ def delete_receipt(receipt_id: int, authorization: str = Header(None), db: Sessi
     r = db.query(Receipt).get(receipt_id)
     if not r:
         raise HTTPException(status_code=404, detail="收款单不存在")
-    if user.role_id != 5 and r.created_by != user.id:
-        raise HTTPException(status_code=403, detail="无权删除此收款单")
+    require_owner_or_admin(user, r.created_by, db, "无权删除此收款单")
     if r.status == 1:
-        customer = db.query(Customer).get(r.customer_id)
-        if customer:
-            customer.receivable_balance += r.amount
+        raise HTTPException(400, "已确认的收款单不能删除，请使用红冲")
     db.delete(r)
     db.commit()
     return ResponseModel(message="已删除")
@@ -204,8 +202,7 @@ def get_payment(payment_id: int, authorization: str = Header(None), db: Session 
     p = db.query(Payment).get(payment_id)
     if not p:
         raise HTTPException(status_code=404, detail="付款单不存在")
-    if user.role_id != 5 and p.created_by != user.id:
-        raise HTTPException(status_code=403, detail="无权查看此付款单")
+    require_owner_or_admin(user, p.created_by, db, "无权查看此付款单")
     supplier = db.query(Supplier).get(p.supplier_id)
     return ResponseModel(data={
         "id": p.id, "code": p.code, "supplier_id": p.supplier_id,
@@ -223,12 +220,9 @@ def delete_payment(payment_id: int, authorization: str = Header(None), db: Sessi
     p = db.query(Payment).get(payment_id)
     if not p:
         raise HTTPException(status_code=404, detail="付款单不存在")
-    if user.role_id != 5 and p.created_by != user.id:
-        raise HTTPException(status_code=403, detail="无权删除此付款单")
+    require_owner_or_admin(user, p.created_by, db, "无权删除此付款单")
     if p.status == 1:
-        supplier = db.query(Supplier).get(p.supplier_id)
-        if supplier:
-            supplier.payable_balance += p.amount
+        raise HTTPException(400, "已确认的付款单不能删除，请使用红冲")
     db.delete(p)
     db.commit()
     return ResponseModel(message="已删除")
@@ -281,8 +275,7 @@ def pre_to_receivable(req: PreToReceivable, authorization: str = Header(None), d
     receipt = db.query(Receipt).get(req.receipt_id)
     if not receipt:
         raise HTTPException(status_code=404, detail="预收款单不存在")
-    if user.role_id != 5 and receipt.created_by != user.id:
-        raise HTTPException(status_code=403, detail="无权操作此收款单")
+    require_owner_or_admin(user, receipt.created_by, db, "无权操作此收款单")
     if receipt.receipt_type != "pre":
         raise HTTPException(status_code=400, detail="非预收款单")
     if receipt.amount < req.amount:
@@ -304,8 +297,7 @@ def pre_to_payable(req: PreToPayable, authorization: str = Header(None), db: Ses
     payment = db.query(Payment).get(req.payment_id)
     if not payment:
         raise HTTPException(status_code=404, detail="预付款单不存在")
-    if user.role_id != 5 and payment.created_by != user.id:
-        raise HTTPException(status_code=403, detail="无权操作此付款单")
+    require_owner_or_admin(user, payment.created_by, db, "无权操作此付款单")
     if payment.payment_type != "pre":
         raise HTTPException(status_code=400, detail="非预付款单")
     if payment.amount < req.amount:

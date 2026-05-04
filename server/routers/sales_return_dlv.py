@@ -18,6 +18,7 @@ from models.inventory import Inventory
 from models.employee import Employee
 from schemas.common import ResponseModel, PaginatedResponse
 from utils.status import ReturnDeliveryStatus
+from utils.role_check import require_role, require_owner_or_admin
 
 router = APIRouter(prefix="/api", tags=["退货单"])
 
@@ -145,8 +146,7 @@ def warehouse_confirm_return(
         raise HTTPException(400, f"当前状态 {ret.status} 不允许仓管确认")
 
     # 仓管或admin可以确认
-    if user.role_id not in (5, 3):  # admin or warehouse
-        raise HTTPException(403, "只有仓管或管理员可以确认退货入库")
+    require_role(user, db, "warehouse", "admin", message="只有仓管或管理员可以确认退货入库")
 
     items = db.query(SalesReturnItem).filter(SalesReturnItem.return_id == return_id).all()
 
@@ -190,8 +190,7 @@ def finance_confirm_return(
         raise HTTPException(400, "只有仓管已确认的退货单才能财务确认")
 
     # 财务或admin可以确认
-    if user.role_id not in (5, 4):  # admin or finance
-        raise HTTPException(403, "只有财务或管理员可以确认退货冲账")
+    require_role(user, db, "finance", "admin", message="只有财务或管理员可以确认退货冲账")
 
     # 冲减客户应收
     customer = db.query(Customer).get(ret.customer_id)

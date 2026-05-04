@@ -8,6 +8,7 @@ from schemas.customer_visit import CustomerVisitCreate, CustomerVisitUpdate, Cus
 from schemas.common import ResponseModel, PaginatedResponse
 from utils.data_filter import DataFilter
 from utils.auth import decode_access_token
+from utils.role_check import require_role, require_owner_or_admin
 
 router = APIRouter(prefix="/api/customer-visits", tags=["拜访记录"])
 
@@ -70,8 +71,7 @@ def update_visit(visit_id: int, req: CustomerVisitUpdate, authorization: str = H
     visit = db.query(CustomerVisit).get(visit_id)
     if not visit:
         raise HTTPException(status_code=404, detail="拜访记录不存在")
-    if user.role_id != 5 and visit.created_by != user.id:
-        raise HTTPException(status_code=403, detail="无权编辑此拜访记录")
+    require_owner_or_admin(user, visit.created_by, db, "无权编辑此拜访记录")
     for k, v in req.model_dump(exclude_unset=True).items():
         setattr(visit, k, v)
     db.commit()
@@ -85,8 +85,7 @@ def delete_visit(visit_id: int, authorization: str = Header(None), db: Session =
     visit = db.query(CustomerVisit).get(visit_id)
     if not visit:
         raise HTTPException(status_code=404, detail="拜访记录不存在")
-    if user.role_id != 5 and visit.created_by != user.id:
-        raise HTTPException(status_code=403, detail="无权删除此拜访记录")
+    require_owner_or_admin(user, visit.created_by, db, "无权删除此拜访记录")
     db.delete(visit)
     db.commit()
     return ResponseModel(message="删除成功")
