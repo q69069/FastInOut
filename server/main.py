@@ -18,6 +18,7 @@ import models.damage_report
 import models.commission
 import models.company_config
 import models.reconciliation
+import models.purchase_return_dlv
 from routers import (
     auth, company, warehouses, employees,
     categories, products, customers, suppliers,
@@ -30,7 +31,8 @@ from routers import (
     sales_delivery, purchase_receipt, expense, stocktaking,
     sales_return_dlv, audit_log, account_ledger,
     vehicle_load, settlement, advance_payment, damage_report,
-    commission, report_enhanced, monitor, reconciliation, company_config
+    commission, report_enhanced, monitor, reconciliation, company_config,
+    purchase_return_dlv
 )
 
 # 创建所有表
@@ -401,6 +403,7 @@ app.include_router(report_enhanced.router)
 app.include_router(monitor.router)
 app.include_router(reconciliation.router)
 app.include_router(company_config.router)
+app.include_router(purchase_return_dlv.router)
 
 
 @app.get("/api/health")
