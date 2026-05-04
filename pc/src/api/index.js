@@ -303,6 +303,14 @@ export const getReturnDelivery = (id) => api.get(`/return-deliveries/${id}`)
 export const warehouseConfirmReturn = (id) => api.post(`/return-deliveries/${id}/warehouse-confirm`)
 export const financeConfirmReturn = (id) => api.post(`/return-deliveries/${id}/finance-confirm`)
 
+// Phase A+: 采购退货出库单（v3.0新增）
+export const getPurchaseReturnDeliveries = (params) => api.get('/purchase-return-deliveries', { params })
+export const createPurchaseReturnDelivery = (data) => api.post('/purchase-return-deliveries', data)
+export const getPurchaseReturnDelivery = (id) => api.get(`/purchase-return-deliveries/${id}`)
+export const warehouseConfirmPurchaseReturnDlv = (id) => api.post(`/purchase-return-deliveries/${id}/warehouse-confirm`)
+export const financeConfirmPurchaseReturnDlv = (id) => api.post(`/purchase-return-deliveries/${id}/finance-confirm`)
+export const deletePurchaseReturnDelivery = (id) => api.delete(`/purchase-return-deliveries/${id}`)
+
 // Phase A: 审计日志（v3.0新增）
 export const getHttpAuditLogs = (params) => api.get('/audit-logs/http', { params })
 

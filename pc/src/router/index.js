@@ -73,6 +73,12 @@ const routes = [
         component: () => import('../views/purchases/Returns.vue'),
         meta: { title: '采购退货', moduleKey: 'purchases' }
       },
+      {
+        path: 'purchase-return-deliveries',
+        name: 'PurchaseReturnDeliveries',
+        component: () => import('../views/purchase_return_dlv/Index.vue'),
+        meta: { title: '采购退货出库单', moduleKey: 'purchases' }
+      },
       // 销售
       {
         path: 'sales',

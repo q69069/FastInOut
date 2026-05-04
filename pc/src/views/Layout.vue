@@ -160,7 +160,8 @@ const mainModules = [
     submodules: [
       { path: '/purchases', label: '采购订单', module: 'purchases' },
       { path: '/purchase-receipts', label: '采购入库单', module: 'purchases' },
-      { path: '/purchase-returns', label: '采购退货', module: 'purchases' }
+      { path: '/purchase-returns', label: '采购退货', module: 'purchases' },
+      { path: '/purchase-return-deliveries', label: '采购退货出库单', module: 'purchases' }
     ]
   },
   {
