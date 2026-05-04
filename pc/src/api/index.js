@@ -266,3 +266,48 @@ export const updateBatch = (id, data) => api.put(`/batches/${id}`, data)
 export const getExpiringBatches = (days = 30) => api.get('/batches/expiring', { params: { days } })
 export const getFifoBatches = (params) => api.get(`/batches/fifo/${params.product_id}`, { params })
 export const deductBatchStock = (params) => api.post('/batches/deduct', null, { params })
+
+// Phase A: 销售单（v3.0新增）
+export const getSalesDeliveries = (params) => api.get('/sales-deliveries', { params })
+export const createSalesDelivery = (data) => api.post('/sales-deliveries', data)
+export const getSalesDelivery = (id) => api.get(`/sales-deliveries/${id}`)
+export const voidSalesDelivery = (id, data) => api.post(`/sales-deliveries/${id}/void`, data)
+export const reverseSalesDelivery = (id) => api.post(`/sales-deliveries/${id}/reverse`)
+
+// Phase A: 采购入库单（v3.0新增）
+export const getPurchaseReceipts = (params) => api.get('/purchase-receipts', { params })
+export const createPurchaseReceipt = (data) => api.post('/purchase-receipts', data)
+export const getPurchaseReceipt = (id) => api.get(`/purchase-receipts/${id}`)
+export const confirmPurchaseReceipt = (id) => api.post(`/purchase-receipts/${id}/confirm`)
+
+// Phase A: 费用管理（v3.0新增）
+export const getExpenseCategories = (params) => api.get('/expense-categories', { params })
+export const createExpenseCategory = (data) => api.post('/expense-categories', data)
+export const deleteExpenseCategory = (id) => api.delete(`/expense-categories/${id}`)
+export const getExpenses = (params) => api.get('/expenses', { params })
+export const createExpense = (data) => api.post('/expenses', data)
+export const getExpense = (id) => api.get(`/expenses/${id}`)
+export const approveExpense = (id) => api.post(`/expenses/${id}/approve`)
+export const rejectExpense = (id) => api.post(`/expenses/${id}/reject`)
+
+// Phase A: 盘点管理（v3.0新增）
+export const getStocktaking = (params) => api.get('/stocktaking', { params })
+export const getStocktakingDetail = (id) => api.get(`/stocktaking/${id}`)
+export const auditStocktaking = (id) => api.post(`/stocktaking/${id}/audit`)
+export const adjustStocktaking = (id) => api.post(`/stocktaking/${id}/adjust`)
+export const voidStocktaking = (id) => api.post(`/stocktaking/${id}/void`)
+
+// Phase A: 退货单（v3.0新增）
+export const getReturnDeliveries = (params) => api.get('/return-deliveries', { params })
+export const getReturnDelivery = (id) => api.get(`/return-deliveries/${id}`)
+export const warehouseConfirmReturn = (id) => api.post(`/return-deliveries/${id}/warehouse-confirm`)
+export const financeConfirmReturn = (id) => api.post(`/return-deliveries/${id}/finance-confirm`)
+
+// Phase A: 审计日志（v3.0新增）
+export const getHttpAuditLogs = (params) => api.get('/audit-logs/http', { params })
+
+// Phase A: 往来账（v3.0新增）
+export const getReceivablesSummary = () => api.get('/account-ledger/receivables')
+export const getReceivableDetail = (customerId) => api.get(`/account-ledger/receivables/${customerId}`)
+export const getPayablesSummary = () => api.get('/account-ledger/payables')
+export const getPayableDetail = (supplierId) => api.get(`/account-ledger/payables/${supplierId}`)

@@ -159,6 +159,7 @@ const mainModules = [
     icon: 'ShoppingCart',
     submodules: [
       { path: '/purchases', label: '采购订单', module: 'purchases' },
+      { path: '/purchase-receipts', label: '采购入库单', module: 'purchases' },
       { path: '/purchase-returns', label: '采购退货', module: 'purchases' }
     ]
   },
@@ -168,6 +169,8 @@ const mainModules = [
     icon: 'Sell',
     submodules: [
       { path: '/sales', label: '销售订单', module: 'sales' },
+      { path: '/sales-deliveries', label: '销售单管理', module: 'sales' },
+      { path: '/return-deliveries', label: '退货单管理', module: 'sales' },
       { path: '/sales-returns', label: '销售退货', module: 'sales' },
       { path: '/salesmen', label: '业务员管理', module: 'sales' }
     ]
@@ -187,6 +190,7 @@ const mainModules = [
     submodules: [
       { path: '/inventory', label: '库存查询', module: 'inventory' },
       { path: '/transfers', label: '库存调拨', module: 'inventory' },
+      { path: '/stocktaking', label: '盘点管理', module: 'inventory' },
       { path: '/warehouses', label: '仓库管理', module: 'warehouses' },
       { path: '/batches', label: '批次管理', module: 'batches' }
     ]
@@ -197,6 +201,8 @@ const mainModules = [
     icon: 'Money',
     submodules: [
       { path: '/finance', label: '收支管理', module: 'finance' },
+      { path: '/expenses', label: '费用管理', module: 'finance' },
+      { path: '/account-ledger', label: '往来账', module: 'finance' },
       { path: '/bank-reconciliation', label: '银行对账', module: 'finance' },
       { path: '/invoices', label: '发票管理', module: 'finance' }
     ]
@@ -221,7 +227,8 @@ const mainModules = [
       { path: '/system/backup', label: '数据备份', module: 'system' },
       { path: '/system/print-templates', label: '打印模板', module: 'system' },
       { path: '/system/data-import', label: '数据导入', module: 'system' },
-      { path: '/system/logs', label: '操作日志', module: 'system' }
+      { path: '/system/logs', label: '操作日志', module: 'system' },
+      { path: '/audit-logs', label: '审计日志', module: 'system' }
     ]
   }
 ]

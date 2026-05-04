@@ -205,6 +205,49 @@ const routes = [
         component: () => import('../views/system/Logs.vue'),
         meta: { title: '操作日志', moduleKey: 'system' }
       },
+      // Phase A v3.0
+      {
+        path: 'sales-deliveries',
+        name: 'SalesDeliveries',
+        component: () => import('../views/sales_delivery/Index.vue'),
+        meta: { title: '销售单管理', moduleKey: 'sales' }
+      },
+      {
+        path: 'purchase-receipts',
+        name: 'PurchaseReceipts',
+        component: () => import('../views/purchase_receipt/Index.vue'),
+        meta: { title: '采购入库单', moduleKey: 'purchases' }
+      },
+      {
+        path: 'expenses',
+        name: 'Expenses',
+        component: () => import('../views/expense/Index.vue'),
+        meta: { title: '费用管理', moduleKey: 'finance' }
+      },
+      {
+        path: 'stocktaking',
+        name: 'Stocktaking',
+        component: () => import('../views/stocktaking/Index.vue'),
+        meta: { title: '盘点管理', moduleKey: 'inventory' }
+      },
+      {
+        path: 'return-deliveries',
+        name: 'ReturnDeliveries',
+        component: () => import('../views/sales_return_dlv/Index.vue'),
+        meta: { title: '退货单管理', moduleKey: 'sales' }
+      },
+      {
+        path: 'audit-logs',
+        name: 'AuditLogs',
+        component: () => import('../views/audit_log/Index.vue'),
+        meta: { title: '审计日志', moduleKey: 'system' }
+      },
+      {
+        path: 'account-ledger',
+        name: 'AccountLedger',
+        component: () => import('../views/account_ledger/Index.vue'),
+        meta: { title: '往来账', moduleKey: 'finance' }
+      },
     ]
   }
 ]
