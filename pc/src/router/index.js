@@ -248,6 +248,61 @@ const routes = [
         component: () => import('../views/account_ledger/Index.vue'),
         meta: { title: '往来账', moduleKey: 'finance' }
       },
+      // Phase B+C+D v3.0
+      {
+        path: 'vehicle-loads',
+        name: 'VehicleLoads',
+        component: () => import('../views/vehicle_load/Index.vue'),
+        meta: { title: '装车单管理', moduleKey: 'inventory' }
+      },
+      {
+        path: 'settlements',
+        name: 'Settlements',
+        component: () => import('../views/settlement/Index.vue'),
+        meta: { title: '交账管理', moduleKey: 'sales' }
+      },
+      {
+        path: 'advance-payments',
+        name: 'AdvancePayments',
+        component: () => import('../views/advance_payment/Index.vue'),
+        meta: { title: '预收付款', moduleKey: 'finance' }
+      },
+      {
+        path: 'damage-reports',
+        name: 'DamageReports',
+        component: () => import('../views/damage_report/Index.vue'),
+        meta: { title: '报损单', moduleKey: 'inventory' }
+      },
+      {
+        path: 'reports/sales-detail',
+        name: 'SalesDetailReport',
+        component: () => import('../views/reports/SalesDetail.vue'),
+        meta: { title: '销售明细报表', moduleKey: 'reports' }
+      },
+      {
+        path: 'reports/commission',
+        name: 'CommissionReport',
+        component: () => import('../views/reports/Commission.vue'),
+        meta: { title: '提成报表', moduleKey: 'reports' }
+      },
+      {
+        path: 'monitor',
+        name: 'Monitor',
+        component: () => import('../views/monitor/Index.vue'),
+        meta: { title: '异常监控', moduleKey: 'sales' }
+      },
+      {
+        path: 'reconciliations',
+        name: 'Reconciliations',
+        component: () => import('../views/reconciliation/Index.vue'),
+        meta: { title: '客户对账', moduleKey: 'finance' }
+      },
+      {
+        path: 'system/company-config',
+        name: 'CompanyConfig',
+        component: () => import('../views/system/CompanyConfig.vue'),
+        meta: { title: '公司设置', moduleKey: 'system' }
+      },
     ]
   }
 ]

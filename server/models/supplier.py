@@ -18,6 +18,7 @@ class Supplier(Base):
     bank_account = Column(String(100))
     tax_number = Column(String(50))
     remark = Column(String(500))
+    channel = Column(String(50), comment="渠道")
     status = Column(Integer, default=1)
     created_by = Column(Integer, default=0)
     created_at = Column(DateTime, server_default=func.now())

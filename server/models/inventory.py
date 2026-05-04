@@ -20,6 +20,7 @@ class InventoryCheck(Base):
     code = Column(String(50), unique=True, nullable=False)  # PD+日期+序号
     warehouse_id = Column(Integer, ForeignKey("warehouses.id"))
     operator_id = Column(Integer, ForeignKey("employees.id"))
+    checker_id = Column(Integer, ForeignKey("employees.id"))  # 复核人（轮岗盘点）
     status = Column(Integer, default=1)  # 1=盘点中 2=已确认 3=已作废
     remark = Column(String(500))
     created_at = Column(DateTime, server_default=func.now())

@@ -18,3 +18,10 @@ from schemas.vehicle import *
 from schemas.sales_delivery import *
 from schemas.purchase_receipt import *
 from schemas.expense import *
+from schemas.vehicle_load import *
+from schemas.settlement import *
+from schemas.advance_payment import *
+from schemas.damage_report import *
+from schemas.commission import *
+from schemas.company_config import *
+from schemas.reconciliation import *

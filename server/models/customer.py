@@ -22,6 +22,8 @@ class Customer(Base):
     route_id = Column(Integer, ForeignKey("routes.id"), comment="所属路线")
     salesman_ids = Column(String(200), comment="负责业务员IDs，逗号分隔")
     default_warehouse_id = Column(Integer, ForeignKey("warehouses.id"), comment="默认仓库")
+    channel = Column(String(50), comment="渠道")
+    customer_level = Column(String(20), comment="客户等级(A/B/C)")
     status = Column(Integer, default=1)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

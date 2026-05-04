@@ -11,6 +11,13 @@ import models.http_audit_log
 import models.sales_delivery
 import models.purchase_receipt
 import models.expense
+import models.vehicle_load
+import models.settlement
+import models.advance_payment
+import models.damage_report
+import models.commission
+import models.company_config
+import models.reconciliation
 from routers import (
     auth, company, warehouses, employees,
     categories, products, customers, suppliers,
@@ -21,7 +28,9 @@ from routers import (
     route, audit, price_change, vehicle, operation_log,
     message, advance_deduction, todos, customer_visits,
     sales_delivery, purchase_receipt, expense, stocktaking,
-    sales_return_dlv, audit_log, account_ledger
+    sales_return_dlv, audit_log, account_ledger,
+    vehicle_load, settlement, advance_payment, damage_report,
+    commission, report_enhanced, monitor, reconciliation, company_config
 )
 
 # 创建所有表
@@ -58,6 +67,37 @@ def auto_migrate():
             conn.execute(text('ALTER TABLE employees ADD COLUMN online_status VARCHAR(10) DEFAULT "offline"'))
         if 'report_to' not in emp_cols:
             conn.execute(text('ALTER TABLE employees ADD COLUMN report_to INTEGER'))
+
+        # warehouses 新字段（Phase B+C）
+        wh_cols = [c['name'] for c in inspector.get_columns('warehouses')]
+        if 'plate_number' not in wh_cols:
+            conn.execute(text('ALTER TABLE warehouses ADD COLUMN plate_number VARCHAR(20)'))
+        if 'driver_name' not in wh_cols:
+            conn.execute(text('ALTER TABLE warehouses ADD COLUMN driver_name VARCHAR(50)'))
+        if 'driver_phone' not in wh_cols:
+            conn.execute(text('ALTER TABLE warehouses ADD COLUMN driver_phone VARCHAR(20)'))
+        if 'capacity' not in wh_cols:
+            conn.execute(text('ALTER TABLE warehouses ADD COLUMN capacity REAL'))
+
+        # inventory_checks 新字段（Phase D 轮岗盘点）
+        ic_cols = [c['name'] for c in inspector.get_columns('inventory_checks')]
+        if 'checker_id' not in ic_cols:
+            conn.execute(text('ALTER TABLE inventory_checks ADD COLUMN checker_id INTEGER'))
+
+        # products 新字段（Phase C 档案扩充）
+        if 'brand' not in col_names:
+            conn.execute(text('ALTER TABLE products ADD COLUMN brand VARCHAR(50)'))
+
+        # customers 新字段（Phase C 档案扩充）
+        if 'channel' not in cust_cols:
+            conn.execute(text('ALTER TABLE customers ADD COLUMN channel VARCHAR(50)'))
+        if 'customer_level' not in cust_cols:
+            conn.execute(text('ALTER TABLE customers ADD COLUMN customer_level VARCHAR(20)'))
+
+        # suppliers 新字段（Phase C 档案扩充）
+        sup_cols = [c['name'] for c in inspector.get_columns('suppliers')]
+        if 'channel' not in sup_cols:
+            conn.execute(text('ALTER TABLE suppliers ADD COLUMN channel VARCHAR(50)'))
 
         # roles 新字段
         role_cols = [c['name'] for c in inspector.get_columns('roles')]
@@ -292,7 +332,7 @@ finally:
 app = FastAPI(
     title="FastInOut 快消品进销存管理系统",
     description="快消品进销存管理系统",
-    version="0.3.0"
+    version="0.4.0"
 )
 
 # CORS
@@ -352,6 +392,15 @@ app.include_router(stocktaking.router)
 app.include_router(sales_return_dlv.router)
 app.include_router(audit_log.router)
 app.include_router(account_ledger.router)
+app.include_router(vehicle_load.router)
+app.include_router(settlement.router)
+app.include_router(advance_payment.router)
+app.include_router(damage_report.router)
+app.include_router(commission.router)
+app.include_router(report_enhanced.router)
+app.include_router(monitor.router)
+app.include_router(reconciliation.router)
+app.include_router(company_config.router)
 
 
 @app.get("/api/health")

@@ -8,5 +8,7 @@ from routers import (
     message, audit, operation_log, price_change, route, vehicle, bank,
     advance_deduction, todos, customer_visits,
     sales_delivery, purchase_receipt, expense, stocktaking,
-    sales_return_dlv, audit_log, account_ledger
+    sales_return_dlv, audit_log, account_ledger,
+    vehicle_load, settlement, advance_payment, damage_report,
+    commission, report_enhanced, monitor, reconciliation, company_config
 )

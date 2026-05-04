@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, func
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, func
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -15,6 +15,10 @@ class Warehouse(Base):
     phone = Column(String(50))
     description = Column(String(500))  # 仓库描述
     is_default = Column(Boolean, default=False)
+    plate_number = Column(String(20))  # 车牌号（车仓用）
+    driver_name = Column(String(50))  # 驾驶员
+    driver_phone = Column(String(20))  # 驾驶员电话
+    capacity = Column(Float)  # 载货量
     status = Column(Integer, default=1)  # 1=启用 0=禁用
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

@@ -172,7 +172,9 @@ const mainModules = [
       { path: '/sales-deliveries', label: '销售单管理', module: 'sales' },
       { path: '/return-deliveries', label: '退货单管理', module: 'sales' },
       { path: '/sales-returns', label: '销售退货', module: 'sales' },
-      { path: '/salesmen', label: '业务员管理', module: 'sales' }
+      { path: '/salesmen', label: '业务员管理', module: 'sales' },
+      { path: '/settlements', label: '交账管理', module: 'sales' },
+      { path: '/monitor', label: '异常监控', module: 'sales' }
     ]
   },
   {
@@ -191,6 +193,8 @@ const mainModules = [
       { path: '/inventory', label: '库存查询', module: 'inventory' },
       { path: '/transfers', label: '库存调拨', module: 'inventory' },
       { path: '/stocktaking', label: '盘点管理', module: 'inventory' },
+      { path: '/vehicle-loads', label: '装车单管理', module: 'inventory' },
+      { path: '/damage-reports', label: '报损单', module: 'inventory' },
       { path: '/warehouses', label: '仓库管理', module: 'warehouses' },
       { path: '/batches', label: '批次管理', module: 'batches' }
     ]
@@ -203,6 +207,8 @@ const mainModules = [
       { path: '/finance', label: '收支管理', module: 'finance' },
       { path: '/expenses', label: '费用管理', module: 'finance' },
       { path: '/account-ledger', label: '往来账', module: 'finance' },
+      { path: '/advance-payments', label: '预收付款', module: 'finance' },
+      { path: '/reconciliations', label: '客户对账', module: 'finance' },
       { path: '/bank-reconciliation', label: '银行对账', module: 'finance' },
       { path: '/invoices', label: '发票管理', module: 'finance' }
     ]
@@ -215,7 +221,9 @@ const mainModules = [
       { path: '/reports/profit', label: '利润统计', module: 'reports' },
       { path: '/reports/inventory', label: '库存汇总', module: 'reports' },
       { path: '/reports/sales-ranking', label: '销售排行', module: 'reports' },
-      { path: '/reports/trend', label: '趋势图', module: 'reports' }
+      { path: '/reports/trend', label: '趋势图', module: 'reports' },
+      { path: '/reports/sales-detail', label: '销售明细报表', module: 'reports' },
+      { path: '/reports/commission', label: '提成报表', module: 'reports' }
     ]
   },
   {
@@ -228,7 +236,8 @@ const mainModules = [
       { path: '/system/print-templates', label: '打印模板', module: 'system' },
       { path: '/system/data-import', label: '数据导入', module: 'system' },
       { path: '/system/logs', label: '操作日志', module: 'system' },
-      { path: '/audit-logs', label: '审计日志', module: 'system' }
+      { path: '/audit-logs', label: '审计日志', module: 'system' },
+      { path: '/system/company-config', label: '公司设置', module: 'system' }
     ]
   }
 ]

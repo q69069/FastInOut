@@ -311,3 +311,46 @@ export const getReceivablesSummary = () => api.get('/account-ledger/receivables'
 export const getReceivableDetail = (customerId) => api.get(`/account-ledger/receivables/${customerId}`)
 export const getPayablesSummary = () => api.get('/account-ledger/payables')
 export const getPayableDetail = (supplierId) => api.get(`/account-ledger/payables/${supplierId}`)
+
+// Phase B: 装车单（v3.0新增）
+export const getVehicleLoads = (params) => api.get('/vehicle-loads', { params })
+export const createVehicleLoad = (data) => api.post('/vehicle-loads', data)
+export const getVehicleLoad = (id) => api.get(`/vehicle-loads/${id}`)
+export const confirmVehicleLoad = (id) => api.post(`/vehicle-loads/${id}/confirm`)
+export const returnVehicleLoad = (id) => api.post(`/vehicle-loads/${id}/return`)
+
+// Phase B: 交账（v3.0新增）
+export const getSettlements = (params) => api.get('/settlements', { params })
+export const createSettlement = (data) => api.post('/settlements', data)
+export const getSettlement = (id) => api.get(`/settlements/${id}`)
+export const auditSettlement = (id, data) => api.post(`/settlements/${id}/audit`, data)
+export const getPendingDeliveries = (params) => api.get('/settlements/pending-deliveries', { params })
+
+// Phase C: 预收付款（v3.0新增）
+export const getAdvancePayments = (params) => api.get('/advance-payments', { params })
+export const createAdvancePayment = (data) => api.post('/advance-payments', data)
+export const confirmAdvancePayment = (id) => api.post(`/advance-payments/${id}/confirm`)
+
+// Phase C: 报损单（v3.0新增）
+export const getDamageReports = (params) => api.get('/damage-reports', { params })
+export const createDamageReport = (data) => api.post('/damage-reports', data)
+export const getDamageReport = (id) => api.get(`/damage-reports/${id}`)
+export const auditDamageReport = (id) => api.post(`/damage-reports/${id}/audit`)
+
+// Phase C: 提成（v3.0新增）
+export const getCommissions = (params) => api.get('/commissions', { params })
+export const createCommission = (data) => api.post('/commissions', data)
+export const calculateCommissions = (data) => api.post('/commissions/calculate', data)
+
+// Phase C: 增强报表（v3.0新增）
+export const getSalesDetailReport = (params) => api.get('/reports/sales-detail', { params })
+export const getPurchaseDetailReport = (params) => api.get('/reports/purchase-detail', { params })
+export const getCommissionReport = (params) => api.get('/reports/commission', { params })
+
+// Phase D: 异常监控（v3.0新增）
+export const getAnomalies = (params) => api.get('/monitor/anomalies', { params })
+
+// Phase D: 客户对账（v3.0新增）
+export const getReconciliations = (params) => api.get('/reconciliations', { params })
+export const createReconciliation = (data) => api.post('/reconciliations', data)
+export const confirmReconciliation = (id) => api.post(`/reconciliations/${id}/confirm`)
