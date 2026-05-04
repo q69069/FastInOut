@@ -10,6 +10,7 @@ from database import engine, Base, SessionLocal
 import models.http_audit_log
 import models.sales_delivery
 import models.purchase_receipt
+import models.expense
 from routers import (
     auth, company, warehouses, employees,
     categories, products, customers, suppliers,
@@ -19,7 +20,8 @@ from routers import (
     print_templates, data_import, invoices, supplier_recon,
     route, audit, price_change, vehicle, operation_log,
     message, advance_deduction, todos, customer_visits,
-    sales_delivery, purchase_receipt
+    sales_delivery, purchase_receipt, expense, stocktaking,
+    sales_return_dlv, audit_log, account_ledger
 )
 
 # 创建所有表
@@ -345,6 +347,11 @@ app.include_router(todos.router)
 app.include_router(customer_visits.router)
 app.include_router(sales_delivery.router)
 app.include_router(purchase_receipt.router)
+app.include_router(expense.router)
+app.include_router(stocktaking.router)
+app.include_router(sales_return_dlv.router)
+app.include_router(audit_log.router)
+app.include_router(account_ledger.router)
 
 
 @app.get("/api/health")
