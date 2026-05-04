@@ -1454,6 +1454,163 @@ Day 4     → 防作弊体系完整联调 + 审计报告
 
 ---
 
+## 十三、H5 移动端全功能方案（v2.4 补充）
+
+### 13.1 设计原则
+
+**H5 ≠ 仅车销端口。H5 = PC 全功能移动版。**
+
+| 原则 | 说明 |
+|------|------|
+| 全功能覆盖 | H5 拥有 PC 所有功能模块，非仅车销 |
+| 权限驱动展示 | 根据登录用户的角色权限，动态显示/隐藏功能模块 |
+| 共用后端 API | H5 和 PC 调用同一套后端接口，零额外后端开发 |
+| 一账号多权限 | 一个员工可拥有多个角色（如：业务员+库管），权限取并集 |
+| 老板全权限 | `admin` 角色自动拥有所有模块权限 |
+
+### 13.2 技术栈
+
+```
+框架：uni-app（Vue3 + Vite）— 支持 H5/微信小程序/App 打包
+UI库：Vant 4.x（移动端组件库）
+状态管理：Pinia（与 PC 端统一）
+路由：uni-app 内置路由 + pages.json 配置
+网络：uni.request 封装（拦截器统一处理 token/错误）
+```
+
+### 13.3 角色与模块映射
+
+#### 角色定义（与 §4.1 一致）
+
+| 角色 key | 名称 | 说明 |
+|----------|------|------|
+| `admin` | 老板/管理员 | 全部功能+系统设置 |
+| `supervisor` | 主管/文员 | 档案+采购+销售+报表 |
+| `sales` | 业务员 | 销售开单、客户拜访、交账 |
+| `finance` | 财务 | 收支管理、对账、发票、审核 |
+| `warehouse` | 库管 | 库存管理、盘点、出入库确认 |
+
+#### 模块权限映射表
+
+| 模块 module_key | sales | supervisor | warehouse | finance | admin |
+|----------------|:-----:|:----------:|:---------:|:-------:|:-----:|
+| `home`（首页看板） | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `products`（商品管理） | 查 | ✅ | 查 | — | ✅ |
+| `customers`（客户管理） | ✅ | ✅ | — | 查 | ✅ |
+| `suppliers`（供应商管理） | — | ✅ | — | 查 | ✅ |
+| `purchases`（采购管理） | — | ✅ | 确认入库 | ✅ | ✅ |
+| `sales`（销售管理） | ✅ | ✅ | — | ✅ | ✅ |
+| `inventory`（库存管理） | 查车仓 | ✅ | ✅ | — | ✅ |
+| `warehouses`（仓库管理） | — | — | ✅ | — | ✅ |
+| `finance`（财务管理） | — | — | — | ✅ | ✅ |
+| `reports`（报表中心） | 个人 | ✅ | 库存 | ✅ | ✅ |
+| `system`（系统设置） | — | — | — | — | ✅ |
+
+> **说明**：✅ = 完整权限，查 = 只读，— = 不可见。实际权限以 `role_module_permissions` 表为准。
+
+### 13.4 一账号多权限实现
+
+#### 数据模型（已存在）
+
+```
+employee_roles 表（多对多）：
+  employee_id → role_id
+  一个员工可关联多个角色
+
+role_module_permissions 表：
+  role_id + module_id → can_view / can_create / can_edit / can_delete
+```
+
+#### 权限合并逻辑
+
+```python
+# 登录时计算有效权限（取并集）
+def get_user_permissions(employee_id, db):
+    roles = db.query(EmployeeRole).filter(
+        EmployeeRole.employee_id == employee_id
+    ).all()
+
+    # admin 角色：直接返回全部权限
+    for er in roles:
+        if er.role.role_key == 'admin':
+            return ALL_PERMISSIONS
+
+    # 非 admin：合并所有角色权限（OR 逻辑）
+    permissions = {}
+    for er in roles:
+        for perm in er.role.module_permissions:
+            key = perm.module.module_key
+            if key not in permissions:
+                permissions[key] = {
+                    'can_view': False, 'can_create': False,
+                    'can_edit': False, 'can_delete': False
+                }
+            permissions[key]['can_view'] |= perm.can_view
+            permissions[key]['can_create'] |= perm.can_create
+            permissions[key]['can_edit'] |= perm.can_edit
+            permissions[key]['can_delete'] |= perm.can_delete
+
+    return permissions
+```
+
+### 13.5 H5 动态 TabBar 设计
+
+#### 首页 TabBar（底部导航）
+
+根据用户权限动态显示底部 Tab：
+
+```
+┌─────────────────────────────────────────────────┐
+│                                                 │
+│              [页面内容区]                        │
+│                                                 │
+├──────┬──────┬──────┬──────┬──────┬──────────────┤
+│ 首页 │ 销售 │ 仓库 │ 财务 │ 报表 │ 我的（固定）│
+│  🏠  │  📋  │  📦  │  💰  │  📊  │    👤       │
+└──────┴──────┴──────┴──────┴──────┴──────────────┘
+```
+
+#### 各角色默认 Tab 组合
+
+| 角色 | Tab1 | Tab2 | Tab3 | Tab4 | Tab5 |
+|------|------|------|------|------|------|
+| 业务员 | 首页 | 销售 | 客户 | 业绩 | 我的 |
+| 主管/文员 | 首页 | 销售 | 采购 | 库存 | 我的 |
+| 库管 | 首页 | 库存 | 盘点 | 装车 | 我的 |
+| 财务 | 首页 | 财务 | 对账 | 报表 | 我的 |
+| 老板 | 首页 | 销售 | 仓库 | 报表 | 我的 |
+
+> Tab 列表完全由权限动态生成，非硬编码。如果主管同时拥有库存权限，则自动出现"库存"Tab。
+
+### 13.6 H5 实施计划
+
+| 阶段 | 天数 | 内容 |
+|------|------|------|
+| **H5-0：基础框架** | 1天 | uni-app 项目初始化、Vant 集成、请求封装、权限 store、动态 TabBar |
+| **H5-1：核心业务** | 3天 | 首页看板 + 销售开单 + 库存查询 + 客户管理 |
+| **H5-2：车销流程** | 2天 | 装车 + 车销开单 + 交账 + 扫码（与 Phase B 联动） |
+| **H5-3：仓库+采购** | 2天 | 采购入库确认 + 盘点 + 报损 + 调拨 |
+| **H5-4：财务+报表** | 2天 | 费用报销 + 对账确认 + 报表查看 |
+| **H5-5：系统+优化** | 1天 | 系统设置（admin）+ 我的 + 消息通知 + 性能优化 |
+
+**总计：约 11 天**（可与 Phase B/C/D 并行开发）
+
+### 13.7 H5 特色功能
+
+| 功能 | 说明 |
+|------|------|
+| 扫码开单 | 扫商品条码快速添加商品 |
+| 电子签名 | 客户签收确认（canvas 签名） |
+| 拍照上传 | 退货拍照、报损拍照、凭证拍照 |
+| GPS 定位 | 客户拜访签到定位 |
+| 离线缓存 | 弱网环境基础数据缓存 |
+| 消息推送 | 交账提醒、审批通知 |
+| 手势操作 | 左滑删除、下拉刷新、上拉加载 |
+
+> 详细页面清单和目录结构见 `FASTINOUT_DEVELOPMENT_PLAN.md` 第十四章。
+
+---
+
 ## 附录A：模块统计
 
 | 分类 | 原有 | v2.1新增 | v2.2新增 | 合计 |
