@@ -5,7 +5,7 @@
 > **v1.2 修订内容**（H5 全功能方案）：
 > 1. 新增「十四、H5 移动端全功能方案」— H5 拥有 PC 所有功能，按角色权限动态展示
 > 2. 技术栈更新：H5 从 "Vue3+Vant（Phase B 车销）" 改为 "uni-app+Vant 4.x（全功能移动端）"
-> 3. 新增角色-模块权限映射表（sales/clerk/warehouse/finance/boss）
+> 3. 新增角色-模块权限映射表（sales/supervisor/warehouse/finance/admin）
 > 4. 新增一账号多权限实现方案（employee_roles 多对多 + 权限取并集）
 > 5. 新增 H5 动态 TabBar 设计 + 页面清单 + 实施计划（约11天）
 >
@@ -1039,7 +1039,7 @@ UPDATE employees SET report_to = 1 WHERE report_to IS NULL AND id != 1;
 | 旧车销模型保留 | H5端可能已在使用，新体系并行建 | v1.1 |
 | Phase 0 缩减至0.5天 | 权限表/模块表/角色扩展已建好 | v1.1 |
 | H5=PC全功能移动版 | H5不仅车销，拥有PC所有功能，按角色权限动态展示模块 | v1.2 |
-| H5一账号多权限 | employee_roles多对多表已支持，权限取并集，boss全权限 | v1.2 |
+| H5一账号多权限 | employee_roles多对多表已支持，权限取并集，admin全权限 | v1.2 |
 | H5用uni-app+Vant | 跨端能力（H5/小程序/App），Vant移动端体验好 | v1.2 |
 
 ---
@@ -1058,7 +1058,7 @@ UPDATE employees SET report_to = 1 WHERE report_to IS NULL AND id != 1;
 | 权限驱动展示 | 根据登录用户的角色权限，动态显示/隐藏功能模块 |
 | 共用后端 API | H5 和 PC 调用同一套后端接口，零额外后端开发 |
 | 一账号多权限 | 一个员工可拥有多个角色（如：业务员+库管），权限取并集 |
-| 老板全权限 | boss 角色自动拥有所有模块权限 |
+| 老板全权限 | admin 角色自动拥有所有模块权限 |
 
 ### 14.2 技术栈
 
@@ -1077,15 +1077,15 @@ UI库：Vant 4.x（移动端组件库）
 | 角色 key | 名称 | 说明 |
 |----------|------|------|
 | `sales` | 业务员 | 销售开单、客户拜访、交账 |
-| `clerk` | 文员 | 订单处理、单据录入、报表查看 |
+| `supervisor` | 主管/文员 | 订单处理、单据录入、报表查看 |
 | `warehouse` | 库管 | 库存管理、盘点、出入库确认 |
 | `finance` | 财务 | 收支管理、对账、发票、审核 |
-| `boss` | 老板 | 全部权限 + 经营看板 |
+| `admin` | 老板/管理员 | 全部权限 + 经营看板 |
 
 #### 模块权限映射表
 
-| 模块 module_key | sales | clerk | warehouse | finance | boss |
-|----------------|:-----:|:-----:|:---------:|:-------:|:----:|
+| 模块 module_key | sales | supervisor | warehouse | finance | admin |
+|----------------|:-----:|:----------:|:---------:|:-------:|:-----:|
 | `home`（首页看板） | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `products`（商品管理） | 查 | ✅ | 查 | — | ✅ |
 | `customers`（客户管理） | ✅ | ✅ | — | 查 | ✅ |
@@ -1122,12 +1122,12 @@ def get_user_permissions(employee_id, db):
         EmployeeRole.employee_id == employee_id
     ).all()
 
-    # boss 角色：直接返回全部权限
+    # admin 角色：直接返回全部权限
     for er in roles:
-        if er.role.role_key == 'boss':
+        if er.role.role_key == 'admin':
             return ALL_PERMISSIONS
 
-    # 非 boss：合并所有角色权限（OR 逻辑）
+    # 非 admin：合并所有角色权限（OR 逻辑）
     permissions = {}
     for er in roles:
         for perm in er.role.module_permissions:
@@ -1156,7 +1156,7 @@ export const useAuthStore = defineStore('auth', {
     roles: []         // 用户角色列表
   }),
   getters: {
-    isAdmin: (state) => state.roles.some(r => r.role_key === 'boss'),
+    isAdmin: (state) => state.roles.some(r => r.role_key === 'admin'),
     hasModule: (state) => (moduleKey) => {
       if (state.isAdmin) return true
       return state.permissions[moduleKey]?.can_view || false
@@ -1191,12 +1191,12 @@ export const useAuthStore = defineStore('auth', {
 | 角色 | Tab1 | Tab2 | Tab3 | Tab4 | Tab5 |
 |------|------|------|------|------|------|
 | 业务员 | 首页 | 销售 | 客户 | 业绩 | 我的 |
-| 文员 | 首页 | 销售 | 采购 | 库存 | 我的 |
+| 主管/文员 | 首页 | 销售 | 采购 | 库存 | 我的 |
 | 库管 | 首页 | 库存 | 盘点 | 装车 | 我的 |
 | 财务 | 首页 | 财务 | 对账 | 报表 | 我的 |
 | 老板 | 首页 | 销售 | 仓库 | 报表 | 我的 |
 
-> Tab 列表完全由权限动态生成，非硬编码。如果文员同时拥有库存权限，则自动出现"库存"Tab。
+> Tab 列表完全由权限动态生成，非硬编码。如果主管同时拥有库存权限，则自动出现"库存"Tab。
 
 ### 14.6 H5 页面清单
 
@@ -1244,9 +1244,9 @@ export const useAuthStore = defineStore('auth', {
 | - 销售明细 | `pages/reports/sales-detail` | reports/SalesDetail.vue | 多维度明细 |
 | - 提成报表 | `pages/commission/index` | reports/Commission.vue | 提成计算 |
 | 系统 | | | |
-| - 角色管理 | `pages/system/roles` | system/Roles.vue | 仅 boss |
-| - 公司设置 | `pages/system/config` | system/CompanyConfig.vue | 仅 boss |
-| - 操作日志 | `pages/system/logs` | system/Logs.vue | 仅 boss |
+| - 角色管理 | `pages/system/roles` | system/Roles.vue | 仅 admin |
+| - 公司设置 | `pages/system/config` | system/CompanyConfig.vue | 仅 admin |
+| - 操作日志 | `pages/system/logs` | system/Logs.vue | 仅 admin |
 | 我的 | | | |
 | - 个人信息 | `pages/mine/index` | — | H5 独有 |
 | - 修改密码 | `pages/mine/password` | — | H5 独有 |
@@ -1302,7 +1302,7 @@ h5/
 | **H5-2：车销流程** | 2天 | 装车 + 车销开单 + 交账 + 扫码（与 Phase B 联动） |
 | **H5-3：仓库+采购** | 2天 | 采购入库确认 + 盘点 + 报损 + 调拨 |
 | **H5-4：财务+报表** | 2天 | 费用报销 + 对账确认 + 报表查看 |
-| **H5-5：系统+优化** | 1天 | 系统设置（boss）+ 我的 + 消息通知 + 性能优化 |
+| **H5-5：系统+优化** | 1天 | 系统设置（admin）+ 我的 + 消息通知 + 性能优化 |
 
 **总计：约 11 天**（可与 Phase B/C/D 并行开发）
 
