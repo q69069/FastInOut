@@ -1,6 +1,13 @@
 # FastInOut 完整后续开发计划
 
-> 📅 编制：2026-05-04 | 👤 Hermes小A | 版本：v1.1（小C审查修订）
+> 📅 编制：2026-05-04 | 👤 Hermes小A | 版本：v1.2（小C审查修订 + H5全功能方案）
+>
+> **v1.2 修订内容**（H5 全功能方案）：
+> 1. 新增「十四、H5 移动端全功能方案」— H5 拥有 PC 所有功能，按角色权限动态展示
+> 2. 技术栈更新：H5 从 "Vue3+Vant（Phase B 车销）" 改为 "uni-app+Vant 4.x（全功能移动端）"
+> 3. 新增角色-模块权限映射表（sales/clerk/warehouse/finance/boss）
+> 4. 新增一账号多权限实现方案（employee_roles 多对多 + 权限取并集）
+> 5. 新增 H5 动态 TabBar 设计 + 页面清单 + 实施计划（约11天）
 >
 > **v1.1 修订内容**（基于代码实际状态审查）：
 > 1. Phase 0 从1天缩减为0.5天 — 三级权限表/模块表/角色扩展字段已全部建好
@@ -31,6 +38,7 @@
 - [十一、前后端改动清单](#十一前后端改动清单)
 - [十二、测试策略](#十二测试策略)
 - [十三、风险与缓解](#十三风险与缓解)
+- [十四、H5 移动端全功能方案](#十四h5-移动端全功能方案)
 
 ---
 
@@ -59,7 +67,7 @@
 ```
 后端：Python FastAPI + SQLAlchemy + SQLite
 前端(PC)：Vue3 + Element Plus + Vite
-前端(H5)：Vue3 + Vant（Phase B 车销）
+前端(H5)：uni-app + Vant 4.x（全功能移动端，权限动态裁剪）
 小程序：微信原生（后续）
 ```
 
@@ -107,6 +115,13 @@ FastInOut/
 │       │   ├── audit_log/          ← 审计日志 ⭐
 │       │   └── ... (保留其余)
 │       └── router/index.js         ← 路由 + 守卫
+├── h5/                             ← H5 移动端（全功能，uni-app + Vant）
+│   └── src/
+│       ├── api/index.js            ← 与 PC 共用 API 接口
+│       ├── stores/auth.js          ← 权限 store（与 PC 端逻辑一致）
+│       ├── components/             ← 移动端通用组件
+│       ├── pages/                  ← 按模块组织页面
+│       └── utils/                  ← 请求封装/权限工具
 ├── docs/                           ← 本文档 + 方案文档
 └── data/                           ← SQLite 数据库文件
 ```
@@ -692,6 +707,8 @@ class VehicleReturn(Base): # 退库记录（新建，与旧 VehicleReturn 不同
 - 客户电子签名
 - 扣车上库存
 
+> ⚠️ **H5 定位更新**：H5 不仅限于车销，而是 PC 全功能移动版。车销是 H5 的核心场景之一，但 H5 拥有 PC 所有功能模块，按角色权限动态展示。详见 [十四、H5 移动端全功能方案](#十四h5-移动端全功能方案)。
+
 ### Day 5-6：交账系统
 
 **新建 models/vehicle.py 补充**：
@@ -1021,6 +1038,312 @@ UPDATE employees SET report_to = 1 WHERE report_to IS NULL AND id != 1;
 | Phase 0 缩减至0.5天 | 权限表/模块表/角色扩展已在前期完成，无需重复建设 | v1.1 |
 | 旧车销模型保留 | H5端可能已在使用，新体系并行建 | v1.1 |
 | Phase 0 缩减至0.5天 | 权限表/模块表/角色扩展已建好 | v1.1 |
+| H5=PC全功能移动版 | H5不仅车销，拥有PC所有功能，按角色权限动态展示模块 | v1.2 |
+| H5一账号多权限 | employee_roles多对多表已支持，权限取并集，boss全权限 | v1.2 |
+| H5用uni-app+Vant | 跨端能力（H5/小程序/App），Vant移动端体验好 | v1.2 |
+
+---
+
+---
+
+## 十四、H5 移动端全功能方案
+
+### 14.1 设计原则
+
+**H5 ≠ 仅车销端口。H5 = PC 全功能移动版。**
+
+| 原则 | 说明 |
+|------|------|
+| 全功能覆盖 | H5 拥有 PC 所有功能模块，非仅车销 |
+| 权限驱动展示 | 根据登录用户的角色权限，动态显示/隐藏功能模块 |
+| 共用后端 API | H5 和 PC 调用同一套后端接口，零额外后端开发 |
+| 一账号多权限 | 一个员工可拥有多个角色（如：业务员+库管），权限取并集 |
+| 老板全权限 | boss 角色自动拥有所有模块权限 |
+
+### 14.2 技术栈
+
+```
+框架：uni-app（Vue3 + Vite）— 支持 H5/微信小程序/App 打包
+UI库：Vant 4.x（移动端组件库）
+状态管理：Pinia（与 PC 端统一）
+路由：uni-app 内置路由 + pages.json 配置
+网络：uni.request 封装（拦截器统一处理 token/错误）
+```
+
+### 14.3 角色与模块映射
+
+#### 角色定义
+
+| 角色 key | 名称 | 说明 |
+|----------|------|------|
+| `sales` | 业务员 | 销售开单、客户拜访、交账 |
+| `clerk` | 文员 | 订单处理、单据录入、报表查看 |
+| `warehouse` | 库管 | 库存管理、盘点、出入库确认 |
+| `finance` | 财务 | 收支管理、对账、发票、审核 |
+| `boss` | 老板 | 全部权限 + 经营看板 |
+
+#### 模块权限映射表
+
+| 模块 module_key | sales | clerk | warehouse | finance | boss |
+|----------------|:-----:|:-----:|:---------:|:-------:|:----:|
+| `home`（首页看板） | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `products`（商品管理） | 查 | ✅ | 查 | — | ✅ |
+| `customers`（客户管理） | ✅ | ✅ | — | 查 | ✅ |
+| `suppliers`（供应商管理） | — | ✅ | — | 查 | ✅ |
+| `purchases`（采购管理） | — | ✅ | 确认入库 | ✅ | ✅ |
+| `sales`（销售管理） | ✅ | ✅ | — | ✅ | ✅ |
+| `inventory`（库存管理） | 查车仓 | ✅ | ✅ | — | ✅ |
+| `warehouses`（仓库管理） | — | — | ✅ | — | ✅ |
+| `finance`（财务管理） | — | — | — | ✅ | ✅ |
+| `reports`（报表中心） | 个人 | ✅ | 库存 | ✅ | ✅ |
+| `system`（系统设置） | — | — | — | — | ✅ |
+
+> **说明**：✅ = 完整权限，查 = 只读，— = 不可见。实际权限以 `role_module_permissions` 表为准，上表仅为默认参考。
+
+### 14.4 一账号多权限实现
+
+#### 数据模型（已存在）
+
+```
+employee_roles 表（多对多）：
+  employee_id → role_id
+  一个员工可关联多个角色
+
+role_module_permissions 表：
+  role_id + module_id → can_view / can_create / can_edit / can_delete
+```
+
+#### 权限合并逻辑
+
+```python
+# 登录时计算有效权限（取并集）
+def get_user_permissions(employee_id, db):
+    roles = db.query(EmployeeRole).filter(
+        EmployeeRole.employee_id == employee_id
+    ).all()
+
+    # boss 角色：直接返回全部权限
+    for er in roles:
+        if er.role.role_key == 'boss':
+            return ALL_PERMISSIONS
+
+    # 非 boss：合并所有角色权限（OR 逻辑）
+    permissions = {}
+    for er in roles:
+        for perm in er.role.module_permissions:
+            key = perm.module.module_key
+            if key not in permissions:
+                permissions[key] = {
+                    'can_view': False, 'can_create': False,
+                    'can_edit': False, 'can_delete': False
+                }
+            permissions[key]['can_view'] |= perm.can_view
+            permissions[key]['can_create'] |= perm.can_create
+            permissions[key]['can_edit'] |= perm.can_edit
+            permissions[key]['can_delete'] |= perm.can_delete
+
+    return permissions
+```
+
+#### 前端权限判断（H5）
+
+```javascript
+// stores/auth.js — H5 端复用 PC 端权限逻辑
+export const useAuthStore = defineStore('auth', {
+  state: () => ({
+    user: null,
+    permissions: {},  // { module_key: { can_view, can_create, can_edit, can_delete } }
+    roles: []         // 用户角色列表
+  }),
+  getters: {
+    isAdmin: (state) => state.roles.some(r => r.role_key === 'boss'),
+    hasModule: (state) => (moduleKey) => {
+      if (state.isAdmin) return true
+      return state.permissions[moduleKey]?.can_view || false
+    },
+    can: (state) => (moduleKey, action) => {
+      if (state.isAdmin) return true
+      return state.permissions[moduleKey]?.[`can_${action}`] || false
+    }
+  }
+})
+```
+
+### 14.5 H5 动态 TabBar 设计
+
+#### 首页 TabBar（底部导航）
+
+根据用户权限动态显示底部 Tab：
+
+```
+┌─────────────────────────────────────────────────┐
+│                                                 │
+│              [页面内容区]                        │
+│                                                 │
+├──────┬──────┬──────┬──────┬──────┬──────────────┤
+│ 首页 │ 销售 │ 仓库 │ 财务 │ 报表 │ 我的（固定）│
+│  🏠  │  📋  │  📦  │  💰  │  📊  │    👤       │
+└──────┴──────┴──────┴──────┴──────┴──────────────┘
+```
+
+#### 各角色默认 Tab 组合
+
+| 角色 | Tab1 | Tab2 | Tab3 | Tab4 | Tab5 |
+|------|------|------|------|------|------|
+| 业务员 | 首页 | 销售 | 客户 | 业绩 | 我的 |
+| 文员 | 首页 | 销售 | 采购 | 库存 | 我的 |
+| 库管 | 首页 | 库存 | 盘点 | 装车 | 我的 |
+| 财务 | 首页 | 财务 | 对账 | 报表 | 我的 |
+| 老板 | 首页 | 销售 | 仓库 | 报表 | 我的 |
+
+> Tab 列表完全由权限动态生成，非硬编码。如果文员同时拥有库存权限，则自动出现"库存"Tab。
+
+### 14.6 H5 页面清单
+
+#### 与 PC 共用模块（H5 移动端适配）
+
+| 模块 | H5 页面 | 对应 PC 页面 | 说明 |
+|------|---------|-------------|------|
+| 首页 | `pages/home/index` | Dashboard.vue | 经营概览卡片，按角色显示不同数据 |
+| 档案 | | | |
+| - 商品 | `pages/products/index` | products/Index.vue | 列表+搜索+详情 |
+| - 客户 | `pages/customers/index` | customers/Index.vue | 列表+地图+拜访记录 |
+| - 客户价格 | `pages/customers/price` | customers/PriceLevel.vue | 价格等级管理 |
+| - 供应商 | `pages/suppliers/index` | suppliers/Index.vue | 供应商列表 |
+| 采购 | | | |
+| - 采购订单 | `pages/purchases/index` | purchases/Index.vue | 订单列表+创建 |
+| - 采购入库 | `pages/purchases/receipt` | purchase_receipt/Index.vue | 入库确认（库管） |
+| - 采购退货 | `pages/purchases/return` | purchases/Returns.vue | 退货申请 |
+| 销售 | | | |
+| - 销售订单 | `pages/sales/order` | sales/Index.vue | 下单+商品快选+扫码 |
+| - 销售单 | `pages/sales/delivery` | sales_delivery/Index.vue | 销售单列表+详情 |
+| - 退货单 | `pages/sales/return` | sales_return_dlv/Index.vue | 退货处理 |
+| - 业务员 | `pages/salesmen/index` | salesmen/Index.vue | 业务员管理（主管） |
+| - 交账 | `pages/settlement/index` | settlement/Index.vue | 交账提交/审核 |
+| - 异常监控 | `pages/monitor/index` | monitor/Index.vue | 异常告警 |
+| 仓库 | | | |
+| - 库存查询 | `pages/inventory/index` | inventory/Index.vue | 库存列表+扫码查询 |
+| - 库存调拨 | `pages/inventory/transfer` | inventory/Transfers.vue | 调拨申请 |
+| - 盘点 | `pages/stocktaking/index` | stocktaking/Index.vue | 扫码盘点 |
+| - 装车单 | `pages/vehicle-load/index` | vehicle_load/Index.vue | 装车/退库 |
+| - 报损单 | `pages/damage/index` | damage_report/Index.vue | 报损申请/审核 |
+| - 仓库管理 | `pages/warehouses/index` | warehouses/Index.vue | 仓库列表 |
+| 财务 | | | |
+| - 收支管理 | `pages/finance/index` | finance/Index.vue | 收支记录 |
+| - 费用管理 | `pages/expenses/index` | expense/Index.vue | 费用报销 |
+| - 往来账 | `pages/ledger/index` | account_ledger/Index.vue | 客户/供应商往来 |
+| - 预收付款 | `pages/advance/index` | advance_payment/Index.vue | 预收/预付 |
+| - 客户对账 | `pages/reconciliation/index` | reconciliation/Index.vue | 对账确认 |
+| - 银行对账 | `pages/bank/index` | finance/BankReconciliation.vue | 银行流水 |
+| - 发票管理 | `pages/invoices/index` | finance/Invoices.vue | 发票录入 |
+| 报表 | | | |
+| - 利润统计 | `pages/reports/profit` | reports/Profit.vue | 利润分析 |
+| - 库存汇总 | `pages/reports/inventory` | reports/Inventory.vue | 库存报表 |
+| - 销售排行 | `pages/reports/ranking` | reports/SalesRanking.vue | 排行榜 |
+| - 趋势图 | `pages/reports/trend` | reports/Trend.vue | 趋势图表 |
+| - 销售明细 | `pages/reports/sales-detail` | reports/SalesDetail.vue | 多维度明细 |
+| - 提成报表 | `pages/commission/index` | reports/Commission.vue | 提成计算 |
+| 系统 | | | |
+| - 角色管理 | `pages/system/roles` | system/Roles.vue | 仅 boss |
+| - 公司设置 | `pages/system/config` | system/CompanyConfig.vue | 仅 boss |
+| - 操作日志 | `pages/system/logs` | system/Logs.vue | 仅 boss |
+| 我的 | | | |
+| - 个人信息 | `pages/mine/index` | — | H5 独有 |
+| - 修改密码 | `pages/mine/password` | — | H5 独有 |
+| - 消息通知 | `pages/mine/messages` | — | H5 独有 |
+
+### 14.7 H5 目录结构
+
+```
+h5/
+├── src/
+│   ├── main.js
+│   ├── App.vue
+│   ├── manifest.json          ← uni-app 配置
+│   ├── pages.json             ← 页面路由配置（动态生成）
+│   ├── api/
+│   │   └── index.js           ← 复用 PC 端 API 接口
+│   ├── stores/
+│   │   ├── auth.js            ← 权限 store（与 PC 端逻辑一致）
+│   │   └── app.js             ← 全局状态
+│   ├── components/
+│   │   ├── TabBar.vue         ← 动态底部导航
+│   │   ├── PageHeader.vue     ← 统一页头
+│   │   ├── SearchBar.vue      ← 搜索栏
+│   │   ├── StatusTag.vue      ← 状态标签
+│   │   └── Empty.vue          ← 空状态
+│   ├── pages/
+│   │   ├── login/             ← 登录
+│   │   ├── home/              ← 首页看板
+│   │   ├── products/          ← 商品
+│   │   ├── customers/         ← 客户
+│   │   ├── purchases/         ← 采购
+│   │   ├── sales/             ← 销售
+│   │   ├── inventory/         ← 库存
+│   │   ├── finance/           ← 财务
+│   │   ├── reports/           ← 报表
+│   │   ├── system/            ← 系统
+│   │   └── mine/              ← 我的
+│   └── utils/
+│       ├── request.js         ← uni.request 封装
+│       ├── auth.js            ← 权限判断工具
+│       └── format.js          ← 格式化工具
+├── package.json
+├── vite.config.js
+└── index.html
+```
+
+### 14.8 实施计划
+
+| 阶段 | 天数 | 内容 |
+|------|------|------|
+| **H5-0：基础框架** | 1天 | uni-app 项目初始化、Vant 集成、请求封装、权限 store、动态 TabBar |
+| **H5-1：核心业务** | 3天 | 首页看板 + 销售开单 + 库存查询 + 客户管理 |
+| **H5-2：车销流程** | 2天 | 装车 + 车销开单 + 交账 + 扫码（与 Phase B 联动） |
+| **H5-3：仓库+采购** | 2天 | 采购入库确认 + 盘点 + 报损 + 调拨 |
+| **H5-4：财务+报表** | 2天 | 费用报销 + 对账确认 + 报表查看 |
+| **H5-5：系统+优化** | 1天 | 系统设置（boss）+ 我的 + 消息通知 + 性能优化 |
+
+**总计：约 11 天**（可与 Phase B/C/D 并行开发）
+
+### 14.9 H5 与 PC 的关系
+
+```
+┌──────────────────────────────────────────────────┐
+│                 后端 API（唯一）                  │
+│         FastAPI + SQLAlchemy + SQLite            │
+└────────────┬──────────────────┬──────────────────┘
+             │                  │
+    ┌────────▼────────┐ ┌──────▼──────────┐
+    │   PC 管理端     │ │   H5 移动端     │
+    │ Vue3+Element    │ │ uni-app+Vant    │
+    │ 全功能          │ │ 全功能（权限裁剪）│
+    │ 适合办公场景    │ │ 适合外勤/移动场景│
+    └─────────────────┘ └─────────────────┘
+
+    PC 和 H5 共用：
+    ✅ 同一套 API
+    ✅ 同一套权限系统（role_module_permissions）
+    ✅ 同一套状态机
+    ✅ 同一套数据
+
+    区别：
+    ❌ UI 不同（PC 表格密集 vs H5 卡片简洁）
+    ❌ 交互不同（PC 鼠标 vs H5 触摸/扫码/签名）
+    ❌ 布局不同（PC 侧边栏 vs H5 底部 TabBar）
+```
+
+### 14.10 H5 特色功能
+
+| 功能 | 说明 |
+|------|------|
+| 扫码开单 | 扫商品条码快速添加商品 |
+| 电子签名 | 客户签收确认（canvas 签名） |
+| 拍照上传 | 退货拍照、报损拍照、凭证拍照 |
+| GPS 定位 | 客户拜访签到定位 |
+| 离线缓存 | 弱网环境基础数据缓存 |
+| 消息推送 | 交账提醒、审批通知 |
+| 手势操作 | 左滑删除、下拉刷新、上拉加载 |
 
 ---
 
