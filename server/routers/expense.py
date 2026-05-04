@@ -12,6 +12,7 @@ from schemas.expense import (
     ExpenseCreate, ExpenseOut
 )
 from schemas.common import ResponseModel, PaginatedResponse
+from utils.role_check import require_role
 
 router = APIRouter(prefix="/api", tags=["费用管理"])
 
@@ -145,8 +146,7 @@ def approve_expense(
         raise HTTPException(400, f"当前状态 {expense.status} 不允许审批")
 
     # 只有主管/admin可以审批
-    if user.role_id != 5:
-        raise HTTPException(403, "只有管理员可以审批")
+    require_role(user, db, "admin", message="只有管理员可以审批")
 
     expense.status = "approved"
     expense.approver_id = user.id
@@ -168,8 +168,7 @@ def reject_expense(
     if expense.status != "pending":
         raise HTTPException(400, f"当前状态 {expense.status} 不允许驳回")
 
-    if user.role_id != 5:
-        raise HTTPException(403, "只有管理员可以驳回")
+    require_role(user, db, "admin", message="只有管理员可以驳回")
 
     expense.status = "rejected"
     expense.approver_id = user.id

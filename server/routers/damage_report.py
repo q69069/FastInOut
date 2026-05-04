@@ -9,6 +9,7 @@ from models.product import Product
 from models.inventory import Inventory
 from models.employee import Employee
 from schemas.common import ResponseModel, PaginatedResponse
+from utils.role_check import require_role
 
 router = APIRouter(prefix="/api", tags=["报损单"])
 
@@ -119,8 +120,7 @@ def get_damage_report(report_id: int, db: Session = Depends(get_db)):
 def audit_damage_report(report_id: int, authorization: str = Header(None), db: Session = Depends(get_db)):
     """审核报损单 — 扣减库存"""
     user = get_current_user(authorization, db)
-    if user.role_id != 5:
-        raise HTTPException(403, "只有管理员可以审核报损单")
+    require_role(user, db, "admin", message="只有管理员可以审核报损单")
     dr = db.query(DamageReport).get(report_id)
     if not dr:
         raise HTTPException(404, "报损单不存在")

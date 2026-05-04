@@ -51,7 +51,7 @@ const router = createRouter({
 // 默认允许访问的Tab（无权限时重定向）
 const DEFAULT_TABS = ['home', 'dashboard', 'customers', 'performance', 'inventory', 'finance', 'tools', 'profile']
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
   const token = localStorage.getItem('token')
 
@@ -63,6 +63,11 @@ router.beforeEach((to, from, next) => {
   if (to.path === '/login') {
     next()
     return
+  }
+
+  // 首次加载时确保用户信息已获取（防止权限为空）
+  if (!authStore.user && token) {
+    await authStore.fetchUser()
   }
 
   // 权限检查

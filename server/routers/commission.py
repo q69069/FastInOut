@@ -7,6 +7,7 @@ from models.commission import Commission
 from models.employee import Employee
 from models.settlement import Settlement
 from schemas.common import ResponseModel, PaginatedResponse
+from utils.role_check import require_role
 
 router = APIRouter(prefix="/api", tags=["提成"])
 
@@ -74,8 +75,7 @@ def create_commission(data: dict, authorization: str = Header(None), db: Session
 def calculate_commissions(data: dict, authorization: str = Header(None), db: Session = Depends(get_db)):
     """自动计算提成 — 按已审核交账单汇总"""
     user = get_current_user(authorization, db)
-    if user.role_id != 5:
-        raise HTTPException(403, "只有管理员可以计算提成")
+    require_role(user, db, "admin", message="只有管理员可以计算提成")
     period = data.get("period")
     rate = data.get("rate", 0.05)  # 默认5%
     if not period:

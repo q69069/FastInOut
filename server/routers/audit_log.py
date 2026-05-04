@@ -11,6 +11,7 @@ from database import get_db
 from models.http_audit_log import HttpAuditLog
 from models.employee import Employee
 from schemas.common import ResponseModel, PaginatedResponse
+from utils.role_check import require_role
 from pydantic import BaseModel, ConfigDict
 from typing import Optional
 
@@ -61,8 +62,7 @@ def list_http_audit_logs(
     user = get_current_user(authorization, db)
 
     # 只有管理员可以查看审计日志
-    if user.role_id != 5:
-        raise HTTPException(403, "只有管理员可以查看审计日志")
+    require_role(user, db, "admin", message="只有管理员可以查看审计日志")
 
     q = db.query(HttpAuditLog)
 

@@ -16,6 +16,7 @@ from models.employee import Employee
 from schemas.common import ResponseModel, PaginatedResponse
 from services.inventory_service import InventoryService
 from utils.status import StocktakingStatus
+from utils.role_check import require_role
 
 router = APIRouter(prefix="/api", tags=["盘点单"])
 
@@ -134,8 +135,7 @@ def audit_stocktaking(
         raise HTTPException(400, "非盘点中状态不能审核")
 
     # 只有主管/admin可以审核
-    if user.role_id != 5:
-        raise HTTPException(403, "只有管理员可以审核盘点单")
+    require_role(user, db, "admin", message="只有管理员可以审核盘点单")
 
     items = db.query(InventoryCheckItem).filter(InventoryCheckItem.check_id == check_id).all()
 
@@ -170,8 +170,7 @@ def adjust_stocktaking(
     if check.status != 2:
         raise HTTPException(400, "只有已审核的盘点单才能调整库存")
 
-    if user.role_id != 5:
-        raise HTTPException(403, "只有管理员可以调整库存")
+    require_role(user, db, "admin", message="只有管理员可以调整库存")
 
     items = db.query(InventoryCheckItem).filter(InventoryCheckItem.check_id == check_id).all()
     adjusted_count = 0
@@ -213,8 +212,7 @@ def void_stocktaking(
     if check.status not in (1, 2):
         raise HTTPException(400, f"当前状态 {check.status} 不允许作废")
 
-    if user.role_id != 5:
-        raise HTTPException(403, "只有管理员可以作废盘点单")
+    require_role(user, db, "admin", message="只有管理员可以作废盘点单")
 
     check.status = 4  # 已作废
     db.commit()

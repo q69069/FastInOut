@@ -5,6 +5,7 @@ from database import get_db
 from models.company_config import CompanyConfig
 from models.employee import Employee
 from schemas.common import ResponseModel
+from utils.role_check import require_role
 
 router = APIRouter(prefix="/api", tags=["公司设置"])
 
@@ -35,8 +36,7 @@ def list_configs(authorization: str = Header(None), db: Session = Depends(get_db
 @router.put("/company-configs/{config_id}", response_model=ResponseModel)
 def update_config(config_id: int, data: dict, authorization: str = Header(None), db: Session = Depends(get_db)):
     user = get_current_user(authorization, db)
-    if user.role_id != 5:
-        raise HTTPException(403, "只有管理员可以修改设置")
+    require_role(user, db, "admin", message="只有管理员可以修改设置")
     config = db.query(CompanyConfig).get(config_id)
     if not config:
         raise HTTPException(404, "配置项不存在")
