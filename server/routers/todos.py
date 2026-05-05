@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/todos", tags=["待办"])
 
 
 class TodoItem(BaseModel):
-    id: int
+    id: str
     title: str
     description: str
     status: str
