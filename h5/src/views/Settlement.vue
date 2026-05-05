@@ -53,11 +53,21 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { showToast, showSuccessToast, showConfirmDialog } from 'vant'
 import { getPendingDeliveries, createSettlement, getSettlements } from '../api'
 
 const activeTab = ref(0)
+
+// 切换到交账记录tab时自动加载
+watch(activeTab, (newVal) => {
+  if (newVal === 1) {
+    settlePage.value = 1
+    settlements.value = []
+    finished.value = false
+    loadSettlements()
+  }
+})
 const submitting = ref(false)
 const refreshing = ref(false)
 const loading = ref(false)

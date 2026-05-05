@@ -94,8 +94,8 @@
     <van-popup v-model:show="showProductPicker" position="bottom" round style="max-height:70%">
       <div style="padding:16px">
         <div style="font-weight:bold;text-align:center;margin-bottom:12px">选择商品</div>
-        <van-search v-model="productKeyword" placeholder="搜索商品" @search="loadProducts" style="margin-bottom:8px" />
-        <van-list :finished="productFinished" @load="loadProducts">
+        <van-search v-model="productKeyword" placeholder="搜索商品" @search="handleSearchProduct" style="margin-bottom:8px" />
+        <van-list v-model:loading="productLoading" :finished="productFinished" finished-text="" @load="loadProducts">
           <div v-for="p in productList" :key="p.id" class="product-item" @click="addProduct(p)">
             <span>{{ p.name }}</span>
             <span class="green">¥{{ (p.price || 0).toFixed(2) }}</span>
@@ -159,6 +159,8 @@ const products = ref([])
 const productList = ref([])
 const productKeyword = ref('')
 const productFinished = ref(false)
+const productLoading = ref(false)
+const productPage = ref(1)
 
 const selectedSupplierName = ref('')
 const selectedWarehouseName = ref('')
@@ -202,9 +204,20 @@ const loadWarehouses = async () => {
 }
 
 const loadProducts = async () => {
-  const res = await getProducts({ keyword: productKeyword.value, page_size: 50 })
-  productList.value = res.data || []
-  productFinished.value = true
+  productLoading.value = true
+  const res = await getProducts({ keyword: productKeyword.value, page: productPage.value, page_size: 20 })
+  const data = res.data || []
+  if (productPage.value === 1) productList.value = data
+  else productList.value.push(...data)
+  productFinished.value = data.length < 20
+  productPage.value++
+  productLoading.value = false
+}
+
+const handleSearchProduct = () => {
+  productPage.value = 1
+  productFinished.value = false
+  loadProducts()
 }
 
 const startCreate = () => {

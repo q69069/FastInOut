@@ -142,6 +142,8 @@ const showDialog = () => {
 }
 
 const handleSave = async () => {
+  if (!form.value.statement_date) { ElMessage.error('请选择日期'); return }
+  if (!form.value.description) { ElMessage.error('请输入摘要'); return }
   await createBankStatement(form.value)
   ElMessage.success('保存成功')
   dialogVisible.value = false

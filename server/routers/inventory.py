@@ -684,20 +684,58 @@ def slow_moving(days: int = Query(30), db: Session = Depends(get_db)):
 
 
 @router.get("/turnover", response_model=ResponseModel)
-def turnover(start_date: str = Query(None), end_date: str = Query(None), warehouse_id: int = Query(None), db: Session = Depends(get_db)):
+def turnover(start_date: str = Query(None), end_date: str = Query(None), warehouse_id: int = Query(None), per_product: int = Query(0), db: Session = Depends(get_db)):
     from models.sales import SalesStockout, SalesStockoutItem
     q = db.query(SalesStockout).filter(SalesStockout.status == 2)
     if start_date:
         q = q.filter(SalesStockout.created_at >= start_date)
     if end_date:
         q = q.filter(SalesStockout.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+    if warehouse_id:
+        q = q.filter(SalesStockout.warehouse_id == warehouse_id)
     stockouts = q.all()
-    total_out = 0
+
+    # 汇总每个商品的出库量
+    product_out = {}
     for so in stockouts:
         items = db.query(SalesStockoutItem).filter(SalesStockoutItem.stockout_id == so.id).all()
         for item in items:
-            total_out += item.quantity
-    invs = db.query(Inventory).all()
+            product_out[item.product_id] = product_out.get(item.product_id, 0) + item.quantity
+
+    if per_product:
+        # 逐商品计算
+        inv_query = db.query(Inventory)
+        if warehouse_id:
+            inv_query = inv_query.filter(Inventory.warehouse_id == warehouse_id)
+        invs = inv_query.all()
+        result = []
+        days = 1
+        if start_date and end_date:
+            days = max(1, (datetime.strptime(end_date, "%Y-%m-%d") - datetime.strptime(start_date, "%Y-%m-%d")).days)
+        for inv in invs:
+            if not inv.product_id:
+                continue
+            total_out = product_out.get(inv.product_id, 0)
+            avg_stock = inv.quantity or 0
+            turnover_rate = total_out / max(avg_stock, 1) if days > 0 else 0
+            product = db.query(Product).get(inv.product_id)
+            result.append({
+                "product_id": inv.product_id,
+                "product_name": product.name if product else f"商品{inv.product_id}",
+                "total_out": total_out,
+                "avg_stock": avg_stock,
+                "days": days,
+                "turnover_rate": turnover_rate
+            })
+        result.sort(key=lambda x: x["turnover_rate"], reverse=True)
+        return ResponseModel(data=result)
+
+    # 全局汇总
+    total_out = sum(product_out.values())
+    inv_query = db.query(Inventory)
+    if warehouse_id:
+        inv_query = inv_query.filter(Inventory.warehouse_id == warehouse_id)
+    invs = inv_query.all()
     avg_stock = sum(i.quantity for i in invs) / len(invs) if invs else 1
     return ResponseModel(data={"total_out": total_out, "avg_stock": avg_stock, "turnover_rate": total_out / avg_stock if avg_stock > 0 else 0})
 

@@ -163,8 +163,8 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  getPurchaseReturnDeliveries, createPurchaseReturnDelivery, getPurchaseReturnDelivery,
-  warehouseConfirmPurchaseReturnDlv, financeConfirmPurchaseReturnDlv, deletePurchaseReturnDelivery,
+  getPurchaseReturnDlvs, createPurchaseReturnDlv, getPurchaseReturnDlv,
+  warehouseConfirmPurchaseReturnDlv, financeConfirmPurchaseReturnDlv, deletePurchaseReturnDlv,
   getProducts, getSuppliers, getWarehouses, getPurchaseReturns
 } from '../../api'
 
@@ -263,7 +263,7 @@ const handleCreate = async () => {
         amount: (item.quantity || 0) * (item.unit_price || 0)
       }))
     }
-    await createPurchaseReturnDelivery(data)
+    await createPurchaseReturnDlv(data)
     ElMessage.success('创建成功')
     createVisible.value = false
     loadData()
@@ -273,7 +273,7 @@ const handleCreate = async () => {
 }
 
 const showDetail = async (row) => {
-  const res = await getPurchaseReturnDelivery(row.id)
+  const res = await getPurchaseReturnDlv(row.id)
   detail.value = res.data
   detailVisible.value = true
 }
@@ -294,7 +294,7 @@ const handleFinanceConfirm = async (row) => {
 
 const handleDelete = async (row) => {
   await ElMessageBox.confirm('确定删除该退货出库单？', '删除确认', { type: 'warning' })
-  await deletePurchaseReturnDelivery(row.id)
+  await deletePurchaseReturnDlv(row.id)
   ElMessage.success('删除成功')
   loadData()
 }
