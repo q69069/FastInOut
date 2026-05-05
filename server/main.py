@@ -19,6 +19,9 @@ import models.commission
 import models.company_config
 import models.reconciliation
 import models.purchase_return_dlv
+import models.brand
+import models.channel
+import models.customer_level
 from routers import (
     auth, company, warehouses, employees,
     categories, products, customers, suppliers,
@@ -32,7 +35,8 @@ from routers import (
     sales_return_dlv, audit_log, account_ledger,
     vehicle_load, settlement, advance_payment, damage_report,
     commission, report_enhanced, monitor, reconciliation, company_config,
-    purchase_return_dlv
+    purchase_return_dlv,
+    brands, channels, customer_levels
 )
 
 # 创建所有表
@@ -91,6 +95,7 @@ def auto_migrate():
             conn.execute(text('ALTER TABLE products ADD COLUMN brand VARCHAR(50)'))
 
         # customers 新字段（Phase C 档案扩充）
+        cust_cols = [c['name'] for c in inspector.get_columns('customers')]
         if 'channel' not in cust_cols:
             conn.execute(text('ALTER TABLE customers ADD COLUMN channel VARCHAR(50)'))
         if 'customer_level' not in cust_cols:
@@ -404,6 +409,9 @@ app.include_router(monitor.router)
 app.include_router(reconciliation.router)
 app.include_router(company_config.router)
 app.include_router(purchase_return_dlv.router)
+app.include_router(brands.router)
+app.include_router(channels.router)
+app.include_router(customer_levels.router)
 
 
 @app.get("/api/health")

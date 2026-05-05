@@ -6,34 +6,34 @@
       </template>
     </van-nav-bar>
 
+    <van-search v-model="keyword" placeholder="搜索渠道名称/编码" @search="onSearch" style="margin-bottom:8px" />
+
     <van-pull-refresh v-model="loading" @refresh="loadChannels">
       <van-list :finished="finished" finished-text="没有更多了" @load="loadChannels">
-        <div v-for="item in channelList" :key="item.id" class="channel-card">
+        <div v-for="item in channelList" :key="item.id" class="channel-card" @click="openDetail(item)">
           <div class="channel-header">
             <span class="channel-name">{{ item.name }}</span>
             <van-tag :type="item.status === 1 ? 'success' : 'default'" size="small">
               {{ item.status === 1 ? '启用' : '停用' }}
             </van-tag>
           </div>
-          <div class="channel-meta">
-            <span>客户数: {{ item.customer_count || 0 }}</span>
-          </div>
-          <div class="channel-actions">
-            <van-button size="small" @click="handleEdit(item)">编辑</van-button>
-            <van-button size="small" type="danger" plain @click="handleDelete(item)">删除</van-button>
+          <div class="channel-info">
+            <span v-if="item.code">编码: {{ item.code }}</span>
+            <span>层级: {{ item.level }}</span>
           </div>
         </div>
         <van-empty v-if="channelList.length === 0 && !loading" description="暂无渠道数据" />
       </van-list>
     </van-pull-refresh>
 
-    <!-- 新建/编辑 -->
     <van-popup v-model:show="showForm" position="bottom" round>
       <div style="padding:20px">
         <div style="font-weight:bold;text-align:center;margin-bottom:16px">{{ isEdit ? '编辑渠道' : '新建渠道' }}</div>
         <van-cell-group inset>
           <van-field v-model="form.name" label="渠道名称" placeholder="请输入渠道名称" />
-          <van-field v-model="form.description" label="描述" placeholder="渠道描述" />
+          <van-field v-model="form.code" label="渠道编码" placeholder="请输入渠道编码" />
+          <van-field v-model="form.level" label="层级" type="number" placeholder="1/2/3" />
+          <van-field v-model="form.sort_order" label="排序" type="number" placeholder="数字越小越靠前" />
           <van-cell title="状态">
             <template #extra>
               <van-radio-group v-model="form.status" direction="horizontal">
@@ -42,6 +42,7 @@
               </van-radio-group>
             </template>
           </van-cell>
+          <van-field v-model="form.remark" label="备注" placeholder="备注" />
         </van-cell-group>
         <div style="display:flex;gap:12px;margin-top:16px">
           <van-button block @click="showForm = false">取消</van-button>
@@ -54,55 +55,43 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { showToast, showSuccessToast, showConfirmDialog } from 'vant'
-import { getCustomers, updateCustomer } from '../api'
+import { showToast, showSuccessToast } from 'vant'
+import { getChannels, createChannel, updateChannel } from '../api'
 
 const loading = ref(false)
 const finished = ref(false)
 const channelList = ref([])
+const keyword = ref('')
 const showForm = ref(false)
 const submitting = ref(false)
 const isEdit = ref(false)
-const currentChannel = ref(null)
+const currentItem = ref(null)
 
-const form = ref({ name: '', status: 1, description: '' })
-
-// 预定义渠道列表（实际可从后端配置读取）
-const defaultChannels = ['直营', '代理', '电商', '团购', '其他']
+const form = ref({ name: '', code: '', level: 1, sort_order: 0, remark: '', status: 1 })
 
 const loadChannels = async () => {
   loading.value = true
   try {
-    const res = await getCustomers({ page_size: 200 })
-    const customers = res.data || []
-    // 从客户数据中提取渠道并分组
-    const channelMap = {}
-    defaultChannels.forEach(name => {
-      channelMap[name] = { id: name, name, status: 1, customer_count: 0, description: '' }
-    })
-    customers.forEach(c => {
-      const ch = c.channel || '其他'
-      if (!channelMap[ch]) {
-        channelMap[ch] = { id: ch, name: ch, status: 1, customer_count: 0, description: '' }
-      }
-      channelMap[ch].customer_count++
-    })
-    channelList.value = Object.values(channelMap).filter(ch => ch.customer_count > 0 || defaultChannels.includes(ch.name))
-  } catch {}
+    const res = await getChannels({ keyword: keyword.value, page_size: 50 })
+    channelList.value = res.data || []
+  } catch { channelList.value = [] }
   loading.value = false
   finished.value = true
 }
 
+const onSearch = () => { loadChannels() }
+
 const startCreate = () => {
   isEdit.value = false
-  form.value = { name: '', status: 1, description: '' }
+  form.value = { name: '', code: '', level: 1, sort_order: 0, remark: '', status: 1 }
+  currentItem.value = null
   showForm.value = true
 }
 
-const handleEdit = (item) => {
-  currentChannel.value = item
+const openDetail = (item) => {
   isEdit.value = true
-  form.value = { name: item.name, status: item.status, description: item.description || '' }
+  currentItem.value = item
+  form.value = { name: item.name, code: item.code || '', level: item.level || 1, sort_order: item.sort_order || 0, remark: item.remark || '', status: item.status }
   showForm.value = true
 }
 
@@ -110,20 +99,17 @@ const submitForm = async () => {
   if (!form.value.name) return showToast('请输入渠道名称')
   submitting.value = true
   try {
-    // 渠道暂时不支持独立创建，前端仅展示
-    showSuccessToast('渠道信息已保存')
+    if (isEdit.value) {
+      await updateChannel({ id: currentItem.value.id, ...form.value })
+      showSuccessToast('更新成功')
+    } else {
+      await createChannel(form.value)
+      showSuccessToast('创建成功')
+    }
     showForm.value = false
     loadChannels()
   } catch { showToast('保存失败') }
   submitting.value = false
-}
-
-const handleDelete = async (item) => {
-  try {
-    await showConfirmDialog({ title: '删除', message: `确认删除渠道 ${item.name}？` })
-    showSuccessToast('渠道已删除')
-    loadChannels()
-  } catch {}
 }
 
 onMounted(loadChannels)
@@ -131,9 +117,8 @@ onMounted(loadChannels)
 
 <style scoped>
 .page { background: #f7f8fa; min-height: 100vh; padding-bottom: 20px; }
-.channel-card { background: #fff; margin: 8px 16px; border-radius: 10px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.channel-card { background: #fff; margin: 8px 16px; border-radius: 10px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); cursor: pointer; }
 .channel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .channel-name { font-size: 15px; font-weight: bold; color: #333; }
-.channel-meta { font-size: 12px; color: #999; margin-bottom: 8px; }
-.channel-actions { display: flex; gap: 8px; }
+.channel-info { display: flex; gap: 16px; font-size: 13px; color: #666; }
 </style>

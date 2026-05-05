@@ -79,6 +79,24 @@ const routes = [
         component: () => import('../views/purchase_return_dlv/Index.vue'),
         meta: { title: '采购退货出库单', moduleKey: 'purchases' }
       },
+      {
+        path: 'brands',
+        name: 'Brands',
+        component: () => import('../views/brands/Index.vue'),
+        meta: { title: '品牌管理', moduleKey: 'products' }
+      },
+      {
+        path: 'channels',
+        name: 'Channels',
+        component: () => import('../views/channels/Index.vue'),
+        meta: { title: '渠道管理', moduleKey: 'customers' }
+      },
+      {
+        path: 'customer-levels',
+        name: 'CustomerLevels',
+        component: () => import('../views/customer_levels/Index.vue'),
+        meta: { title: '客户等级', moduleKey: 'customers' }
+      },
       // 销售
       {
         path: 'sales',

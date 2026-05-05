@@ -109,6 +109,32 @@ export const updatePurchaseReturn = (id, data) => api.put(`/purchase-returns/${i
 export const deletePurchaseReturn = (id) => api.delete(`/purchase-returns/${id}`)
 export const confirmPurchaseReturn = (id) => api.post(`/purchase-returns/${id}/confirm`)
 
+// 采购退货出库单
+export const getPurchaseReturnDlvs = (params) => api.get('/purchase-return-deliveries', { params })
+export const createPurchaseReturnDlv = (data) => api.post('/purchase-return-deliveries', data)
+export const getPurchaseReturnDlv = (id) => api.get(`/purchase-return-deliveries/${id}`)
+export const warehouseConfirmPurchaseReturnDlv = (id) => api.post(`/purchase-return-deliveries/${id}/warehouse-confirm`)
+export const financeConfirmPurchaseReturnDlv = (id) => api.post(`/purchase-return-deliveries/${id}/finance-confirm`)
+export const deletePurchaseReturnDlv = (id) => api.delete(`/purchase-return-deliveries/${id}`)
+
+// 品牌
+export const getBrands = (params) => api.get('/brands', { params })
+export const createBrand = (data) => api.post('/brands', data)
+export const updateBrand = (data) => api.put(`/brands/${data.id}`, data)
+export const deleteBrand = (id) => api.delete(`/brands/${id}`)
+
+// 渠道
+export const getChannels = (params) => api.get('/channels', { params })
+export const createChannel = (data) => api.post('/channels', data)
+export const updateChannel = (data) => api.put(`/channels/${data.id}`, data)
+export const deleteChannel = (id) => api.delete(`/channels/${id}`)
+
+// 客户等级
+export const getCustomerLevels = (params) => api.get('/customer-levels', { params })
+export const createCustomerLevel = (data) => api.post('/customer-levels', data)
+export const updateCustomerLevel = (data) => api.put(`/customer-levels/${data.id}`, data)
+export const deleteCustomerLevel = (id) => api.delete(`/customer-levels/${id}`)
+
 // 销售
 export const getSalesOrders = (params) => api.get('/sales-orders', { params })
 export const createSalesOrder = (data) => api.post('/sales-orders', data)

@@ -73,6 +73,7 @@ export const getInventoryAlerts = (params) => api.get('/inventory/alerts', { par
 export const getInventorySummary = () => api.get('/inventory/summary')
 export const getSlowMoving = (days) => api.get('/inventory/slow-moving', { params: { days } })
 export const getReorderSuggestions = () => api.get('/inventory/reorder-suggestions')
+export const getTurnover = (params) => api.get('/inventory/turnover', { params })
 
 // 盘点
 export const getStocktaking = (params) => api.get('/inventory/checks', { params })
@@ -118,6 +119,24 @@ export const getPurchaseReturnDlv = (id) => api.get(`/purchase-return-deliveries
 export const warehouseConfirmDlv = (id) => api.post(`/purchase-return-deliveries/${id}/warehouse-confirm`)
 export const financeConfirmDlv = (id) => api.post(`/purchase-return-deliveries/${id}/finance-confirm`)
 export const deletePurchaseReturnDlv = (id) => api.delete(`/purchase-return-deliveries/${id}`)
+
+// 品牌
+export const getBrands = (params) => api.get('/brands', { params })
+export const createBrand = (data) => api.post('/brands', data)
+export const updateBrand = (data) => api.put(`/brands/${data.id}`, data)
+export const deleteBrand = (id) => api.delete(`/brands/${id}`)
+
+// 渠道
+export const getChannels = (params) => api.get('/channels', { params })
+export const createChannel = (data) => api.post('/channels', data)
+export const updateChannel = (data) => api.put(`/channels/${data.id}`, data)
+export const deleteChannel = (id) => api.delete(`/channels/${id}`)
+
+// 客户等级
+export const getCustomerLevels = (params) => api.get('/customer-levels', { params })
+export const createCustomerLevel = (data) => api.post('/customer-levels', data)
+export const updateCustomerLevel = (data) => api.put(`/customer-levels/${data.id}`, data)
+export const deleteCustomerLevel = (id) => api.delete(`/customer-levels/${id}`)
 
 // ========== 财务+费用 ==========
 export const getReceipts = (params) => api.get('/finance/receipts', { params })

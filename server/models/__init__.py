@@ -35,3 +35,6 @@ from models.damage_report import DamageReport, DamageReportItem
 from models.commission import Commission
 from models.company_config import CompanyConfig
 from models.reconciliation import CustomerReconciliation
+from models.brand import Brand
+from models.channel import Channel
+from models.customer_level import CustomerLevel

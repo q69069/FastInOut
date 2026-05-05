@@ -150,7 +150,10 @@ const mainModules = [
       { path: '/suppliers', label: '供应商管理', module: 'suppliers' },
       { path: '/supplier-reconciliation', label: '供应商对账', module: 'suppliers' },
       { path: '/customers/crm', label: '客户关系管理', module: 'customers' },
-      { path: '/units', label: '单位管理', module: 'products' }
+      { path: '/units', label: '单位管理', module: 'products' },
+      { path: '/brands', label: '品牌管理', module: 'products' },
+      { path: '/channels', label: '渠道管理', module: 'customers' },
+      { path: '/customer-levels', label: '客户等级', module: 'customers' }
     ]
   },
   {

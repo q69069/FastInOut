@@ -6,23 +6,22 @@
       </template>
     </van-nav-bar>
 
+    <van-search v-model="keyword" placeholder="搜索品牌名称/编码" @search="onSearch" style="margin-bottom:8px" />
+
     <van-pull-refresh v-model="loading" @refresh="loadBrands">
       <van-list :finished="finished" finished-text="没有更多了" @load="loadBrands">
-        <div v-for="item in brandList" :key="item.id" class="brand-card">
+        <div v-for="item in brandList" :key="item.id" class="brand-card" @click="openDetail(item)">
           <div class="brand-header">
             <span class="brand-name">{{ item.name }}</span>
             <van-tag :type="item.status === 1 ? 'success' : 'default'" size="small">
               {{ item.status === 1 ? '启用' : '停用' }}
             </van-tag>
           </div>
-          <div class="brand-meta">
-            <span>商品数: {{ item.product_count || 0 }}</span>
-            <span>{{ item.created_at?.substring(0, 10) || '-' }}</span>
+          <div class="brand-info">
+            <span v-if="item.code">编码: {{ item.code }}</span>
+            <span v-if="item.contact">电话: {{ item.contact }}</span>
           </div>
-          <div class="brand-actions">
-            <van-button size="small" @click="handleEdit(item)">编辑</van-button>
-            <van-button size="small" type="danger" plain @click="handleDelete(item)">删除</van-button>
-          </div>
+          <div v-if="item.remark" class="brand-remark">{{ item.remark }}</div>
         </div>
         <van-empty v-if="brandList.length === 0 && !loading" description="暂无品牌数据" />
       </van-list>
@@ -34,6 +33,8 @@
         <div style="font-weight:bold;text-align:center;margin-bottom:16px">{{ isEdit ? '编辑品牌' : '新建品牌' }}</div>
         <van-cell-group inset>
           <van-field v-model="form.name" label="品牌名称" placeholder="请输入品牌名称" />
+          <van-field v-model="form.code" label="品牌编码" placeholder="请输入品牌编码" />
+          <van-field v-model="form.contact" label="联系方式" placeholder="请输入联系方式" />
           <van-cell title="状态">
             <template #extra>
               <van-radio-group v-model="form.status" direction="horizontal">
@@ -42,7 +43,7 @@
               </van-radio-group>
             </template>
           </van-cell>
-          <van-field v-model="form.description" label="描述" placeholder="品牌描述" />
+          <van-field v-model="form.remark" label="备注" placeholder="备注" />
         </van-cell-group>
         <div style="display:flex;gap:12px;margin-top:16px">
           <van-button block @click="showForm = false">取消</van-button>
@@ -56,48 +57,42 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { showToast, showSuccessToast, showConfirmDialog } from 'vant'
-import { getProducts } from '../api'
+import { getBrands, createBrand, updateBrand, deleteBrand } from '../api'
 
 const loading = ref(false)
 const finished = ref(false)
 const brandList = ref([])
+const keyword = ref('')
 const showForm = ref(false)
 const submitting = ref(false)
 const isEdit = ref(false)
-const currentBrand = ref(null)
+const currentItem = ref(null)
 
-const form = ref({ name: '', status: 1, description: '' })
+const form = ref({ name: '', code: '', contact: '', remark: '', status: 1 })
 
 const loadBrands = async () => {
   loading.value = true
   try {
-    const res = await getProducts({ page_size: 200 })
-    const products = res.data || []
-    // 按品牌分组
-    const brandMap = {}
-    products.forEach(p => {
-      const name = p.brand || '未设置'
-      if (!brandMap[name]) {
-        brandMap[name] = { id: name, name, status: 1, product_count: 0, description: '' }
-      }
-      brandMap[name].product_count++
-    })
-    brandList.value = Object.values(brandMap)
-  } catch {}
+    const res = await getBrands({ keyword: keyword.value, page_size: 50 })
+    brandList.value = res.data || []
+  } catch { brandList.value = [] }
   loading.value = false
   finished.value = true
 }
 
+const onSearch = () => { loadBrands() }
+
 const startCreate = () => {
   isEdit.value = false
-  form.value = { name: '', status: 1, description: '' }
+  form.value = { name: '', code: '', contact: '', remark: '', status: 1 }
+  currentItem.value = null
   showForm.value = true
 }
 
-const handleEdit = (item) => {
-  currentBrand.value = item
+const openDetail = (item) => {
   isEdit.value = true
-  form.value = { name: item.name, status: item.status, description: item.description || '' }
+  currentItem.value = item
+  form.value = { name: item.name, code: item.code || '', contact: item.contact || '', remark: item.remark || '', status: item.status }
   showForm.value = true
 }
 
@@ -105,21 +100,17 @@ const submitForm = async () => {
   if (!form.value.name) return showToast('请输入品牌名称')
   submitting.value = true
   try {
-    // 品牌本身不是独立实体，是在商品中管理的
-    // 这里实际上是通过批量更新商品的品牌来实现
-    showSuccessToast('品牌信息已保存')
+    if (isEdit.value) {
+      await updateBrand({ id: currentItem.value.id, ...form.value })
+      showSuccessToast('更新成功')
+    } else {
+      await createBrand(form.value)
+      showSuccessToast('创建成功')
+    }
     showForm.value = false
     loadBrands()
   } catch { showToast('保存失败') }
   submitting.value = false
-}
-
-const handleDelete = async (item) => {
-  try {
-    await showConfirmDialog({ title: '删除', message: `确认删除品牌 ${item.name}？` })
-    showSuccessToast('品牌已删除')
-    loadBrands()
-  } catch {}
 }
 
 onMounted(loadBrands)
@@ -127,9 +118,9 @@ onMounted(loadBrands)
 
 <style scoped>
 .page { background: #f7f8fa; min-height: 100vh; padding-bottom: 20px; }
-.brand-card { background: #fff; margin: 8px 16px; border-radius: 10px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.brand-card { background: #fff; margin: 8px 16px; border-radius: 10px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); cursor: pointer; }
 .brand-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .brand-name { font-size: 15px; font-weight: bold; color: #333; }
-.brand-meta { display: flex; justify-content: space-between; font-size: 12px; color: #999; margin-bottom: 8px; }
-.brand-actions { display: flex; gap: 8px; }
+.brand-info { display: flex; gap: 16px; font-size: 13px; color: #666; margin-bottom: 4px; }
+.brand-remark { font-size: 12px; color: #999; margin-top: 4px; }
 </style>

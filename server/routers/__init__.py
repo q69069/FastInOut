@@ -11,5 +11,6 @@ from routers import (
     sales_return_dlv, audit_log, account_ledger,
     vehicle_load, settlement, advance_payment, damage_report,
     commission, report_enhanced, monitor, reconciliation, company_config,
-    purchase_return_dlv, batche
+    purchase_return_dlv, batches,
+    brands, channels, customer_levels
 )
