@@ -146,6 +146,23 @@ def create_settlement(data: dict, authorization: str = Header(None), db: Session
     return ResponseModel(message="交账单创建成功", data={"id": settlement.id, "settlement_no": settlement.settlement_no})
 
 
+@router.get("/settlements/pending-deliveries", response_model=ResponseModel)
+def list_pending_deliveries(employee_id: int = Query(None), db: Session = Depends(get_db)):
+    """获取待交账的销售单"""
+    q = db.query(SalesDelivery).filter(SalesDelivery.status == "pending")
+    if employee_id:
+        q = q.filter(SalesDelivery.created_by == employee_id)
+    items = q.order_by(SalesDelivery.created_at.desc()).all()
+    result = [{
+        "id": d.id, "delivery_no": d.delivery_no,
+        "customer_id": d.customer_id, "total_amount": d.total_amount,
+        "cash_amount": d.cash_amount, "wechat_amount": d.wechat_amount,
+        "alipay_amount": d.alipay_amount, "credit_amount": d.credit_amount,
+        "created_at": str(d.created_at)
+    } for d in items]
+    return ResponseModel(data=result)
+
+
 @router.get("/settlements/{settlement_id}", response_model=ResponseModel)
 def get_settlement(settlement_id: int, db: Session = Depends(get_db)):
     s = db.query(Settlement).get(settlement_id)

@@ -44,7 +44,7 @@ def list_todos(
 
     # 获取待审核的采购订单（应用数据权限过滤）
     q = db.query(PurchaseOrder).filter(PurchaseOrder.status == 0)
-    q = DataFilter.apply_scope(q, PurchaseOrder, current_user, db, scope_field="route_id", module_key="purchases")
+    q = DataFilter.apply_scope(q, PurchaseOrder, current_user, db, scope_field="warehouse_id", module_key="purchases")
     pending_purchases = q.all()
     for po in pending_purchases:
         todos.append(TodoItem(

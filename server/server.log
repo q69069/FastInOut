@@ -1,0 +1,6 @@
+E:\FastInOut\server\config.py:19: UserWarning: SECRET_KEY 环境变量未设置，已生成临时密钥。请设置环境变量 SECRET_KEY！
+  warnings.warn("SECRET_KEY 环境变量未设置，已生成临时密钥。请设置环境变量 SECRET_KEY！")
+E:\FastInOut\server\utils\auth.py:14: UserWarning: SECRET_KEY 环境变量未设置，已生成临时密钥。请设置环境变量 SECRET_KEY！
+  warnings.warn("SECRET_KEY 环境变量未设置，已生成临时密钥。请设置环境变量 SECRET_KEY！")
+INFO:     Will watch for changes in these directories: ['E:\\FastInOut\\server']
+ERROR:    [WinError 10013] 以一种访问权限不允许的方式做了一个访问套接字的尝试。
