@@ -266,7 +266,7 @@ const handleAudit = async () => {
 }
 
 onMounted(async () => {
-  const [whRes, pRes] = await Promise.all([getWarehouses(), getProducts({ page_size: 500 })])
+  const [whRes, pRes] = await Promise.all([getWarehouses(), getProducts({ page_size: 100 })])
   warehouses.value = whRes.data || []
   products.value = pRes.data || []
   loadData(1)

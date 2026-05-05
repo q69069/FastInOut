@@ -440,7 +440,7 @@ const confirmReturn = async (r) => {
 }
 
 onMounted(async () => {
-  const [sRes, wRes, pRes] = await Promise.all([getSuppliers(), getWarehouses(), getProducts({ page_size: 500 })])
+  const [sRes, wRes, pRes] = await Promise.all([getSuppliers(), getWarehouses(), getProducts({ page_size: 100 })])
   suppliers.value = sRes.data || []
   warehouses.value = wRes.data || []
   products.value = pRes.data || []

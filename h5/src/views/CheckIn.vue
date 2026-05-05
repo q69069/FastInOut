@@ -1,6 +1,6 @@
 <template>
   <div class="checkin-page">
-    <van-nav-bar title="门店打卡" />
+    <van-nav-bar title="门店打卡" left-arrow @click-left="$router.back()" />
     <div class="content">
       <van-button type="primary" size="large" :loading="loading" @click="handleCheckIn">打卡签到</van-button>
       <van-cell-group title="打卡记录" style="margin-top: 20px;">

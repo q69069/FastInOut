@@ -40,7 +40,7 @@ class MessageCreate(BaseModel):
     reference_id: Optional[int] = None
 
 
-@router.get("/", response_model=list[MessageResponse])
+@router.get("", response_model=list[MessageResponse])
 def list_messages(
     status: str = None,
     recipient_id: int = None,

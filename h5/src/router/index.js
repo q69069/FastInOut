@@ -30,6 +30,7 @@ const routes = [
       { path: 'transfer', name: 'Transfer', component: () => import('../views/Transfer.vue'), meta: { moduleKey: 'inventory' } },
       { path: 'check', name: 'Check', component: () => import('../views/Check.vue'), meta: { moduleKey: 'inventory' } },
       { path: 'loss-report', name: 'LossReport', component: () => import('../views/LossReport.vue'), meta: { moduleKey: 'inventory' } },
+      { path: 'turnover', name: 'Turnover', component: () => import('../views/Turnover.vue'), meta: { moduleKey: 'inventory' } },
       { path: 'approve', name: 'Approve', component: () => import('../views/Approve.vue'), meta: { moduleKey: 'sales' } },
       { path: 'employee', name: 'Employee', component: () => import('../views/Employee.vue'), meta: { moduleKey: 'employees' } },
       { path: 'supplier', name: 'Supplier', component: () => import('../views/Supplier.vue'), meta: { moduleKey: 'suppliers' } },

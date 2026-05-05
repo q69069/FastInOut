@@ -163,7 +163,7 @@ const onCustomerConfirm = ({ selectedOptions }) => {
 const loadVehicleInventory = async () => {
   if (!selectedVehicleWh.value) return
   try {
-    const res = await getInventory({ warehouse_id: selectedVehicleWh.value.id, page_size: 500 })
+    const res = await getInventory({ warehouse_id: selectedVehicleWh.value.id, page_size: 100 })
     vehicleInventory.value = (res.data || []).map(inv => ({
       product_id: inv.product_id,
       product_name: inv.product_name || `商品#${inv.product_id}`,

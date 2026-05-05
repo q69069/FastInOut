@@ -224,7 +224,7 @@ const onToConfirm = ({ selectedOptions }) => {
 const loadProductStock = async () => {
   if (!form.value.from_warehouse_id) return
   try {
-    const res = await getInventory({ warehouse_id: form.value.from_warehouse_id, page_size: 500 })
+    const res = await getInventory({ warehouse_id: form.value.from_warehouse_id, page_size: 100 })
     const inv = res.data || []
     products.value = inv.map(i => ({ ...i, available: i.quantity }))
   } catch {}

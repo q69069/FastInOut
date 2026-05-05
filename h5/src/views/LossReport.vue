@@ -229,7 +229,7 @@ const onFormWhConfirm = async ({ selectedOptions }) => {
   showWhPicker2.value = false
   if (form.value.warehouse_id) {
     try {
-      const res = await getInventory({ warehouse_id: form.value.warehouse_id, page_size: 500 })
+      const res = await getInventory({ warehouse_id: form.value.warehouse_id, page_size: 100 })
       products.value = (res.data || []).map(i => ({ ...i, available: i.quantity }))
     } catch {}
   }

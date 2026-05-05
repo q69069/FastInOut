@@ -1,6 +1,6 @@
 <template>
   <div class="layout">
-    <div class="content">
+    <div class="content" ref="contentRef">
       <router-view />
     </div>
     <van-tabbar v-model="active" fixed safe-area-inset-bottom>
@@ -18,6 +18,7 @@ import { useRoute } from 'vue-router'
 
 const route = useRoute()
 const active = ref(0)
+const contentRef = ref(null)
 
 const tabPathMap = {
   '/home': 0,
@@ -27,8 +28,10 @@ const tabPathMap = {
   '/account': 3
 }
 
-watch(() => route.path, (path) => {
-  active.value = tabPathMap[path] ?? 0
+watch(() => route.path, () => {
+  // 切换路由时重置滚动位置
+  if (contentRef.value) contentRef.value.scrollTop = 0
+  active.value = tabPathMap[route.path] ?? 0
 }, { immediate: true })
 </script>
 

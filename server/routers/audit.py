@@ -8,7 +8,7 @@ from models.audit import AuditLog
 from schemas import AuditLogResponse
 from routers.auth import get_current_user
 
-router = APIRouter(prefix="/audit-logs", tags=["审核"])
+router = APIRouter(prefix="/api/audit-logs", tags=["审核"])
 
 
 @router.get("/", response_model=list[AuditLogResponse])

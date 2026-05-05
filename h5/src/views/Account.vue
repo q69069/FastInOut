@@ -1,6 +1,6 @@
 <template>
   <div class="account-page">
-    <van-nav-bar title="往来账" />
+    <van-nav-bar title="往来账" left-arrow @click-left="$router.back()" />
 
     <!-- 客户/供应商切换 -->
     <div class="type-tabs">

@@ -90,6 +90,11 @@ def auto_migrate():
         if 'checker_id' not in ic_cols:
             conn.execute(text('ALTER TABLE inventory_checks ADD COLUMN checker_id INTEGER'))
 
+        # customer_visits 新字段
+        cv_cols = [c['name'] for c in inspector.get_columns('customer_visits')]
+        if 'created_by' not in cv_cols:
+            conn.execute(text('ALTER TABLE customer_visits ADD COLUMN created_by INTEGER DEFAULT 0'))
+
         # products 新字段（Phase C 档案扩充）
         if 'brand' not in col_names:
             conn.execute(text('ALTER TABLE products ADD COLUMN brand VARCHAR(50)'))
