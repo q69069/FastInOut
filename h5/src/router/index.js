@@ -13,6 +13,7 @@ const routes = [
     redirect: '/home',
     children: [
       { path: 'home', name: 'Home', component: () => import('../views/Home.vue'), meta: { moduleKey: 'home' } },
+      { path: 'workbench', name: 'Workbench', component: () => import('../views/Workbench.vue'), meta: { moduleKey: 'tools' } },
       { path: 'dashboard', name: 'Dashboard', component: () => import('../views/Dashboard.vue'), meta: { moduleKey: 'dashboard' } },
       { path: 'customers', name: 'Customers', component: () => import('../views/Customers.vue'), meta: { moduleKey: 'customers' } },
       { path: 'performance', name: 'Performance', component: () => import('../views/Performance.vue'), meta: { moduleKey: 'performance' } },
