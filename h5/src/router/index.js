@@ -35,6 +35,10 @@ const routes = [
       { path: 'purchase', name: 'Purchase', component: () => import('../views/Purchase.vue'), meta: { moduleKey: 'purchases' } },
       { path: 'settings', name: 'Settings', component: () => import('../views/Settings.vue'), meta: { moduleKey: 'system' } },
       { path: 'roles', name: 'Roles', component: () => import('../views/Roles.vue'), meta: { moduleKey: 'roles' } },
+      { path: 'reports', name: 'Reports', component: () => import('../views/Reports.vue'), meta: { moduleKey: 'reports' } },
+      { path: 'messages', name: 'Messages', component: () => import('../views/Messages.vue'), meta: { moduleKey: 'system' } },
+      { path: 'invoice', name: 'Invoice', component: () => import('../views/Invoice.vue'), meta: { moduleKey: 'finance' } },
+      { path: 'promotion', name: 'Promotion', component: () => import('../views/Promotion.vue'), meta: { moduleKey: 'promotions' } },
       // Phase B: 车销流程
       { path: 'vehicle-load', name: 'VehicleLoad', component: () => import('../views/VehicleLoad.vue'), meta: { moduleKey: 'inventory' } },
       { path: 'vehicle-sales', name: 'VehicleSales', component: () => import('../views/VehicleSales.vue'), meta: { moduleKey: 'sales' } },
