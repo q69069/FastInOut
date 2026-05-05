@@ -130,8 +130,11 @@ const showDialog = () => {
 
 const handleSave = async () => {
   if (!form.value.warehouse_id) return ElMessage.warning('请选择仓库')
+  const validItems = form.value.items.filter(i => i.product_id && i.quantity > 0)
+  if (validItems.length === 0) return ElMessage.warning('请至少添加一个商品明细')
   saving.value = true
   try {
+    form.value.items = validItems
     await createDamageReport(form.value)
     ElMessage.success('报损单创建成功')
     dialogVisible.value = false

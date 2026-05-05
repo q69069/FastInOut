@@ -103,12 +103,12 @@ const payableDetailVisible = ref(false)
 const payableDetail = ref({})
 
 const loadReceivables = async () => {
-  const res = await getReceivablesSummary()
+  const res = await getReceivablesSummary({ keyword: receivableKeyword.value || undefined })
   receivables.value = res.data || {}
 }
 
 const loadPayables = async () => {
-  const res = await getPayablesSummary()
+  const res = await getPayablesSummary({ keyword: payableKeyword.value || undefined })
   payables.value = res.data || {}
 }
 
