@@ -132,7 +132,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { showToast, showSuccessToast, showConfirmDialog } from 'vant'
-import { getInvoices, createInvoice, voidInvoice } from '../api'
+import { getInvoices, createInvoice, voidInvoice, certifyInvoice } from '../api'
 
 const tab = ref(0)
 const loading = ref(false), loading2 = ref(false), loading3 = ref(false)
@@ -226,11 +226,11 @@ const openDetail = (item) => {
 const handleCertify = async (item) => {
   try {
     await showConfirmDialog({ title: '认证', message: `确认认证发票 ${item.invoice_no}？` })
-    // 调用认证API - invoices.py有certify接口
+    await certifyInvoice(item.id)
     showSuccessToast('认证成功')
     showDetail.value = false
     loadInvoices()
-  } catch {}
+  } catch { showToast('认证失败') }
 }
 
 const handleVoid = async (item) => {

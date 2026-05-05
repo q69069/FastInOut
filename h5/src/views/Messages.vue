@@ -105,7 +105,9 @@ const handleRead = async (msg) => {
 
 const handleMarkAllRead = async () => {
   try {
-    await markAllRead()
+    await showConfirmDialog({ title: '全部已读', message: '确认将所有消息标记为已读？' })
+    const promises = messages.value.filter(m => m.status === 'unread').map(m => markMessageRead(m.id))
+    await Promise.all(promises)
     showSuccessToast('已全部标记已读')
     messages.value.forEach(m => m.status = 'read')
     unreadMessages.value = []

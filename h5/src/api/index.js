@@ -170,6 +170,7 @@ export const getInvoices = (params) => api.get('/invoices', { params })
 export const createInvoice = (data) => api.post('/invoices', data)
 export const getInvoice = (id) => api.get(`/invoices/${id}`)
 export const voidInvoice = (id) => api.put(`/invoices/${id}/void`)
+export const certifyInvoice = (id) => api.put(`/invoices/${id}/certify`)
 
 export const getPromotions = (params) => api.get('/promotions', { params })
 export const createPromotion = (data) => api.post('/promotions', data)
