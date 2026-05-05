@@ -112,6 +112,13 @@ export const createPurchaseReturn = (data) => api.post('/purchase-returns', data
 export const getPurchaseReturn = (id) => api.get(`/purchase-returns/${id}`)
 export const confirmPurchaseReturn = (id) => api.post(`/purchase-returns/${id}/confirm`)
 
+export const getPurchaseReturnDlvs = (params) => api.get('/purchase-return-deliveries', { params })
+export const createPurchaseReturnDlv = (data) => api.post('/purchase-return-deliveries', data)
+export const getPurchaseReturnDlv = (id) => api.get(`/purchase-return-deliveries/${id}`)
+export const warehouseConfirmDlv = (id) => api.post(`/purchase-return-deliveries/${id}/warehouse-confirm`)
+export const financeConfirmDlv = (id) => api.post(`/purchase-return-deliveries/${id}/finance-confirm`)
+export const deletePurchaseReturnDlv = (id) => api.delete(`/purchase-return-deliveries/${id}`)
+
 // ========== 财务+费用 ==========
 export const getReceipts = (params) => api.get('/finance/receipts', { params })
 export const createReceipt = (data) => api.post('/finance/receipts', data)
