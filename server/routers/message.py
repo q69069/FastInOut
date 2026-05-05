@@ -10,7 +10,7 @@ from database import get_db
 from models.message import AppMessage as Message
 from routers.auth import get_current_user
 
-router = APIRouter(prefix="/messages", tags=["消息中心"])
+router = APIRouter(prefix="/api/messages", tags=["消息中心"])
 
 
 class MessageResponse(BaseModel):
