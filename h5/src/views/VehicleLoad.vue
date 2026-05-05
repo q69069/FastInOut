@@ -233,12 +233,16 @@ const showDetail = async (item) => {
 }
 
 onMounted(async () => {
-  const res = await getWarehouses()
-  const allWh = res.data || []
-  warehouses.value = allWh
-  vehicleWarehouses.value = allWh
-  const pRes = await getProducts({ page_size: 500 })
-  products.value = pRes.data || []
+  try {
+    const res = await getWarehouses()
+    const allWh = res.data || []
+    warehouses.value = allWh
+    vehicleWarehouses.value = allWh
+    const pRes = await getProducts({ page_size: 100 }).catch(() => ({ data: [] }))
+    products.value = pRes.data || []
+  } catch (e) {
+    console.error(e)
+  }
 })
 </script>
 
