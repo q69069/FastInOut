@@ -12,7 +12,7 @@
             :key="item.key"
             class="main-module"
             :class="{ active: activePopup === item.key }"
-            @mouseenter="showPopup(item)"
+            @mouseenter="showPopup(item, $event)"
           >
             <el-icon><component :is="item.icon" /></el-icon>
             <span>{{ item.label }}</span>
@@ -25,6 +25,7 @@
         <div
           v-if="activePopup && currentSubModules.length > 0"
           class="submenu-popup"
+          :style="{ top: popupTop + 'px' }"
           @mouseenter="keepPopup"
           @mouseleave="hidePopupDelay"
         >
@@ -253,17 +254,23 @@ const visibleMainModules = computed(() => {
     if (m.key === 'archives') return authStore.hasModule('products') || authStore.hasModule('customers')
     if (m.key === 'warehouse') return authStore.hasModule('inventory') || authStore.hasModule('warehouses')
     if (m.key === 'system') return authStore.hasModule('roles') || authStore.hasModule('system')
+    // 兼容单复数：优先精确匹配，其次模糊匹配
+    if (m.key === 'sale') return authStore.hasModule('sales') || authStore.hasModule('sale')
+    if (m.key === 'purchase') return authStore.hasModule('purchases') || authStore.hasModule('purchase')
+    if (m.key === 'promotions') return authStore.hasModule('promotion') || authStore.hasModule('promotions')
     return authStore.hasModule(m.key)
   })
 })
 
 // 弹窗相关
 const activePopup = ref(null)
+const popupTop = ref(0)
 let hideTimer = null
 
-const showPopup = (item) => {
+const showPopup = (item, event) => {
   clearTimeout(hideTimer)
   activePopup.value = item.key
+  popupTop.value = event.currentTarget.offsetTop
 }
 
 const keepPopup = () => {
@@ -476,9 +483,8 @@ onUnmounted(() => {
 
 /* 浮层样式 */
 .submenu-popup {
-  position: absolute;
+  position: fixed;
   left: 220px;
-  top: 0;
   width: 200px;
   min-height: 200px;
   background: #fff;
