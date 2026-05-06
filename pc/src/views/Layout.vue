@@ -284,7 +284,11 @@ const closeTab = (tab) => {
 }
 const handleTabAction = (cmd) => {
   if (cmd === 'close-others') tabs.value = tabs.value.filter(t => t.pinned || t.path === currentTab.value.path)
-  else if (cmd === 'close-all') { tabs.value = tabs.value.filter(t => t.pinned); router.push(tabs.value[0]?.path || '/dashboard') }
+  else if (cmd === 'close-all') {
+    const dashboardTab = tabs.value.find(t => t.path === '/dashboard')
+    tabs.value = dashboardTab ? [dashboardTab] : [{ path: '/dashboard', title: '首页', pinned: true }]
+    router.push('/dashboard')
+  }
   else if (cmd === 'refresh') router.go(0)
 }
 

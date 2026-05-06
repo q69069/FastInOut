@@ -12,26 +12,24 @@ const DEFAULT_ORDER = [
   'customers',   // 客户管理
   'suppliers',   // 供应商管理
   'finance',     // 收支管理
-  'expense',     // 费用报销
-  'products',    // 商品管理
   'reports',     // 报表统计
   'settlements', // 交账管理
+  'stocktaking', // 盘点管理
+  'vehicle_load',// 装车管理
 ]
 
-// 各模块的定义信息
+// 各模块的定义信息 - path与H5路由一一对应
 export const MODULE_META = {
-  sales:       { label: '销售开单', path: '/sales',       icon: 'Sell',         color: '#409EFF', group: '业务' },
-  purchases:   { label: '采购开单', path: '/purchases',   icon: 'ShoppingCart', color: '#67C23A', group: '业务' },
-  inventory:   { label: '库存查询', path: '/inventory',   icon: 'Box',          color: '#E6A23C', group: '仓储' },
-  customers:   { label: '客户管理', path: '/customers',    icon: 'User',         color: '#F56C6C', group: '档案' },
-  suppliers:   { label: '供应商管理', path: '/suppliers', icon: 'Shop',         color: '#909399', group: '档案' },
-  finance:     { label: '收支管理', path: '/finance',      icon: 'Money',        color: '#07c160', group: '财务' },
-  expense:     { label: '费用报销', path: '/expense',      icon: 'Finance',      color: '#9c27b0', group: '财务' },
-  products:    { label: '商品管理', path: '/products',     icon: 'Goods',        color: '#00bcd4', group: '档案' },
-  reports:     { label: '报表统计', path: '/reports/profit', icon: 'DataAnalysis', color: '#ff9800', group: '报表' },
-  settlements: { label: '交账管理', path: '/settlements',  icon: 'Wallet',       color: '#3f51b5', group: '业务' },
-  stocktaking: { label: '盘点管理', path: '/stocktaking',  icon: 'Search',       color: '#795548', group: '仓储' },
-  vehicle_load:{ label: '装车管理', path: '/vehicle_load', icon: 'Van',          color: '#607d8b', group: '车销' },
+  sales:       { label: '销售开单',   path: '/order',           icon: 'orders-o',     color: '#409EFF', group: '业务' },
+  purchases:   { label: '采购开单',   path: '/purchase',         icon: 'shopping-cart-o', color: '#67C23A', group: '业务' },
+  inventory:   { label: '库存查询',   path: '/inventory',         icon: 'cluster-o',    color: '#E6A23C', group: '仓储' },
+  customers:   { label: '客户管理',   path: '/customers',         icon: 'friends-o',     color: '#F56C6C', group: '档案' },
+  suppliers:   { label: '供应商管理', path: '/supplier',          icon: 'shop-o',       color: '#909399', group: '档案' },
+  finance:     { label: '收支管理',   path: '/payments',          icon: 'balance-o',     color: '#07c160', group: '财务' },
+  reports:     { label: '报表统计',   path: '/reports',           icon: 'chart-trending-o', color: '#ff9800', group: '报表' },
+  settlements: { label: '交账管理',   path: '/settlement',        icon: 'cash-back-record-o', color: '#3f51b5', group: '业务' },
+  stocktaking: { label: '盘点管理',   path: '/check',             icon: 'search',        color: '#795548', group: '仓储' },
+  vehicle_load:{ label: '装车管理',   path: '/vehicle-load',      icon: 'logistics',     color: '#607d8b', group: '车销' },
 }
 
 export const ALL_MODULE_KEYS = Object.keys(MODULE_META)
