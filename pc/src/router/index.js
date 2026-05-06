@@ -105,6 +105,30 @@ const routes = [
         meta: { title: '销售单据', moduleKey: 'sales' }
       },
       {
+        path: 'sales/order/create',
+        name: 'SalesOrderCreate',
+        component: () => import('../views/sales/OrderCreate.vue'),
+        meta: { title: '销售订单-开单', moduleKey: 'sales' }
+      },
+      {
+        path: 'sales/return-order/create',
+        name: 'SalesReturnOrderCreate',
+        component: () => import('../views/sales/ReturnOrderCreate.vue'),
+        meta: { title: '退货订单-开单', moduleKey: 'sales' }
+      },
+      {
+        path: 'sales-delivery/create',
+        name: 'SalesDeliveryCreate',
+        component: () => import('../views/sales_delivery/Create.vue'),
+        meta: { title: '销售单-开单', moduleKey: 'sales' }
+      },
+      {
+        path: 'return-delivery/create',
+        name: 'ReturnDeliveryCreate',
+        component: () => import('../views/sales_return_dlv/Create.vue'),
+        meta: { title: '退货单-开单', moduleKey: 'sales' }
+      },
+      {
         path: 'sales',
         name: 'Sales',
         component: () => import('../views/sales/Index.vue'),
@@ -114,7 +138,7 @@ const routes = [
         path: 'sales-returns',
         name: 'SalesReturns',
         component: () => import('../views/sales/Returns.vue'),
-        meta: { title: '销售退货', moduleKey: 'sales' }
+        meta: { title: '退货订单', moduleKey: 'sales' }
       },
       {
         path: 'salesmen',

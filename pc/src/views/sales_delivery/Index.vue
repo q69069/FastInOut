@@ -3,8 +3,8 @@
     <el-card>
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span>销售单管理</span>
-          <el-button type="primary" @click="showDialog()">新开销售单</el-button>
+          <span>销售单</span>
+          <el-button type="success" @click="$router.push('/sales-delivery/create')">+ 新建</el-button>
         </div>
       </template>
       <el-form inline style="margin-bottom:16px">

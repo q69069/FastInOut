@@ -3,7 +3,8 @@
     <el-card>
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span>退货单管理</span>
+          <span>退货单</span>
+          <el-button type="success" @click="$router.push('/return-delivery/create')">+ 新建</el-button>
         </div>
       </template>
       <el-form inline style="margin-bottom:16px">

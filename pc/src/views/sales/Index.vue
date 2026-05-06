@@ -4,7 +4,7 @@
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
           <span>销售订单</span>
-          <el-button v-if="authStore.hasOperation('sales:create')" type="primary" @click="showDialog()">新增订单</el-button>
+          <el-button type="success" @click="$router.push('/sales/order/create')">+ 新建</el-button>
         </div>
       </template>
       <el-table :data="list" border stripe>

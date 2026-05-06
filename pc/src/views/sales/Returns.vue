@@ -3,8 +3,8 @@
     <el-card>
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span>销售退货</span>
-          <el-button type="primary" @click="showDialog()">新增退货</el-button>
+          <span>退货订单</span>
+          <el-button type="success" @click="$router.push('/sales/return-order/create')">+ 新建</el-button>
         </div>
       </template>
       <el-table :data="list" border stripe>
