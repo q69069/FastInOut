@@ -146,6 +146,9 @@ const mainModules = [
     { path: '/sales-deliveries', label: '销售单', module: 'sales' },
     { path: '/return-deliveries', label: '退货单', module: 'sales' },
     { path: '/sales-documents', label: '查看销售单据', module: 'sales' },
+    { path: '/settlements', label: '交账管理', module: 'sales' },
+    { path: '/monitor', label: '异常监控', module: 'sales' },
+    { path: '/salesmen', label: '业务员管理', module: 'sales' },
   ]},
   { key: 'promotions', label: '促销', icon: 'PriceTag', subs: [
     { path: '/promotions', label: '促销方案', module: 'promotions' },
