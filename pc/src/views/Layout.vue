@@ -286,7 +286,7 @@ const handleTabAction = (cmd) => {
   if (cmd === 'close-others') tabs.value = tabs.value.filter(t => t.pinned || t.path === currentTab.value.path)
   else if (cmd === 'close-all') {
     tabs.value = [{ path: '/dashboard', title: '首页', pinned: true }]
-    nextTick(() => { router.replace('/dashboard?ts=' + Date.now()) })
+    window.location.href = '/'
   }
   else if (cmd === 'refresh') router.go(0)
 }

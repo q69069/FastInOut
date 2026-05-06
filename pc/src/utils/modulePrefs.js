@@ -15,7 +15,7 @@ const DEFAULT_ORDER = [
 // 与 pc/src/router/index.js 完全对齐的路径，图标全部有效
 export const MODULE_META = {
   sales:              { label: '销售订单',    path: '/sales',              icon: 'Sell',         color: '#409EFF', group: '业务' },
-  purchases:          { label: '采购订单',    path: '/purchases',          icon: 'Shopping',     color: '#67C23A', group: '业务' },
+  purchases:          { label: '采购订单',    path: '/purchases',          icon: 'ShoppingBag',     color: '#67C23A', group: '业务' },
   inventory:          { label: '库存查询',    path: '/inventory',          icon: 'Box',          color: '#E6A23C', group: '仓储' },
   customers:          { label: '客户管理',    path: '/customers',          icon: 'User',         color: '#F56C6C', group: '档案' },
   suppliers:          { label: '供应商管理',  path: '/suppliers',          icon: 'Shop',         color: '#909399', group: '档案' },
@@ -26,8 +26,8 @@ export const MODULE_META = {
   stocktaking:        { label: '盘点管理',    path: '/stocktaking',        icon: 'Search',       color: '#795548', group: '仓储' },
   vehicle_loads:      { label: '装车管理',    path: '/vehicle-loads',      icon: 'Van',          color: '#607d8b', group: '车销' },
   sales_deliveries:   { label: '销售单管理',  path: '/sales-deliveries',   icon: 'Sell',         color: '#e040fb', group: '业务' },
-  purchase_receipts:  { label: '采购入库',    path: '/purchase-receipts',  icon: 'Shopping',     color: '#00acc1', group: '业务' },
-  brands:             { label: '品牌管理',    path: '/brands',             icon: 'Price',        color: '#ff7043', group: '档案' },
+  purchase_receipts:  { label: '采购入库',    path: '/purchase-receipts',  icon: 'ShoppingBag',     color: '#00acc1', group: '业务' },
+  brands:             { label: '品牌管理',    path: '/brands',             icon: 'PriceTag',        color: '#ff7043', group: '档案' },
   channels:           { label: '渠道管理',    path: '/channels',           icon: 'Connection',   color: '#26a69a', group: '档案' },
   customer_levels:    { label: '客户等级',    path: '/customer-levels',    icon: 'User',         color: '#42a5f5', group: '档案' },
   promotions:         { label: '促销方案',    path: '/promotions',         icon: 'Tickets',      color: '#ab47bc', group: '促销' },
