@@ -99,6 +99,12 @@ const routes = [
       },
       // 销售
       {
+        path: 'sales-documents',
+        name: 'SalesDocuments',
+        component: () => import('../views/sales/Documents.vue'),
+        meta: { title: '销售单据', moduleKey: 'sales' }
+      },
+      {
         path: 'sales',
         name: 'Sales',
         component: () => import('../views/sales/Index.vue'),

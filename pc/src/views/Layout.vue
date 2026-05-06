@@ -142,12 +142,10 @@ const mainModules = [
   ]},
   { key: 'sale', label: '销售', icon: 'Sell', subs: [
     { path: '/sales', label: '销售订单', module: 'sales' },
-    { path: '/sales-deliveries', label: '销售单管理', module: 'sales' },
-    { path: '/return-deliveries', label: '退货单管理', module: 'sales' },
-    { path: '/sales-returns', label: '销售退货', module: 'sales' },
-    { path: '/salesmen', label: '业务员管理', module: 'sales' },
-    { path: '/settlements', label: '交账管理', module: 'sales' },
-    { path: '/monitor', label: '异常监控', module: 'sales' },
+    { path: '/sales-returns', label: '退货订单', module: 'sales' },
+    { path: '/sales-deliveries', label: '销售单', module: 'sales' },
+    { path: '/return-deliveries', label: '退货单', module: 'sales' },
+    { path: '/sales-documents', label: '查看销售单据', module: 'sales' },
   ]},
   { key: 'promotions', label: '促销', icon: 'PriceTag', subs: [
     { path: '/promotions', label: '促销方案', module: 'promotions' },
@@ -237,7 +235,6 @@ const currentModuleLabel = computed(() => mainModules.find(m => m.key === active
 
 // ========== 浮层位置 - 跟随当前hover的主模块，水平居中，带边界检测 ==========
 const dropdownStyle = computed(() => {
-  const SUBMENU_WIDTH = 200
   const SUBMENU_MAX_HEIGHT = window.innerHeight - 80
   const estimatedHeight = Math.min(currentSubs.value.length * 40 + 42, SUBMENU_MAX_HEIGHT)
 
@@ -522,6 +519,7 @@ const logout = () => { authStore.logout(); router.push('/login') }
   border-left-color: #409eff;
   font-weight: 500;
 }
+
 
 /* ===== 右键菜单 ===== */
 .ctx-menu {
