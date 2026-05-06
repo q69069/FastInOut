@@ -280,7 +280,9 @@ const closeTab = (tab) => {
   if (tab.pinned) return
   const idx = tabs.value.findIndex(t => t.path === tab.path)
   tabs.value.splice(idx, 1)
-  if (currentTab.value.path === tab.path && tabs.value.length) router.push(tabs.value[Math.max(0, idx - 1)].path)
+  // 无论关闭的是不是当前标签，都强制跳到当前激活的标签
+  const target = currentTab.value
+  if (target) router.replace(target.path)
 }
 const handleTabAction = (cmd) => {
   if (cmd === 'close-others') tabs.value = tabs.value.filter(t => t.pinned || t.path === currentTab.value.path)

@@ -70,7 +70,7 @@
     <!-- 编辑弹窗 -->
     <el-dialog v-model="showEditDialog" title="编辑快捷模块" width="560px">
       <p style="color:#999;font-size:12px;margin-bottom:12px">
-        已按使用频率排序，最多选12个模块（至少选4个）
+        已按使用频率排序，最多选12个模块
       </p>
       <div class="edit-list">
         <div
@@ -154,7 +154,7 @@ const cancelEdit = () => {
 const toggleDraft = (key) => {
   const idx = draftKeys.value.indexOf(key)
   if (idx >= 0) {
-    if (draftKeys.value.length > 4) draftKeys.value.splice(idx, 1)
+    draftKeys.value.splice(idx, 1)
   } else if (draftKeys.value.length < 12) {
     draftKeys.value.push(key)
   }
