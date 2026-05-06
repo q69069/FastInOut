@@ -13,7 +13,7 @@
     <div class="modules-card">
       <div class="card-header">
         <span class="card-title">快捷模块</span>
-        <van-icon name="edit" size="16" @click="showEdit = true" />
+        <van-icon name="edit" size="16" @click="openEdit" />
       </div>
       <div class="modules-grid">
         <div
@@ -68,36 +68,35 @@
     </div>
 
     <!-- 编辑弹窗 -->
-    <van-popup v-model:show="showEdit" position="bottom" round style="max-height:70%">
+    <van-popup v-model:show="showEdit" position="bottom" round style="max-height:80%">
       <div style="padding:16px">
-        <div style="font-weight:bold;text-align:center;margin-bottom:8px">编辑快捷模块</div>
-        <p style="font-size:12px;color:#999;margin-bottom:12px">
-          点击模块添加/移除，已按使用频率自动排序
+        <div style="font-weight:bold;text-align:center;margin-bottom:4px">编辑快捷模块</div>
+        <p style="font-size:12px;color:#999;margin-bottom:12px;text-align:center">
+          最多选12个模块（至少选4个）
         </p>
-        <van-checkbox-group v-model="selected">
+        <van-checkbox-group v-model="draft">
           <van-cell-group inset>
             <van-cell
               v-for="key in allKeys"
               :key="key"
               clickable
-              @click="toggleModule(key)"
+              @click="toggleKey(key)"
             >
               <template #title>
                 <div style="display:flex;align-items:center;gap:8px">
-                  <van-icon :name="moduleMeta[key].icon" :color="moduleMeta[key].color" size="18" />
+                  <div class="edit-dot" :style="{background: moduleMeta[key].color}"></div>
                   <span>{{ moduleMeta[key].label }}</span>
                 </div>
               </template>
               <template #right-icon>
-                <van-checkbox :name="key" :ref="el => checkboxRefs[key] = el" />
+                <van-checkbox :name="key" ref="checkboxRefs" />
               </template>
             </van-cell>
           </van-cell-group>
         </van-checkbox-group>
-        <div style="display:flex;gap:12px;margin-top:16px">
+        <div style="display:flex;gap:10px;margin-top:16px">
           <van-button block @click="showEdit = false">取消</van-button>
-          <van-button type="primary" block @click="saveModules">保存</van-button>
-          <van-button block @click="resetModules">重置</van-button>
+          <van-button type="primary" block @click="doSave">保存</van-button>
         </div>
       </div>
     </van-popup>
@@ -118,41 +117,47 @@ const today = new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: '
 const todos = ref([])
 const stats = ref({})
 const showEdit = ref(false)
-const selected = ref([])
-const checkboxRefs = ref({})
+const draft = ref([])
+const checkboxRefs = ref([])
 
 const moduleMeta = MODULE_META
 const allKeys = ALL_MODULE_KEYS
 
 const visibleModules = computed(() => {
-  const order = getModuleOrder()
-  return order.filter(k => selected.value.includes(k))
+  return getModuleOrder().filter(k => draft.value.includes(k))
 })
 
-const toggleModule = (key) => {
-  if (selected.value.includes(key)) {
-    if (selected.value.length > 4) {
-      selected.value = selected.value.filter(k => k !== key)
+const toggleKey = (key) => {
+  if (draft.value.includes(key)) {
+    if (draft.value.length > 4) {
+      draft.value = draft.value.filter(k => k !== key)
     } else {
       showToast('至少保留4个模块')
     }
   } else {
-    selected.value.push(key)
+    if (draft.value.length >= 12) {
+      showToast('最多选12个模块')
+      return
+    }
+    draft.value.push(key)
   }
+}
+
+const openEdit = () => {
+  draft.value = [...visibleModules.value]
+  showEdit.value = true
+}
+
+const doSave = () => {
+  saveModuleOrder(draft.value)
+  showEdit.value = false
+  // 立即刷新显示（强制触发computed重新计算）
+  draft.value = [...draft.value]
 }
 
 const navigate = (key) => {
   recordModuleUsage(key)
   router.push(MODULE_META[key].path)
-}
-
-const saveModules = () => {
-  saveModuleOrder(selected.value)
-  showEdit.value = false
-}
-
-const resetModules = () => {
-  selected.value = [...ALL_MODULE_KEYS]
 }
 
 const loadData = async () => {
@@ -169,8 +174,8 @@ const loadData = async () => {
 }
 
 onMounted(() => {
-  selected.value = getModuleOrder().filter(k => ALL_MODULE_KEYS.includes(k))
-  if (selected.value.length === 0) selected.value = [...ALL_MODULE_KEYS]
+  draft.value = getModuleOrder().filter(k => ALL_MODULE_KEYS.includes(k))
+  if (draft.value.length === 0) draft.value = [...ALL_MODULE_KEYS]
   loadData()
 })
 </script>
@@ -228,4 +233,8 @@ onMounted(() => {
 .todo-item { display: flex; align-items: center; gap: 8px; }
 .todo-icon { color: #ff9a56; }
 .todo-text { font-size: 13px; color: #666; }
+.edit-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  flex-shrink: 0;
+}
 </style>

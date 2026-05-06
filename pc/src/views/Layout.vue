@@ -110,7 +110,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowRight, SwitchButton } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores'
@@ -285,9 +285,8 @@ const closeTab = (tab) => {
 const handleTabAction = (cmd) => {
   if (cmd === 'close-others') tabs.value = tabs.value.filter(t => t.pinned || t.path === currentTab.value.path)
   else if (cmd === 'close-all') {
-    const dashboardTab = tabs.value.find(t => t.path === '/dashboard')
-    tabs.value = dashboardTab ? [dashboardTab] : [{ path: '/dashboard', title: '首页', pinned: true }]
-    router.push('/dashboard')
+    tabs.value = [{ path: '/dashboard', title: '首页', pinned: true }]
+    nextTick(() => { router.replace('/dashboard?ts=' + Date.now()) })
   }
   else if (cmd === 'refresh') router.go(0)
 }

@@ -47,7 +47,7 @@
       <template #header>
         <div style="display:flex;align-items:center;justify-content:space-between">
           <span>快捷模块</span>
-          <el-button size="small" @click="showEditDialog = true">
+          <el-button size="small" @click="openEdit">
             <el-icon><Edit /></el-icon> 编辑
           </el-button>
         </div>
@@ -68,27 +68,33 @@
     </el-card>
 
     <!-- 编辑弹窗 -->
-    <el-dialog v-model="showEditDialog" title="编辑快捷模块" width="500px">
+    <el-dialog v-model="showEditDialog" title="编辑快捷模块" width="560px">
       <p style="color:#999;font-size:12px;margin-bottom:12px">
-        点击模块可添加/移除，已按使用频率自动排序（点击越多次越靠前）
+        已按使用频率排序，最多选12个模块（至少选4个）
       </p>
-      <el-checkbox-group v-model="selectedKeys" class="module-checkboxes">
-        <el-row :gutter="8">
-          <el-col :span="8" v-for="key in ALL_MODULE_KEYS" :key="key" style="margin-bottom:8px">
-            <el-checkbox :value="key" :disabled="selectedKeys.length < 4 && selectedKeys.includes(key)">
-              <div class="edit-module-item">
-                <el-icon><component :is="MODULE_META[key].icon" /></el-icon>
-                <span>{{ MODULE_META[key].label }}</span>
-                <el-tag size="small" type="info" v-if="getUsageCount(key) > 0">{{ getUsageCount(key) }}次</el-tag>
-              </div>
-            </el-checkbox>
-          </el-col>
-        </el-row>
-      </el-checkbox-group>
+      <div class="edit-list">
+        <div
+          v-for="key in ALL_MODULE_KEYS"
+          :key="key"
+          class="edit-row"
+          :class="{ dimmed: !draftKeys.includes(key) }"
+        >
+          <el-checkbox
+            :model-value="draftKeys.includes(key)"
+            :disabled="draftKeys.length >= 12 && !draftKeys.includes(key)"
+            @change="toggleDraft(key)"
+          />
+          <div class="edit-icon" :style="{background: MODULE_META[key].color}">
+            <el-icon :size="14"><component :is="MODULE_META[key].icon" /></el-icon>
+          </div>
+          <span class="edit-label">{{ MODULE_META[key].label }}</span>
+          <span class="edit-usage" v-if="getUsageCount(key) > 0">{{ getUsageCount(key) }}次</span>
+        </div>
+      </div>
       <template #footer>
-        <el-button @click="showEditDialog = false">取消</el-button>
-        <el-button type="primary" @click="saveModules">保存</el-button>
-        <el-button @click="resetModules">重置默认</el-button>
+        <el-button @click="cancelEdit">取消</el-button>
+        <el-button type="primary" @click="confirmSave">保存</el-button>
+        <el-button @click="resetToDefault">重置默认</el-button>
       </template>
     </el-dialog>
   </div>
@@ -104,10 +110,12 @@ import { Edit } from '@element-plus/icons-vue'
 const router = useRouter()
 const data = ref({})
 const showEditDialog = ref(false)
-const selectedKeys = ref([])
-const usageCount = ref({})
+const draftKeys = ref([])
+const savedKeys = ref([])
 
-const visibleModules = computed(() => getModuleOrder().filter(k => selectedKeys.value.includes(k)))
+const visibleModules = computed(() =>
+  getModuleOrder().filter(k => savedKeys.value.includes(k))
+)
 
 const fmt = (n) => {
   if (!n && n !== 0) return '0.00'
@@ -123,34 +131,49 @@ const cards = computed(() => [
 
 const navigate = (key) => {
   recordModuleUsage(key)
-  usageCount.value[key] = (usageCount.value[key] || 0) + 1
   router.push(MODULE_META[key].path)
 }
 
 const getUsageCount = (key) => {
   try {
-    const raw = localStorage.getItem('home_module_prefs')
+    const raw = localStorage.getItem('pc_home_module_prefs')
     if (!raw) return 0
-    const prefs = JSON.parse(raw)
-    return prefs.usageCount?.[key] || 0
+    return JSON.parse(raw).usageCount?.[key] || 0
   } catch { return 0 }
 }
 
-const saveModules = () => {
-  saveModuleOrder(selectedKeys.value)
+const openEdit = () => {
+  draftKeys.value = [...visibleModules.value]
+  showEditDialog.value = true
+}
+
+const cancelEdit = () => {
   showEditDialog.value = false
 }
 
-const resetModules = () => {
-  selectedKeys.value = [...ALL_MODULE_KEYS]
+const toggleDraft = (key) => {
+  const idx = draftKeys.value.indexOf(key)
+  if (idx >= 0) {
+    if (draftKeys.value.length > 4) draftKeys.value.splice(idx, 1)
+  } else if (draftKeys.value.length < 12) {
+    draftKeys.value.push(key)
+  }
+}
+
+const confirmSave = () => {
+  saveModuleOrder(draftKeys.value)
+  savedKeys.value = [...draftKeys.value]
+  showEditDialog.value = false
+}
+
+const resetToDefault = () => {
+  draftKeys.value = [...ALL_MODULE_KEYS]
 }
 
 onMounted(() => {
-  // 加载数据
   getDashboard().then(res => { data.value = res.data || {} }).catch(() => {})
-  // 加载当前选中模块
-  selectedKeys.value = getModuleOrder().filter(k => ALL_MODULE_KEYS.includes(k))
-  if (selectedKeys.value.length === 0) selectedKeys.value = [...ALL_MODULE_KEYS]
+  savedKeys.value = getModuleOrder().filter(k => ALL_MODULE_KEYS.includes(k))
+  if (savedKeys.value.length === 0) savedKeys.value = [...ALL_MODULE_KEYS]
 })
 </script>
 
@@ -176,9 +199,18 @@ onMounted(() => {
   display: flex; align-items: center; justify-content: center; color: #fff;
 }
 .qa-label { font-size: 12px; color: #666; }
-.module-checkboxes { display: block; }
-.edit-module-item {
-  display: flex; align-items: center; gap: 4px;
-  font-size: 13px;
+.edit-list { max-height: 400px; overflow-y: auto; }
+.edit-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 4px; border-radius: 6px; transition: background 0.15s;
 }
+.edit-row:hover { background: #f5f7fa; }
+.edit-row.dimmed { opacity: 0.5; }
+.edit-icon {
+  width: 28px; height: 28px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center; color: #fff;
+  flex-shrink: 0;
+}
+.edit-label { flex: 1; font-size: 13px; color: #333; }
+.edit-usage { font-size: 11px; color: #999; background: #f5f5f5; padding: 1px 6px; border-radius: 10px; }
 </style>
