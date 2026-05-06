@@ -61,10 +61,11 @@ const activeTab = ref(0)
 
 // 切换到交账记录tab时自动加载
 watch(activeTab, (newVal) => {
-  if (newVal === 1) {
+  if (newVal === 1 && settlements.value.length === 0) {
     settlePage.value = 1
     settlements.value = []
     finished.value = false
+    loading.value = true
     loadSettlements()
   }
 })

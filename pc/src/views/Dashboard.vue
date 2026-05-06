@@ -15,7 +15,7 @@
         </el-card>
       </el-col>
     </el-row>
-    <el-row :gutter="20">
+    <el-row :gutter="20" style="margin-bottom:20px">
       <el-col :span="12">
         <el-card>
           <template #header>待处理事项</template>
@@ -33,11 +33,26 @@
         <el-card>
           <template #header>今日经营</template>
           <el-descriptions :column="1" border>
-            <el-descriptions-item label="今日销售额">¥{{ formatNum(data.today_sales) }}</el-descriptions-item>
-            <el-descriptions-item label="今日采购额">¥{{ formatNum(data.today_purchase) }}</el-descriptions-item>
-            <el-descriptions-item label="今日回款">¥{{ formatNum(data.today_receipt) }}</el-descriptions-item>
-            <el-descriptions-item label="今日付款">¥{{ formatNum(data.today_payment) }}</el-descriptions-item>
+            <el-descriptions-item label="今日销售额">¥{{ fmt(data.today_sales) }}</el-descriptions-item>
+            <el-descriptions-item label="今日采购额">¥{{ fmt(data.today_purchase) }}</el-descriptions-item>
+            <el-descriptions-item label="今日回款">¥{{ fmt(data.today_receipt) }}</el-descriptions-item>
+            <el-descriptions-item label="今日付款">¥{{ fmt(data.today_payment) }}</el-descriptions-item>
           </el-descriptions>
+        </el-card>
+      </el-col>
+    </el-row>
+    <el-row :gutter="20">
+      <el-col :span="24">
+        <el-card>
+          <template #header>快捷操作</template>
+          <div class="quick-actions">
+            <div v-for="a in quickActions" :key="a.path" class="qa-item" @click="router.push(a.path)">
+              <div class="qa-icon" :style="{background: a.color}">
+                <el-icon :size="20"><component :is="a.icon" /></el-icon>
+              </div>
+              <div class="qa-label">{{ a.label }}</div>
+            </div>
+          </div>
         </el-card>
       </el-col>
     </el-row>
@@ -46,56 +61,63 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { getDashboard } from '../api'
 
+const router = useRouter()
 const data = ref({})
 
-const cards = computed(() => [
-  { title: '今日销售额', value: `¥${formatNum(data.value.today_sales)}`, icon: 'TrendCharts', color: '#409EFF' },
-  { title: '库存总量', value: formatNum(data.value.total_stock_qty), icon: 'Box', color: '#67C23A' },
-  { title: '应收账款', value: `¥${formatNum(data.value.total_receivable)}`, icon: 'Money', color: '#E6A23C' },
-  { title: '应付账款', value: `¥${formatNum(data.value.total_payable)}`, icon: 'Wallet', color: '#F56C6C' }
-])
-
-const formatNum = (n) => {
-  if (!n) return '0.00'
+const fmt = (n) => {
+  if (!n && n !== 0) return '0.00'
   return Number(n).toLocaleString('zh-CN', { minimumFractionDigits: 2 })
 }
+
+const cards = computed(() => [
+  { title: '今日销售额', value: `¥${fmt(data.value.today_sales)}`, icon: 'TrendCharts', color: '#409EFF' },
+  { title: '库存总量', value: fmt(data.value.total_stock_qty), icon: 'Box', color: '#67C23A' },
+  { title: '应收账款', value: `¥${fmt(data.value.total_receivable)}`, icon: 'Money', color: '#E6A23C' },
+  { title: '应付账款', value: `¥${fmt(data.value.total_payable)}`, icon: 'Wallet', color: '#F56C6C' }
+])
+
+const quickActions = [
+  { label: '销售开单', path: '/sales', icon: 'Sell', color: '#409EFF' },
+  { label: '采购开单', path: '/purchases', icon: 'ShoppingCart', color: '#67C23A' },
+  { label: '库存查询', path: '/inventory', icon: 'Box', color: '#E6A23C' },
+  { label: '客户管理', path: '/customers', icon: 'User', color: '#F56C6C' },
+  { label: '供应商管理', path: '/suppliers', icon: 'Shop', color: '#909399' },
+  { label: '费用报销', path: '/expense', icon: 'Finance', color: '#9c27b0' },
+  { label: '收款登记', path: '/finance', icon: 'Money', color: '#07c160' },
+  { label: '报表统计', path: '/reports/profit', icon: 'DataAnalysis', color: '#00bcd4' },
+]
 
 onMounted(async () => {
   try {
     const res = await getDashboard()
     data.value = res.data || {}
-  } catch (e) {}
+  } catch {}
 })
 </script>
 
 <style scoped>
-.stat-card {
-  display: flex;
-  align-items: center;
-}
+.stat-card { display: flex; align-items: center; }
 .stat-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  margin-right: 16px;
+  width: 56px; height: 56px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; margin-right: 16px;
 }
-.stat-info {
-  flex: 1;
+.stat-info { flex: 1; }
+.stat-value { font-size: 24px; font-weight: bold; color: #333; }
+.stat-title { font-size: 14px; color: #999; margin-top: 4px; }
+.quick-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.qa-item {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  width: 80px; cursor: pointer; padding: 10px 4px; border-radius: 8px;
+  transition: background 0.2s;
 }
-.stat-value {
-  font-size: 24px;
-  font-weight: bold;
-  color: #333;
+.qa-item:hover { background: #f5f7fa; }
+.qa-icon {
+  width: 40px; height: 40px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center; color: #fff;
 }
-.stat-title {
-  font-size: 14px;
-  color: #999;
-  margin-top: 4px;
-}
+.qa-label { font-size: 12px; color: #666; }
 </style>
