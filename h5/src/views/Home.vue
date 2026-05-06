@@ -103,7 +103,10 @@ const draft = ref([])
 
 const allKeys = ALL_MODULE_KEYS
 
-const displayKeys = computed(() => getModuleOrder().filter(k => draft.value.includes(k)))
+const displayKeys = computed(() => {
+  const order = getModuleOrder()
+  return order.filter(k => draft.value.includes(k))
+})
 
 const toggleKey = (key) => {
   const idx = draft.value.indexOf(key)
@@ -130,6 +133,9 @@ const openEdit = () => {
 const doSave = () => {
   saveModuleOrder(draft.value)
   showEdit.value = false
+  // 从localStorage重新读取并刷新displayKeys
+  const freshOrder = getModuleOrder()
+  draft.value = freshOrder.filter(k => allKeys.includes(k))
 }
 
 const navigate = (key) => {
