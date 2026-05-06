@@ -305,6 +305,93 @@ def export_inventory(db: Session = Depends(get_db)):
     )
 
 
+@router.get("/export/profit")
+def export_profit(
+    group_by: str = Query("day"),
+    start_date: str = Query(None),
+    end_date: str = Query(None),
+    db: Session = Depends(get_db)
+):
+    from fastapi.responses import StreamingResponse
+    from openpyxl import Workbook
+    from io import BytesIO
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+    THIN = Side(style='thin', color='999999')
+    BORDER = Border(left=THIN, top=THIN, right=THIN, bottom=THIN)
+    HEADER_FILL = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
+    HFONT = Font(color='FFFFFF', bold=True, size=11)
+    CTR = Alignment(horizontal='center', vertical='center')
+
+    def hdr(ws, headers, widths):
+        for col, h in enumerate(headers, 1):
+            c = ws.cell(row=1, column=col, value=h)
+            c.font = HFONT; c.fill = HEADER_FILL; c.alignment = CTR; c.border = BORDER
+        for col, w in enumerate(widths, 1):
+            ws.column_dimensions[chr(64+col)].width = w
+
+    def row(ws, r, vals):
+        for col, v in enumerate(vals, 1):
+            c = ws.cell(row=r, column=col, value=v)
+            c.font = Font(size=10); c.border = BORDER
+            if isinstance(v, (int, float)):
+                c.alignment = Alignment(horizontal='right')
+            else:
+                c.alignment = CTR
+
+    def m(v): return round(float(v or 0), 2)
+
+    sales_q = db.query(SalesStockout).filter(SalesStockout.status == 2)
+    if start_date: sales_q = sales_q.filter(SalesStockout.created_at >= start_date)
+    if end_date: sales_q = sales_q.filter(SalesStockout.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+    sales = sales_q.all()
+    purchase_q = db.query(PurchaseStockin).filter(PurchaseStockin.status == 2)
+    if start_date: purchase_q = purchase_q.filter(PurchaseStockin.created_at >= start_date)
+    if end_date: purchase_q = purchase_q.filter(PurchaseStockin.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+    purchases = purchase_q.all()
+
+    stats = {}
+    for so in sales:
+        dk = str(so.created_at)[:10]
+        if group_by == "month": dk = dk[:7]
+        if dk not in stats: stats[dk] = {"date": dk, "sales_amount": 0, "cost_amount": 0, "profit": 0, "gross_rate": 0}
+        stats[dk]["sales_amount"] += so.total_amount
+        for item in db.query(SalesStockoutItem).filter(SalesStockoutItem.stockout_id == so.id).all():
+            inv = db.query(Inventory).filter(Inventory.product_id == item.product_id).first()
+            stats[dk]["cost_amount"] += item.quantity * (inv.cost_price if inv else 0)
+    for si in purchases:
+        dk = str(si.created_at)[:10]
+        if group_by == "month": dk = dk[:7]
+        if dk not in stats: stats[dk] = {"date": dk, "sales_amount": 0, "cost_amount": 0, "profit": 0, "gross_rate": 0}
+    for key in stats:
+        stats[key]["profit"] = stats[key]["sales_amount"] - stats[key]["cost_amount"]
+        if stats[key]["sales_amount"] > 0:
+            stats[key]["gross_rate"] = round(stats[key]["profit"] / stats[key]["sales_amount"] * 100, 2)
+
+    result = sorted(stats.values(), key=lambda x: x["date"])
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "利润报表"
+    hdr(ws, ['日期', '销售金额', '成本金额', '利润', '利润率(%)'], [14, 14, 14, 14, 12])
+    ts = tc = 0
+    for i, r in enumerate(result, 2):
+        s, c = m(r["sales_amount"]), m(r["cost_amount"])
+        p = m(r["profit"]); ts += s; tc += c
+        row(ws, i, [r["date"], s, c, p, r["gross_rate"]])
+    if result:
+        tp = ts - tc; rate = round(tp/ts*100,2) if ts else 0
+        row(ws, len(result)+2, ['合计', ts, tc, tp, rate])
+
+    buf = BytesIO()
+    wb.save(buf); buf.seek(0)
+    fname = f"利润报表_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    from urllib.parse import quote
+    encoded_fname = quote(fname)
+    return StreamingResponse(buf, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': f"attachment; filename*=UTF-8''{encoded_fname}"})
+
+
 @router.get("/export/finance")
 def export_finance(
     start_date: str = Query(None),

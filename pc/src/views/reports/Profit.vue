@@ -41,6 +41,7 @@
             </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="loadData">查询</el-button>
+              <el-button type="success" @click="exportExcel">导出Excel</el-button>
             </el-form-item>
           </el-form>
         </div>
@@ -152,6 +153,15 @@ const loadData = async () => {
   tableData.value = res.data || []
   await nextTick()
   initChart()
+}
+
+const exportExcel = () => {
+  const params = new URLSearchParams({ group_by: query.value.group_by })
+  if (query.value.dateRange && query.value.dateRange.length === 2) {
+    params.set('start_date', query.value.dateRange[0])
+    params.set('end_date', query.value.dateRange[1])
+  }
+  window.open(`/api/reports/export/profit?${params.toString()}`, '_blank')
 }
 
 onMounted(() => {
