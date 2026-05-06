@@ -1,6 +1,6 @@
 <template>
   <div class="receivables-page">
-    <van-nav-bar title="应收款管理" />
+    <van-nav-bar title="应收款管理" left-arrow @click-left="$router.back()" />
 
     <!-- 统计卡片 -->
     <div class="stats-card">

@@ -118,7 +118,7 @@
             <span class="item-label">收付款</span>
           </div>
           <div class="grid-item" @click="$router.push('/invoice')">
-            <div class="item-icon green"><van-icon name="invoice" /></div>
+            <div class="item-icon green"><van-icon name="notes-o" /></div>
             <span class="item-label">发票管理</span>
           </div>
         </div>

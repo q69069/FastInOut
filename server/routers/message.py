@@ -10,7 +10,7 @@ from database import get_db
 from models.message import AppMessage as Message
 from routers.auth import get_current_user
 
-router = APIRouter(prefix="/api/messages", tags=["消息中心"])
+router = APIRouter(prefix="/api/messages", tags=["消息中心"], redirect_slashes=True)
 
 
 class MessageResponse(BaseModel):
@@ -40,8 +40,26 @@ class MessageCreate(BaseModel):
     reference_id: Optional[int] = None
 
 
-@router.get("", response_model=list[MessageResponse])
+@router.get("/", response_model=list[MessageResponse])
 def list_messages(
+    status: str = None,
+    recipient_id: int = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    query = db.query(Message)
+    if status:
+        query = query.filter(Message.status == status)
+    if recipient_id:
+        query = query.filter(Message.recipient_id == recipient_id)
+    else:
+        query = query.filter(Message.recipient_id == current_user.id)
+    return query.order_by(Message.created_at.desc()).all()
+
+
+# 兼容 H5 带 trailing slash 的请求
+@router.get("", response_model=list[MessageResponse], include_in_schema=False)
+def list_messages_slash(
     status: str = None,
     recipient_id: int = None,
     db: Session = Depends(get_db),

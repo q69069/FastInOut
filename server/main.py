@@ -95,6 +95,12 @@ def auto_migrate():
         if 'created_by' not in cv_cols:
             conn.execute(text('ALTER TABLE customer_visits ADD COLUMN created_by INTEGER DEFAULT 0'))
 
+        # receipts/payments 新字段（修复 DataFilter scope_field=created_by 缺失）
+        for tbl in ('receipts', 'payments'):
+            tbl_cols = [c['name'] for c in inspector.get_columns(tbl)]
+            if 'created_by' not in tbl_cols:
+                conn.execute(text(f'ALTER TABLE {tbl} ADD COLUMN created_by INTEGER DEFAULT 0'))
+
         # products 新字段（Phase C 档案扩充）
         if 'brand' not in col_names:
             conn.execute(text('ALTER TABLE products ADD COLUMN brand VARCHAR(50)'))

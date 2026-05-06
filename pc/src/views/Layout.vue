@@ -10,7 +10,7 @@
           class="nav-item"
           :class="{ active: activeModule === item.key }"
           @click="toggleModule(item)"
-          @mouseenter="hoverModule(item)"
+          @mouseenter="hoverModule(item, $event)"
         >
           <el-icon><component :is="item.icon" /></el-icon>
           <span class="nav-label">{{ item.label }}</span>
@@ -24,6 +24,7 @@
             <div class="user-name">{{ authStore.displayName }}</div>
             <div class="user-role">{{ authStore.roleName }}</div>
           </div>
+          <el-icon class="logout-btn" @click="logout" title="退出登录"><SwitchButton /></el-icon>
         </div>
       </div>
     </div>
@@ -68,7 +69,7 @@
       </div>
     </div>
 
-    <!-- 子模块下拉浮层 -->
+    <!-- 子模块下拉浮层 - 跟随hover的主模块水平居中 -->
     <transition name="dropdown-fade">
       <div
         v-if="activeModule && currentSubs.length > 0"
@@ -111,7 +112,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowRight } from '@element-plus/icons-vue'
+import { ArrowRight, SwitchButton } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores'
 
 const route = useRoute()
@@ -202,10 +203,18 @@ const visibleMainModules = computed(() => mainModules.filter(m => {
 
 // ========== 侧边栏交互 ==========
 const activeModule = ref(null)
-const hoverModule = (item) => {
+const hoverTop = ref(60)
+
+const hoverModule = (item, event) => {
   if (item.subs?.length) {
     cancelHideTimer()
     activeModule.value = item.key
+    if (event && event.currentTarget) {
+      const el = event.currentTarget
+      const top = el.offsetTop
+      const height = el.offsetHeight
+      hoverTop.value = top + height / 2
+    }
   }
 }
 const toggleModule = (item) => {
@@ -226,10 +235,29 @@ const currentSubs = computed(() => {
 })
 const currentModuleLabel = computed(() => mainModules.find(m => m.key === activeModule.value)?.label || '')
 
-// ========== 浮层位置 ==========
-const dropdownStyle = computed(() => ({
-  top: '60px',
-}))
+// ========== 浮层位置 - 跟随当前hover的主模块，水平居中，带边界检测 ==========
+const dropdownStyle = computed(() => {
+  const SUBMENU_WIDTH = 200
+  const SUBMENU_MAX_HEIGHT = window.innerHeight - 80
+  const estimatedHeight = Math.min(currentSubs.value.length * 40 + 42, SUBMENU_MAX_HEIGHT)
+
+  let top = hoverTop.value
+
+  // 边界检测：如果向上会溢出视口，则向下延伸
+  if (top - estimatedHeight / 2 < 0) {
+    top = 8
+  } else if (top + estimatedHeight / 2 > window.innerHeight) {
+    top = window.innerHeight - estimatedHeight - 8
+  } else {
+    top = top - estimatedHeight / 2
+  }
+
+  return {
+    left: '180px',
+    top: `${top}px`,
+    maxHeight: `${estimatedHeight}px`,
+  }
+})
 
 const isHighlight = (path) => route.path === path
 
@@ -359,6 +387,8 @@ const logout = () => { authStore.logout(); router.push('/login') }
   border-top: 1px solid rgba(255,255,255,0.06);
 }
 .user-badge { display: flex; align-items: center; gap: 8px }
+.logout-btn { margin-left: auto; color: rgba(255,255,255,0.4); cursor: pointer; font-size: 16px; padding: 2px; }
+.logout-btn:hover { color: #f56c6c }
 .user-name { font-size: 12px; color: #fff; font-weight: 500; line-height: 1.2 }
 .user-role { font-size: 10px; color: rgba(255,255,255,0.4) }
 
@@ -446,18 +476,16 @@ const logout = () => { authStore.logout(); router.push('/login') }
 .content-area::-webkit-scrollbar-track { background: transparent }
 .content-area::-webkit-scrollbar-thumb { background: #dcdfe6; border-radius: 3px }
 
-/* ===== 子模块下拉 ===== */
+/* ===== 子模块下拉 - 跟随hover的主模块水平居中 ===== */
 .submenu-dropdown {
   position: fixed;
   left: 180px;
-  top: 60px;
   width: 200px;
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.18), 0 0 1px rgba(0,0,0,0.1);
   z-index: 999;
   overflow: hidden;
-  max-height: calc(100vh - 80px);
   overflow-y: auto;
 }
 .submenu-header {
@@ -515,6 +543,5 @@ const logout = () => { authStore.logout(); router.push('/login') }
 }
 .dropdown-fade-enter-from, .dropdown-fade-leave-to {
   opacity: 0;
-  transform: translateX(-6px);
 }
 </style>

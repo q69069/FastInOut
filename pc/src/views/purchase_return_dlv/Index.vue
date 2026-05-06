@@ -193,7 +193,7 @@ const statusType = (status) => {
 const loadData = async () => {
   loading.value = true
   try {
-    const res = await getPurchaseReturnDeliveries(query.value)
+    const res = await getPurchaseReturnDlvs(query.value)
     list.value = res.data || []
     total.value = res.total || 0
   } finally {

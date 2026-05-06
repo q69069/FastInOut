@@ -9,6 +9,18 @@ const api = axios.create({
 
 // 请求拦截器
 api.interceptors.request.use(config => {
+  // 过滤空字符串，避免 FastAPI Query 参数类型校验失败
+  if (config.params) {
+    for (const key in config.params) {
+      if (config.params[key] === '' || config.params[key] === null) {
+        config.params[key] = undefined
+      }
+      // 限制 page_size 上限为 100，避免 422
+      if (key === 'page_size' && config.params[key] > 100) {
+        config.params[key] = 100
+      }
+    }
+  }
   const token = localStorage.getItem('token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`

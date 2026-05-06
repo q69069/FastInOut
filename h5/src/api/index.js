@@ -185,7 +185,7 @@ export const deleteRole = (id) => api.delete(`/roles/${id}`)
 export const assignRole = (data) => api.post('/roles/assign', data)
 
 // ========== 消息+系统 ==========
-export const getMessages = (params) => api.get('/messages/', { params })
+export const getMessages = (params) => api.get('/messages', { params })
 export const getUnreadCount = () => api.get('/messages/unread-count')
 export const markMessageRead = (id) => api.put(`/messages/${id}/read`)
 export const markAllRead = () => api.put('/messages/read-all')

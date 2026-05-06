@@ -1,6 +1,6 @@
 <template>
   <div class="account-page">
-    <van-nav-bar title="往来账" left-arrow @click-left="$router.back()" />
+    <van-nav-bar title="往来账" left-arrow left-text="返回" @click-left="$router.back()" />
 
     <!-- 客户/供应商切换 -->
     <div class="type-tabs">
@@ -71,7 +71,11 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { getCustomerAccounts, getSupplierAccounts } from '../api'
+
+const router = useRouter()
+const goBack = () => window.history.length > 1 ? router.back() : router.push('/home')
 
 const accountType = ref('customer')
 const showPicker = ref(false)
