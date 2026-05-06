@@ -56,7 +56,7 @@
       <div style="padding:16px">
         <div style="font-weight:bold;text-align:center;margin-bottom:4px">编辑快捷模块</div>
         <p style="font-size:12px;color:#999;margin-bottom:12px;text-align:center">
-          点击模块切换选中状态，已选{{ draft.length }}/12个
+          点击模块切换选中状态，可自由增减
         </p>
         <div class="edit-grid">
           <div
@@ -111,16 +111,8 @@ const displayKeys = computed(() => {
 const toggleKey = (key) => {
   const idx = draft.value.indexOf(key)
   if (idx >= 0) {
-    if (draft.value.length > 4) {
-      draft.value.splice(idx, 1)
-    } else {
-      showToast('至少保留4个')
-    }
+    draft.value.splice(idx, 1)
   } else {
-    if (draft.value.length >= 12) {
-      showToast('最多12个')
-      return
-    }
     draft.value.push(key)
   }
 }

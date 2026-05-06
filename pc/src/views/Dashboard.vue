@@ -70,7 +70,7 @@
     <!-- 编辑弹窗 -->
     <el-dialog v-model="showEditDialog" title="编辑快捷模块" width="560px">
       <p style="color:#999;font-size:12px;margin-bottom:12px">
-        已按使用频率排序，最多选12个模块
+        已按使用频率排序，可自由增减模块
       </p>
       <div class="edit-list">
         <div
@@ -81,7 +81,6 @@
         >
           <el-checkbox
             :model-value="draftKeys.includes(key)"
-            :disabled="draftKeys.length >= 12 && !draftKeys.includes(key)"
             @change="toggleDraft(key)"
           />
           <div class="edit-icon" :style="{background: MODULE_META[key].color}">
@@ -155,7 +154,7 @@ const toggleDraft = (key) => {
   const idx = draftKeys.value.indexOf(key)
   if (idx >= 0) {
     draftKeys.value.splice(idx, 1)
-  } else if (draftKeys.value.length < 12) {
+  } else {
     draftKeys.value.push(key)
   }
 }
