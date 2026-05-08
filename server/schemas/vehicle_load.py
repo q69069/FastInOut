@@ -19,8 +19,8 @@ class VehicleLoadItemOut(BaseModel):
 
 
 class VehicleLoadCreate(BaseModel):
-    from_warehouse_id: int
-    vehicle_warehouse_id: int
+    from_warehouse_id: Optional[int] = None
+    vehicle_warehouse_id: Optional[int] = None
     employee_id: Optional[int] = None
     remark: Optional[str] = None
     items: List[VehicleLoadItemCreate]

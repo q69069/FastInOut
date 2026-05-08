@@ -24,7 +24,7 @@ class DamageReportItemOut(BaseModel):
 
 
 class DamageReportCreate(BaseModel):
-    warehouse_id: int
+    warehouse_id: Optional[int] = None
     report_type: str = "general"
     remark: Optional[str] = None
     items: List[DamageReportItemCreate]

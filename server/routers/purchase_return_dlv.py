@@ -66,10 +66,11 @@ def create_purchase_return_dlv(
 ):
     user = get_current_user(authorization, db)
 
-    # 校验供应商
-    supplier = db.query(Supplier).get(req.supplier_id)
-    if not supplier:
-        raise HTTPException(400, "供应商不存在")
+    # 校验供应商（可选）
+    if req.supplier_id:
+        supplier = db.query(Supplier).get(req.supplier_id)
+        if not supplier:
+            raise HTTPException(400, "供应商不存在")
 
     # 校验关联退货订单（可选）
     if req.purchase_return_id:

@@ -103,6 +103,7 @@ export const createPurchaseOrder = (data) => api.post('/purchase-orders', data)
 export const getPurchaseOrder = (id) => api.get(`/purchase-orders/${id}`)
 export const updatePurchaseOrder = (id, data) => api.put(`/purchase-orders/${id}`, data)
 export const deletePurchaseOrder = (id) => api.delete(`/purchase-orders/${id}`)
+export const confirmPurchaseOrder = (id) => api.post(`/purchase-orders/${id}/confirm`)
 export const orderToStockin = (id) => api.post(`/purchase-orders/${id}/stockin`)
 
 // 采购入库
@@ -153,6 +154,8 @@ export const createSalesOrder = (data) => api.post('/sales-orders', data)
 export const getSalesOrder = (id) => api.get(`/sales-orders/${id}`)
 export const updateSalesOrder = (id, data) => api.put(`/sales-orders/${id}`, data)
 export const deleteSalesOrder = (id) => api.delete(`/sales-orders/${id}`)
+export const auditSalesOrder = (id) => api.post(`/sales-orders/${id}/audit`)
+export const reverseSalesOrder = (id) => api.post(`/sales-orders/${id}/reverse`)
 export const orderToStockout = (id) => api.post(`/sales-orders/${id}/stockout`)
 
 // 销售出库
@@ -331,12 +334,14 @@ export const rejectExpense = (id) => api.post(`/expenses/${id}/reject`)
 // Phase A: 盘点管理（v3.0新增）
 export const getStocktaking = (params) => api.get('/stocktaking', { params })
 export const getStocktakingDetail = (id) => api.get(`/stocktaking/${id}`)
+export const createStocktaking = (data) => api.post('/stocktaking', data)
 export const auditStocktaking = (id) => api.post(`/stocktaking/${id}/audit`)
 export const adjustStocktaking = (id) => api.post(`/stocktaking/${id}/adjust`)
 export const voidStocktaking = (id) => api.post(`/stocktaking/${id}/void`)
 
 // Phase A: 退货单（v3.0新增）
 export const getReturnDeliveries = (params) => api.get('/return-deliveries', { params })
+export const createReturnDelivery = (data) => api.post('/return-deliveries', data)
 export const getReturnDelivery = (id) => api.get(`/return-deliveries/${id}`)
 export const warehouseConfirmReturn = (id) => api.post(`/return-deliveries/${id}/warehouse-confirm`)
 export const financeConfirmReturn = (id) => api.post(`/return-deliveries/${id}/finance-confirm`)

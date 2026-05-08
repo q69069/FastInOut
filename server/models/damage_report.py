@@ -8,7 +8,7 @@ class DamageReport(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     code = Column(String(30), unique=True, nullable=False)
-    warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=False)
+    warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True)
     report_type = Column(String(20), default="general")  # vehicle/general
     total_amount = Column(Float, default=0)
     status = Column(String(20), default="pending")  # pending/audited/adjusted

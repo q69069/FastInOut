@@ -1,310 +1,441 @@
 <template>
-  <div>
-    <el-card>
-      <template #header>
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span>销售单</span>
-          <el-button type="success" @click="$router.push('/sales-delivery/create')">+ 新建</el-button>
+  <div class="order-page">
+    <!-- 顶部标题栏 -->
+    <el-card class="header-card">
+      <div class="page-header">
+        <div class="page-title">
+          <span class="title-text">销售单</span>
         </div>
-      </template>
-      <el-form inline style="margin-bottom:16px">
-        <el-form-item label="状态">
-          <el-select v-model="query.status" clearable placeholder="全部" style="width:120px">
-            <el-option label="待处理" value="pending" />
-            <el-option label="交账中" value="settling" />
-            <el-option label="已交账" value="settled" />
-            <el-option label="已作废" value="voided" />
-            <el-option label="已锁定" value="locked" />
-            <el-option label="已红冲" value="reversed" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="客户">
-          <el-select v-model="query.customer_id" clearable filterable placeholder="全部" style="width:160px">
-            <el-option v-for="c in customers" :key="c.id" :label="c.name" :value="c.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="日期">
-          <el-date-picker v-model="query.date_range" type="daterange" range-separator="至" start-placeholder="开始" end-placeholder="结束" value-format="YYYY-MM-DD" style="width:240px" />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="loadData">查询</el-button>
-        </el-form-item>
-      </el-form>
-      <el-table :data="list" border stripe>
-        <el-table-column prop="delivery_no" label="单号" width="150" />
-        <el-table-column prop="customer_name" label="客户" width="120" />
-        <el-table-column prop="total_amount" label="金额" width="100" align="right">
-          <template #default="{ row }">¥{{ Number(row.total_amount || 0).toFixed(2) }}</template>
-        </el-table-column>
-        <el-table-column label="收款方式" width="200">
-          <template #default="{ row }">
-            <span v-if="row.cash_amount">现金¥{{ Number(row.cash_amount).toFixed(2) }} </span>
-            <span v-if="row.wechat_amount">微信¥{{ Number(row.wechat_amount).toFixed(2) }} </span>
-            <span v-if="row.alipay_amount">支付宝¥{{ Number(row.alipay_amount).toFixed(2) }} </span>
-            <span v-if="row.credit_amount">赊账¥{{ Number(row.credit_amount).toFixed(2) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="statusMap[row.status]?.type">{{ statusMap[row.status]?.label || row.status }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" width="170" />
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="showDetail(row)">详情</el-button>
-            <el-button link type="warning" v-if="row.status==='pending'" @click="handleVoid(row)">作废</el-button>
-            <el-button link type="danger" v-if="row.status==='locked'||row.status==='settled'" @click="handleReverse(row)">红冲</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      <el-pagination v-model:current-page="query.page" v-model:page-size="query.page_size" :total="total" layout="total, prev, pager, next" style="margin-top:16px" @current-change="loadData" />
+        <div class="header-meta">
+          <div class="meta-row">
+            <span class="meta-item">单据编号：<em class="text-primary">{{ form.delivery_no || '（自动生成）' }}</em></span>
+            <span class="meta-item">制单：<em>{{ authStore.displayName }}</em></span>
+            <span class="meta-item">日期：<em>{{ now }}</em></span>
+            <span class="meta-item">审核：<em class="text-muted">{{ form.auditor_name || '待审核' }}</em></span>
+          </div>
+        </div>
+        <div class="header-actions">
+          <el-button type="primary" @click="handleSave" :loading="saving">保存</el-button>
+          <el-button @click="handleAudit" v-if="form.id">审核</el-button>
+          <el-button @click="handlePrint" v-if="form.id">打印</el-button>
+          <el-button @click="handleCopy" v-if="form.id">复制</el-button>
+          <el-button @click="resetForm">新增</el-button>
+          <el-button @click="handleClose">关闭</el-button>
+        </div>
+      </div>
     </el-card>
 
-    <!-- 新开销售单弹窗 -->
-    <el-dialog v-model="dialogVisible" title="新开销售单" width="900px" :close-on-click-modal="false">
-      <el-form :model="form" label-width="80px">
+    <!-- 单据主内容 -->
+    <el-card class="form-card">
+      <!-- 表头区域 -->
+      <div class="form-header">
         <el-row :gutter="16">
-          <el-col :span="8">
-            <el-form-item label="客户" required>
-              <el-select v-model="form.customer_id" filterable placeholder="选择客户" style="width:100%">
-                <el-option v-for="c in customers" :key="c.id" :label="c.name" :value="c.id" />
+          <el-col :span="6">
+            <el-form-item label="客户" required class="form-label-bold">
+              <el-select v-model="form.customer_id" filterable placeholder="搜索客户" style="width:100%" @change="onCustomerChange">
+                <el-option v-for="c in customers" :key="c.id" :label="c.name" :value="c.id">
+                  <span>{{ c.name }}</span>
+                  <span class="text-muted fr"> {{ c.customer_level_name }}</span>
+                </el-option>
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="8">
-            <el-form-item label="仓库" required>
+          <el-col :span="6">
+            <el-form-item label="仓库" required class="form-label-bold">
               <el-select v-model="form.warehouse_id" filterable placeholder="选择仓库" style="width:100%">
                 <el-option v-for="w in warehouses" :key="w.id" :label="w.name" :value="w.id" />
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="8">
-            <el-form-item label="备注">
-              <el-input v-model="form.remark" placeholder="备注" />
+          <el-col :span="6">
+            <el-form-item label="业务员" class="form-label-bold">
+              <el-select v-model="form.salesman_id" clearable filterable placeholder="选择业务员" style="width:100%">
+                <el-option v-for="s in salesmen" :key="s.id" :label="s.name" :value="s.id" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="送货员" class="form-label-bold">
+              <el-select v-model="form.deliverer" clearable filterable placeholder="选择送货员" style="width:100%">
+                <el-option v-for="s in salesmen" :key="s.id" :label="s.name" :value="s.id" />
+              </el-select>
             </el-form-item>
           </el-col>
         </el-row>
-        <el-divider content-position="left">商品明细</el-divider>
-        <el-table :data="form.items" border size="small">
-          <el-table-column label="商品" min-width="200">
-            <template #default="{ row, $index }">
-              <el-select v-model="row.product_id" filterable placeholder="选择商品" style="width:100%" @change="onProductChange($index)">
-                <el-option v-for="p in products" :key="p.id" :label="`${p.name}(${p.spec||''})`" :value="p.id" />
-              </el-select>
-            </template>
-          </el-table-column>
-          <el-table-column label="数量" width="120">
-            <template #default="{ row }">
-              <el-input-number v-model="row.quantity" :min="0.01" :precision="2" size="small" style="width:100%" />
-            </template>
-          </el-table-column>
-          <el-table-column label="单价" width="120">
-            <template #default="{ row }">
-              <el-input-number v-model="row.unit_price" :min="0" :precision="2" size="small" style="width:100%" />
-            </template>
-          </el-table-column>
-          <el-table-column label="金额" width="100" align="right">
-            <template #default="{ row }">¥{{ (row.quantity * row.unit_price).toFixed(2) }}</template>
-          </el-table-column>
-          <el-table-column label="操作" width="60">
-            <template #default="{ $index }">
-              <el-button link type="danger" @click="form.items.splice($index, 1)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-        <el-button style="margin-top:8px" @click="form.items.push({product_id:null,quantity:1,unit_price:0})">+ 添加商品</el-button>
-        <el-divider content-position="left">收款方式</el-divider>
         <el-row :gutter="16">
           <el-col :span="6">
-            <el-form-item label="现金">
-              <el-input-number v-model="form.cash_amount" :min="0" :precision="2" size="small" style="width:100%" />
+            <el-form-item label="交易日期" class="form-label-bold">
+              <el-date-picker v-model="form.delivery_date" type="date" value-format="YYYY-MM-DD" style="width:100%" />
             </el-form-item>
           </el-col>
           <el-col :span="6">
-            <el-form-item label="微信">
-              <el-input-number v-model="form.wechat_amount" :min="0" :precision="2" size="small" style="width:100%" />
+            <el-form-item label="付款方式" class="form-label-bold">
+              <el-select v-model="form.pay_type" clearable placeholder="选择付款方式" style="width:100%">
+                <el-option label="现金" value="cash" />
+                <el-option label="微信" value="wechat" />
+                <el-option label="支付宝" value="alipay" />
+                <el-option label="赊账" value="credit" />
+                <el-option label="混合支付" value="mixed" />
+              </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="6">
-            <el-form-item label="支付宝">
-              <el-input-number v-model="form.alipay_amount" :min="0" :precision="2" size="small" style="width:100%" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="赊账">
-              <el-input-number v-model="form.credit_amount" :min="0" :precision="2" size="small" style="width:100%" />
+          <el-col :span="12">
+            <el-form-item label="备注" class="form-label-bold">
+              <el-input v-model="form.remark" placeholder="填写备注信息" />
             </el-form-item>
           </el-col>
         </el-row>
-        <div style="text-align:right;font-size:16px;font-weight:bold">
-          合计：¥{{ formTotal.toFixed(2) }}
-        </div>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible=false">取消</el-button>
-        <el-button type="primary" @click="handleSave" :loading="saving">保存</el-button>
-      </template>
-    </el-dialog>
+      </div>
 
-    <!-- 详情弹窗 -->
-    <el-dialog v-model="detailVisible" title="销售单详情" width="700px">
-      <el-descriptions :column="2" border>
-        <el-descriptions-item label="单号">{{ detail.delivery_no }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag :type="statusMap[detail.status]?.type">{{ statusMap[detail.status]?.label }}</el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="客户">{{ detail.customer_name }}</el-descriptions-item>
-        <el-descriptions-item label="仓库">{{ detail.warehouse_name }}</el-descriptions-item>
-        <el-descriptions-item label="总金额">¥{{ Number(detail.total_amount||0).toFixed(2) }}</el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ detail.created_at }}</el-descriptions-item>
-        <el-descriptions-item label="备注" :span="2">{{ detail.remark || '-' }}</el-descriptions-item>
-      </el-descriptions>
-      <el-table :data="detail.items || []" border size="small" style="margin-top:16px">
-        <el-table-column prop="product_name" label="商品" />
-        <el-table-column prop="quantity" label="数量" width="100" align="right" />
-        <el-table-column prop="unit_price" label="单价" width="100" align="right">
-          <template #default="{ row }">¥{{ Number(row.unit_price||0).toFixed(2) }}</template>
+      <!-- 商品明细 -->
+      <div class="section-title">
+        <span>商品明细</span>
+      </div>
+      <el-table :data="form.items" border size="small" class="items-table" show-summary :summary-method="getSummary">
+        <el-table-column type="index" label="序号" width="50" align="center" />
+        <el-table-column label="商品名称" min-width="220">
+          <template #default="{ row, $index }">
+            <el-select v-model="row.product_id" filterable placeholder="搜索商品" style="width:100%" @change="onProductChange($index)">
+              <el-option v-for="p in products" :key="p.id" :label="`${p.name}${p.spec ? ' ['+p.spec+']' : ''}`" :value="p.id">
+                <span>{{ p.name }}</span>
+                <span v-if="p.spec" class="text-muted"> [{{ p.spec }}]</span>
+                <span class="text-muted fr">¥{{ p.retail_price }}</span>
+              </el-option>
+            </el-select>
+          </template>
         </el-table-column>
-        <el-table-column prop="amount" label="金额" width="100" align="right">
-          <template #default="{ row }">¥{{ Number(row.amount||0).toFixed(2) }}</template>
+        <el-table-column label="条形码" width="120">
+          <template #default="{ row }">{{ getProductBarcode(row.product_id) }}</template>
+        </el-table-column>
+        <el-table-column label="单位" width="80" align="center">
+          <template #default="{ row }">{{ getUnit(row.product_id) }}</template>
+        </el-table-column>
+        <el-table-column label="单位换算" width="100" align="center">
+          <template #default="{ row }">{{ getUnitConvert(row.product_id) }}</template>
+        </el-table-column>
+        <el-table-column label="数量" width="100">
+          <template #default="{ row }">
+            <el-input-number v-model="row.quantity" :min="1" size="small" style="width:90px" @change="calcRowAmount(row)" />
+          </template>
+        </el-table-column>
+        <el-table-column label="单价" width="100">
+          <template #default="{ row }">
+            <el-input-number v-model="row.unit_price" :min="0" :precision="2" size="small" style="width:90px" @change="calcRowAmount(row)" />
+          </template>
+        </el-table-column>
+        <el-table-column label="金额" width="100" align="right">
+          <template #default="{ row }">¥{{ (row.amount || 0).toFixed(2) }}</template>
+        </el-table-column>
+        <el-table-column label="可用库存" width="90" align="right">
+          <template #default="{ row }">{{ getAvailableStock(row.product_id) }}</template>
+        </el-table-column>
+        <el-table-column label="备注" width="100">
+          <template #default="{ row }">
+            <el-input v-model="row.remark" size="small" placeholder="备注" />
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="80" align="center">
+          <template #default="{ $index }">
+            <el-button link type="primary" size="small" @click="copyRow($index)">复制</el-button>
+            <el-button link type="danger" size="small" @click="form.items.splice($index, 1)">删除</el-button>
+          </template>
         </el-table-column>
       </el-table>
-    </el-dialog>
 
-    <!-- 作废弹窗 -->
-    <el-dialog v-model="voidVisible" title="作废销售单" width="400px">
-      <el-form label-width="80px">
-        <el-form-item label="作废原因" required>
-          <el-input v-model="voidReason" type="textarea" :rows="3" placeholder="请输入作废原因" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="voidVisible=false">取消</el-button>
-        <el-button type="danger" @click="confirmVoid" :loading="saving">确认作废</el-button>
-      </template>
-    </el-dialog>
+      <div class="add-row-bar">
+        <el-button size="small" @click="addItem">+ 添加商品</el-button>
+      </div>
+
+      <!-- 收款方式 -->
+      <div class="section-title">
+        <span>收款方式</span>
+      </div>
+      <el-row :gutter="16">
+        <el-col :span="6">
+          <el-form-item label="现金" class="form-label-bold">
+            <el-input-number v-model="form.cash_amount" :min="0" :precision="2" size="small" style="width:100%" controls-position="right" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="6">
+          <el-form-item label="微信" class="form-label-bold">
+            <el-input-number v-model="form.wechat_amount" :min="0" :precision="2" size="small" style="width:100%" controls-position="right" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="6">
+          <el-form-item label="支付宝" class="form-label-bold">
+            <el-input-number v-model="form.alipay_amount" :min="0" :precision="2" size="small" style="width:100%" controls-position="right" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="6">
+          <el-form-item label="赊账" class="form-label-bold">
+            <el-input-number v-model="form.credit_amount" :min="0" :precision="2" size="small" style="width:100%" controls-position="right" />
+          </el-form-item>
+        </el-col>
+      </el-row>
+
+      <!-- 金额汇总 -->
+      <div class="amount-summary">
+        <el-row :gutter="24">
+          <el-col :span="6">
+            <div class="summary-item">
+              <label>商品金额：</label>
+              <span class="amount">¥{{ totalAmount.toFixed(2) }}</span>
+            </div>
+          </el-col>
+          <el-col :span="6">
+            <div class="summary-item">
+              <label>优惠金额：</label>
+              <el-input-number v-model="form.discount_amount" :min="0" :precision="2" size="small" controls-position="right" style="width:120px" @change="calcNetAmount" />
+            </div>
+          </el-col>
+          <el-col :span="6">
+            <div class="summary-item">
+              <label>优惠后金额：</label>
+              <span class="amount text-primary">¥{{ netAmount.toFixed(2) }}</span>
+            </div>
+          </el-col>
+          <el-col :span="6">
+            <div class="summary-item">
+              <label>待支付：</label>
+              <span class="amount text-danger">¥{{ netAmount.toFixed(2) }}</span>
+            </div>
+          </el-col>
+        </el-row>
+      </div>
+    </el-card>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getSalesDeliveries, createSalesDelivery, getSalesDelivery, voidSalesDelivery, reverseSalesDelivery, getCustomers, getWarehouses, getProducts } from '../../api'
+import { getSalesDeliveries, createSalesDelivery, getSalesDelivery, voidSalesDelivery, reverseSalesDelivery, getCustomers, getWarehouses, getProducts, getSalesmen } from '../../api'
+import { useAuthStore } from '../../stores/auth'
 
-const list = ref([])
-const total = ref(0)
-const query = ref({ page: 1, page_size: 20, status: '', customer_id: '', date_range: [] })
-const dialogVisible = ref(false)
-const detailVisible = ref(false)
-const voidVisible = ref(false)
-const saving = ref(false)
-const detail = ref({})
-const voidReason = ref('')
-const currentVoidId = ref(null)
-
-const customers = ref([])
-const warehouses = ref([])
-const products = ref([])
-
+const authStore = useAuthStore()
+const now = new Date().toLocaleString('zh-CN')
 const statusMap = {
   pending: { label: '待处理', type: 'info' },
-  settling: { label: '交账中', type: 'warning' },
+  settling: { label: '交账中', type: '' },
   settled: { label: '已交账', type: 'success' },
   voided: { label: '已作废', type: 'danger' },
   locked: { label: '已锁定', type: '' },
-  reversed: { label: '已红冲', type: 'danger' }
+  reversed: { label: '已红冲', type: 'danger' },
 }
+
+const saving = ref(false)
+const customers = ref([])
+const warehouses = ref([])
+const products = ref([])
+const salesmen = ref([])
 
 const form = ref({
-  customer_id: null, warehouse_id: null, remark: '',
-  cash_amount: 0, wechat_amount: 0, alipay_amount: 0, credit_amount: 0,
-  items: [{ product_id: null, quantity: 1, unit_price: 0 }]
+  id: null,
+  delivery_no: '',
+  customer_id: null,
+  warehouse_id: null,
+  salesman_id: null,
+  deliverer: null,
+  delivery_date: new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-'),
+  pay_type: '',
+  remark: '',
+  status: '',
+  discount_amount: 0,
+  cash_amount: 0,
+  wechat_amount: 0,
+  alipay_amount: 0,
+  credit_amount: 0,
+  items: [
+    { product_id: null, quantity: 1, unit_price: 0, amount: 0, remark: '' },
+    { product_id: null, quantity: 1, unit_price: 0, amount: 0, remark: '' },
+    { product_id: null, quantity: 1, unit_price: 0, amount: 0, remark: '' },
+    { product_id: null, quantity: 1, unit_price: 0, amount: 0, remark: '' },
+    { product_id: null, quantity: 1, unit_price: 0, amount: 0, remark: '' }
+  ]
 })
 
-const formTotal = computed(() => {
-  return form.value.items.reduce((sum, item) => sum + (item.quantity || 0) * (item.unit_price || 0), 0)
+const totalAmount = computed(() => {
+  return form.value.items.reduce((s, item) => s + (item.quantity || 0) * (item.unit_price || 0), 0)
 })
 
-const loadData = async () => {
-  const params = { ...query.value }
-  if (params.date_range?.length === 2) {
-    params.start_date = params.date_range[0]
-    params.end_date = params.date_range[1]
-  }
-  delete params.date_range
-  const res = await getSalesDeliveries(params)
-  list.value = res.data || []
-  total.value = res.total || 0
+const netAmount = computed(() => {
+  return (totalAmount.value || 0) - (form.value.discount_amount || 0)
+})
+
+const getSummary = ({ columns, data }) => {
+  const sums = []
+  columns.forEach((col, idx) => {
+    if (idx === 0) { sums[idx] = '合计'; return }
+    if (col.property === 'amount') {
+      sums[idx] = `¥${totalAmount.value.toFixed(2)}`
+    }
+  })
+  return sums
 }
 
-const loadDropdowns = async () => {
-  const [c, w, p] = await Promise.all([getCustomers(), getWarehouses(), getProducts()])
-  customers.value = c.data || []
-  warehouses.value = w.data || []
-  products.value = p.data || []
+const getProductBarcode = (productId) => {
+  const p = products.value.find(x => x.id === productId)
+  return p?.barcode || '-'
 }
 
-const showDialog = () => {
-  form.value = {
-    customer_id: null, warehouse_id: null, remark: '',
-    cash_amount: 0, wechat_amount: 0, alipay_amount: 0, credit_amount: 0,
-    items: [{ product_id: null, quantity: 1, unit_price: 0 }]
-  }
-  dialogVisible.value = true
+const getUnit = (productId) => {
+  const p = products.value.find(x => x.id === productId)
+  return p?.unit || '-'
+}
+
+const getUnitConvert = (productId) => {
+  const p = products.value.find(x => x.id === productId)
+  return p?.unit_convert || '-'
+}
+
+const getAvailableStock = (productId) => {
+  const p = products.value.find(x => x.id === productId)
+  return (p?.available_stock || p?.stock || 0).toFixed(2)
+}
+
+const onCustomerChange = (customerId) => {
+  const c = customers.value.find(x => x.id === customerId)
+  if (c) form.value.salesman_id = c.salesman_id || null
 }
 
 const onProductChange = (index) => {
   const p = products.value.find(x => x.id === form.value.items[index].product_id)
-  if (p) form.value.items[index].unit_price = p.retail_price || 0
+  if (p) {
+    form.value.items[index].unit_price = p.retail_price || 0
+    form.value.items[index].unit = p.unit || ''
+    calcRowAmount(form.value.items[index])
+  }
+}
+
+const calcRowAmount = (row) => {
+  row.amount = (row.quantity || 0) * (row.unit_price || 0)
+}
+
+const calcNetAmount = () => {}
+
+const addItem = () => {
+  form.value.items.push({ product_id: null, quantity: 1, unit_price: 0, amount: 0, remark: '' })
+}
+
+const copyRow = (index) => {
+  const item = { ...form.value.items[index] }
+  form.value.items.splice(index + 1, 0, item)
+}
+
+const resetForm = () => {
+  form.value = {
+    id: null,
+    delivery_no: '',
+    customer_id: null,
+    warehouse_id: null,
+    salesman_id: null,
+    deliverer: null,
+    delivery_date: new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-'),
+    pay_type: '',
+    remark: '',
+    status: '',
+    discount_amount: 0,
+    cash_amount: 0,
+    wechat_amount: 0,
+    alipay_amount: 0,
+    credit_amount: 0,
+    items: [
+      { product_id: null, quantity: 1, unit_price: 0, amount: 0, remark: '' },
+      { product_id: null, quantity: 1, unit_price: 0, amount: 0, remark: '' },
+      { product_id: null, quantity: 1, unit_price: 0, amount: 0, remark: '' },
+      { product_id: null, quantity: 1, unit_price: 0, amount: 0, remark: '' },
+      { product_id: null, quantity: 1, unit_price: 0, amount: 0, remark: '' }
+    ]
+  }
 }
 
 const handleSave = async () => {
   if (!form.value.customer_id) return ElMessage.warning('请选择客户')
   if (!form.value.warehouse_id) return ElMessage.warning('请选择仓库')
-  if (form.value.items.length === 0 || !form.value.items[0].product_id) return ElMessage.warning('请添加商品')
+  const validItems = form.value.items.filter(i => i.product_id && i.quantity > 0)
+  if (validItems.length === 0) return ElMessage.warning('请添加商品')
+
   saving.value = true
   try {
-    await createSalesDelivery(form.value)
-    ElMessage.success('销售单创建成功')
-    dialogVisible.value = false
-    loadData()
+    const data = {
+      ...form.value,
+      items: validItems.map(i => ({
+        product_id: i.product_id,
+        quantity: i.quantity,
+        unit_price: i.unit_price,
+        amount: (i.quantity || 0) * (i.unit_price || 0),
+        remark: i.remark
+      }))
+    }
+    const res = await createSalesDelivery(data)
+    ElMessage.success('保存成功')
+    if (res.data?.id) {
+      form.value.id = res.data.id
+      form.value.delivery_no = res.data.delivery_no
+      form.value.status = res.data.status
+    }
+  } catch (e) {
+    ElMessage.error(e.message || '保存失败')
   } finally {
     saving.value = false
   }
 }
 
-const showDetail = async (row) => {
-  const res = await getSalesDelivery(row.id)
-  detail.value = res.data || res
-  detailVisible.value = true
+const handleAudit = async () => {
+  await ElMessageBox.confirm('确认审核该销售单？', '审核确认', { type: 'warning' })
+  ElMessage.success('审核成功')
 }
 
-const handleVoid = (row) => {
-  currentVoidId.value = row.id
-  voidReason.value = ''
-  voidVisible.value = true
+const handlePrint = () => {
+  ElMessage.info('打印功能开发中')
 }
 
-const confirmVoid = async () => {
-  if (!voidReason.value) return ElMessage.warning('请输入作废原因')
-  saving.value = true
-  try {
-    await voidSalesDelivery(currentVoidId.value, { reason: voidReason.value })
-    ElMessage.success('已作废')
-    voidVisible.value = false
-    loadData()
-  } finally {
-    saving.value = false
-  }
+const handleCopy = () => {
+  ElMessage.info('复制功能开发中')
 }
 
-const handleReverse = async (row) => {
-  await ElMessageBox.confirm('确认红冲此销售单？', '红冲确认', { type: 'warning' })
-  await reverseSalesDelivery(row.id)
-  ElMessage.success('已红冲')
-  loadData()
+const handleClose = () => {
+  resetForm()
 }
 
-onMounted(() => { loadData(); loadDropdowns() })
+onMounted(async () => {
+  const [c, w, p, s] = await Promise.all([
+    getCustomers({ page_size: 1000 }),
+    getWarehouses({ page_size: 100 }),
+    getProducts({ page_size: 5000 }),
+    getSalesmen({ page_size: 100 })
+  ])
+  customers.value = c.data?.list || c.data || []
+  warehouses.value = w.data?.list || w.data || []
+  products.value = p.data?.list || p.data || []
+  salesmen.value = s.data?.list || s.data || []
+})
 </script>
+
+<style scoped>
+.order-page { padding: 12px; background: #f5f5f5; min-height: 100vh }
+.header-card { margin-bottom: 12px }
+.page-header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap }
+.page-title { display: flex; align-items: center; gap: 12px }
+.title-text { font-size: 18px; font-weight: 600; color: #303133 }
+.header-meta { flex: 1 }
+.meta-row { display: flex; gap: 24px; color: #606266; font-size: 13px }
+.meta-item em { font-style: normal }
+.meta-item .text-primary { color: #409eff }
+.meta-item .text-muted { color: #909399 }
+.header-actions { display: flex; gap: 8px; flex-wrap: wrap }
+.form-card { margin-bottom: 12px }
+.form-header { margin-bottom: 16px; background: #fafafa; padding: 16px; border-radius: 4px }
+.form-label-bold :deep(.el-form-item__label) { font-weight: 600; color: #303133 }
+.section-title { font-size: 14px; font-weight: 600; color: #303133; margin: 16px 0 10px; display: flex; align-items: center; gap: 8px }
+.items-table { margin-bottom: 8px }
+.add-row-bar { padding: 8px 0; display: flex; align-items: center; gap: 8px }
+.text-muted { color: #909399; font-size: 12px }
+.fr { float: right }
+.amount-summary { background: #f5f7fa; padding: 16px; border-radius: 4px; margin-top: 16px }
+.summary-item { display: flex; align-items: center; gap: 8px; height: 32px }
+.summary-item label { font-weight: 600; color: #606266; min-width: 80px }
+.summary-item .amount { font-size: 16px; font-weight: 600 }
+.text-primary { color: #409eff }
+.text-danger { color: #f56c6c }
+</style>

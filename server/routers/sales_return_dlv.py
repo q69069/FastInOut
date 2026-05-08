@@ -17,6 +17,7 @@ from models.product import Product
 from models.inventory import Inventory
 from models.employee import Employee
 from schemas.common import ResponseModel, PaginatedResponse
+from schemas.sales import SalesReturnCreate, SalesReturnOut
 from utils.status import ReturnDeliveryStatus
 from utils.role_check import require_role, require_owner_or_admin
 
@@ -91,6 +92,40 @@ def list_return_deliveries(
 def _get_status_text(status: int) -> str:
     texts = {0: "草稿", 1: "已确认", 2: "仓管已确认", 3: "财务已确认"}
     return texts.get(status, "未知")
+
+
+def _gen_code(db):
+    today = datetime.now().strftime("%Y%m%d")
+    prefix = f"XT{today}"
+    last = db.query(SalesReturn).filter(SalesReturn.code.like(f"{prefix}%")).order_by(SalesReturn.id.desc()).first()
+    seq = int(last.code[-4:]) + 1 if last else 1
+    return f"{prefix}{seq:04d}"
+
+
+@router.post("/return-deliveries", response_model=ResponseModel)
+def create_return_delivery(req: SalesReturnCreate, authorization: str = Header(None), db: Session = Depends(get_db)):
+    user = get_current_user(authorization, db)
+    if not req.items:
+        raise HTTPException(400, "请添加退货明细")
+    code = _gen_code(db)
+    total = sum(item.amount or (item.quantity * item.price) for item in req.items)
+    ret = SalesReturn(
+        code=code, stockout_id=req.stockout_id, customer_id=req.customer_id,
+        warehouse_id=req.warehouse_id, total_amount=total, remark=req.remark,
+        operator_id=user.id, status=0
+    )
+    db.add(ret)
+    db.flush()
+    for item in req.items:
+        amount = item.amount or (item.quantity * item.price)
+        ri = SalesReturnItem(
+            return_id=ret.id, product_id=item.product_id,
+            quantity=item.quantity, price=item.price, amount=amount
+        )
+        db.add(ri)
+    db.commit()
+    db.refresh(ret)
+    return ResponseModel(data=SalesReturnOut.model_validate(ret))
 
 
 @router.get("/return-deliveries/{return_id}", response_model=ResponseModel)

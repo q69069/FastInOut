@@ -126,6 +126,20 @@ def delete_purchase_order(order_id: int, user: Employee = Depends(get_current_us
     return ResponseModel(message="订单已作废")
 
 
+@router.post("/purchase-orders/{order_id}/confirm", response_model=ResponseModel)
+def confirm_purchase_order(order_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
+    order = db.query(PurchaseOrder).get(order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="采购订单不存在")
+    if order.status != 0:
+        raise HTTPException(status_code=400, detail="只有草稿状态可以确认")
+    order.status = 1
+    order.confirmed_at = datetime.now()
+    db.commit()
+    db.refresh(order)
+    return ResponseModel(message="订单已确认", data=PurchaseOrderOut.model_validate(order))
+
+
 @router.post("/purchase-orders/{order_id}/stockin", response_model=ResponseModel)
 def order_to_stockin(order_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     order = db.query(PurchaseOrder).get(order_id)

@@ -46,10 +46,12 @@ class SalesOrderOut(SalesOrderBase):
     id: int
     code: str
     operator_id: Optional[int] = None
+    auditor_id: Optional[int] = None
     paid_amount: float
     status: int
     created_at: Optional[datetime] = None
     confirmed_at: Optional[datetime] = None
+    audit_time: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 

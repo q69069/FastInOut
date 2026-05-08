@@ -8,8 +8,8 @@ class VehicleLoad(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     load_no = Column(String(30), unique=True, nullable=False)
-    from_warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=False)
-    vehicle_warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=False)
+    from_warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True)
+    vehicle_warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True)
     employee_id = Column(Integer, ForeignKey("employees.id"))
     status = Column(String(20), default="draft")  # draft/pending/loaded/partial_return/returned
     remark = Column(Text)

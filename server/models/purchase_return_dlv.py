@@ -17,8 +17,8 @@ class PurchaseReturnDelivery(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     return_dlv_no = Column(String(30), unique=True, nullable=False)  # CT-20260504-001
     purchase_return_id = Column(Integer, ForeignKey("purchase_returns.id"), nullable=True)  # 关联退货订单
-    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=False)
-    warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=False)
+    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
+    warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True)
 
     total_amount = Column(Float, default=0)
     status = Column(String(20), default="pending")

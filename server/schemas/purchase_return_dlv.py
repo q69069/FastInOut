@@ -23,8 +23,8 @@ class PurchaseReturnDlvItemOut(BaseModel):
 
 class PurchaseReturnDlvCreate(BaseModel):
     purchase_return_id: Optional[int] = None
-    supplier_id: int
-    warehouse_id: int
+    supplier_id: Optional[int] = None
+    warehouse_id: Optional[int] = None
     total_amount: float = 0
     remark: Optional[str] = None
     items: List[PurchaseReturnDlvItemCreate] = []

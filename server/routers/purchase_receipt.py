@@ -55,10 +55,12 @@ def create_purchase_receipt(
 ):
     user = get_current_user(authorization, db)
 
-    # 校验采购订单存在
-    order = db.query(PurchaseOrder).get(req.purchase_order_id)
-    if not order:
-        raise HTTPException(400, "采购订单不存在")
+    # 校验采购订单存在（如果提供了purchase_order_id）
+    order = None
+    if req.purchase_order_id:
+        order = db.query(PurchaseOrder).get(req.purchase_order_id)
+        if not order:
+            raise HTTPException(400, "采购订单不存在")
 
     # 校验供应商
     supplier = db.query(Supplier).get(req.supplier_id)
@@ -77,6 +79,8 @@ def create_purchase_receipt(
         purchase_order_id=req.purchase_order_id,
         supplier_id=req.supplier_id,
         warehouse_id=req.warehouse_id,
+        purchaser_id=req.purchaser_id,
+        trade_date=req.trade_date,
         total_amount=total,
         status=PurchaseReceiptStatus.PENDING,
         received_by=user.id,
@@ -87,6 +91,8 @@ def create_purchase_receipt(
 
     # 创建明细
     for item in req.items:
+        if not item.product_id:
+            continue
         amount = item.amount or (item.quantity * item.unit_price)
         ri = PurchaseReceiptItem(
             receipt_id=receipt.id,
@@ -94,7 +100,9 @@ def create_purchase_receipt(
             order_item_id=item.order_item_id,
             quantity=item.quantity,
             unit_price=item.unit_price,
-            amount=amount
+            amount=amount,
+            remark=item.remark,
+            production_date=item.production_date
         )
         db.add(ri)
 

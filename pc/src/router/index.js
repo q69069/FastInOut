@@ -37,47 +37,10 @@ const routes = [
         meta: { title: '客户管理', moduleKey: 'customers' }
       },
       {
-        path: 'customer-prices',
-        name: 'CustomerPrices',
-        component: () => import('../views/customers/PriceLevel.vue'),
-        meta: { title: '客户价格等级', moduleKey: 'customers' }
-      },
-      {
-        path: 'customers/crm',
-        name: 'Crm',
-        component: () => import('../views/customers/Crm.vue'),
-        meta: { title: '客户关系管理', moduleKey: 'customers' }
-      },
-      {
         path: 'suppliers',
         name: 'Suppliers',
         component: () => import('../views/suppliers/Index.vue'),
         meta: { title: '供应商管理', moduleKey: 'suppliers' }
-      },
-      {
-        path: 'supplier-reconciliation',
-        name: 'SupplierReconciliation',
-        component: () => import('../views/suppliers/Reconciliation.vue'),
-        meta: { title: '供应商对账', moduleKey: 'suppliers' }
-      },
-      // 采购
-      {
-        path: 'purchases',
-        name: 'Purchases',
-        component: () => import('../views/purchases/Index.vue'),
-        meta: { title: '采购订单', moduleKey: 'purchases' }
-      },
-      {
-        path: 'purchase-returns',
-        name: 'PurchaseReturns',
-        component: () => import('../views/purchases/Returns.vue'),
-        meta: { title: '采购退货', moduleKey: 'purchases' }
-      },
-      {
-        path: 'purchase-return-deliveries',
-        name: 'PurchaseReturnDeliveries',
-        component: () => import('../views/purchase_return_dlv/Index.vue'),
-        meta: { title: '采购退货出库单', moduleKey: 'purchases' }
       },
       {
         path: 'brands',
@@ -97,36 +60,61 @@ const routes = [
         component: () => import('../views/customer_levels/Index.vue'),
         meta: { title: '客户等级', moduleKey: 'customers' }
       },
+      {
+        path: 'units',
+        name: 'Units',
+        component: () => import('../views/units/Index.vue'),
+        meta: { title: '单位管理', moduleKey: 'products' }
+      },
+      {
+        path: 'warehouses',
+        name: 'Warehouses',
+        component: () => import('../views/warehouses/Index.vue'),
+        meta: { title: '仓库管理', moduleKey: 'warehouses' }
+      },
+      {
+        path: 'batches',
+        name: 'Batches',
+        component: () => import('../views/batches/Index.vue'),
+        meta: { title: '批次管理', moduleKey: 'batches' }
+      },
+      // 采购
+      {
+        path: 'purchases/all',
+        name: 'PurchasesAll',
+        component: () => import('../views/purchases/All.vue'),
+        meta: { title: '采购单据', moduleKey: 'purchases' }
+      },
+      {
+        path: 'purchases',
+        name: 'Purchases',
+        component: () => import('../views/purchases/Index.vue'),
+        meta: { title: '采购订单', moduleKey: 'purchases' }
+      },
+      {
+        path: 'purchase-receipts',
+        name: 'PurchaseReceipts',
+        component: () => import('../views/purchase_receipt/Index.vue'),
+        meta: { title: '采购单', moduleKey: 'purchases' }
+      },
+      {
+        path: 'purchase-returns',
+        name: 'PurchaseReturns',
+        component: () => import('../views/purchases/Returns.vue'),
+        meta: { title: '采购退货订单', moduleKey: 'purchases' }
+      },
+      {
+        path: 'purchase-return-deliveries',
+        name: 'PurchaseReturnDeliveries',
+        component: () => import('../views/purchase_return_dlv/Index.vue'),
+        meta: { title: '采购退货', moduleKey: 'purchases' }
+      },
       // 销售
       {
-        path: 'sales-documents',
-        name: 'SalesDocuments',
-        component: () => import('../views/sales/Documents.vue'),
+        path: 'sales/all',
+        name: 'SalesAll',
+        component: () => import('../views/sales/All.vue'),
         meta: { title: '销售单据', moduleKey: 'sales' }
-      },
-      {
-        path: 'sales/order/create',
-        name: 'SalesOrderCreate',
-        component: () => import('../views/sales/OrderCreate.vue'),
-        meta: { title: '销售订单-开单', moduleKey: 'sales' }
-      },
-      {
-        path: 'sales/return-order/create',
-        name: 'SalesReturnOrderCreate',
-        component: () => import('../views/sales/ReturnOrderCreate.vue'),
-        meta: { title: '退货订单-开单', moduleKey: 'sales' }
-      },
-      {
-        path: 'sales-delivery/create',
-        name: 'SalesDeliveryCreate',
-        component: () => import('../views/sales_delivery/Create.vue'),
-        meta: { title: '销售单-开单', moduleKey: 'sales' }
-      },
-      {
-        path: 'return-delivery/create',
-        name: 'ReturnDeliveryCreate',
-        component: () => import('../views/sales_return_dlv/Create.vue'),
-        meta: { title: '退货单-开单', moduleKey: 'sales' }
       },
       {
         path: 'sales',
@@ -141,12 +129,30 @@ const routes = [
         meta: { title: '退货订单', moduleKey: 'sales' }
       },
       {
+        path: 'sales-deliveries',
+        name: 'SalesDeliveries',
+        component: () => import('../views/sales_delivery/Index.vue'),
+        meta: { title: '销售单', moduleKey: 'sales' }
+      },
+      {
+        path: 'return-deliveries',
+        name: 'ReturnDeliveries',
+        component: () => import('../views/sales_return_dlv/Index.vue'),
+        meta: { title: '退货单', moduleKey: 'sales' }
+      },
+      {
         path: 'salesmen',
         name: 'Salesmen',
         component: () => import('../views/salesmen/Index.vue'),
         meta: { title: '业务员管理', moduleKey: 'sales' }
       },
       // 库存
+      {
+        path: 'inventory/all',
+        name: 'InventoryAll',
+        component: () => import('../views/inventory/All.vue'),
+        meta: { title: '库存单据', moduleKey: 'inventory' }
+      },
       {
         path: 'inventory',
         name: 'Inventory',
@@ -160,23 +166,35 @@ const routes = [
         meta: { title: '库存调拨', moduleKey: 'inventory' }
       },
       {
-        path: 'warehouses',
-        name: 'Warehouses',
-        component: () => import('../views/warehouses/Index.vue'),
-        meta: { title: '仓库管理', moduleKey: 'warehouses' }
+        path: 'stocktaking',
+        name: 'Stocktaking',
+        component: () => import('../views/stocktaking/Index.vue'),
+        meta: { title: '盘点管理', moduleKey: 'inventory' }
       },
       {
-        path: 'batches',
-        name: 'Batches',
-        component: () => import('../views/batches/Index.vue'),
-        meta: { title: '批次管理', moduleKey: 'batches' }
+        path: 'vehicle-loads',
+        name: 'VehicleLoads',
+        component: () => import('../views/vehicle_load/Index.vue'),
+        meta: { title: '装车调度', moduleKey: 'inventory' }
+      },
+      {
+        path: 'damage-reports',
+        name: 'DamageReports',
+        component: () => import('../views/damage_report/Index.vue'),
+        meta: { title: '报损单', moduleKey: 'inventory' }
       },
       // 财务
+      {
+        path: 'finance/all',
+        name: 'FinanceAll',
+        component: () => import('../views/finance/All.vue'),
+        meta: { title: '财务单据', moduleKey: 'finance' }
+      },
       {
         path: 'finance',
         name: 'Finance',
         component: () => import('../views/finance/Index.vue'),
-        meta: { title: '财务管理', moduleKey: 'finance' }
+        meta: { title: '收支管理', moduleKey: 'finance' }
       },
       {
         path: 'bank-reconciliation',
@@ -215,6 +233,18 @@ const routes = [
         component: () => import('../views/reports/Trend.vue'),
         meta: { title: '趋势图', moduleKey: 'reports' }
       },
+      {
+        path: 'reports/sales-detail',
+        name: 'SalesDetailReport',
+        component: () => import('../views/reports/SalesDetail.vue'),
+        meta: { title: '销售明细报表', moduleKey: 'reports' }
+      },
+      {
+        path: 'reports/commission',
+        name: 'CommissionReport',
+        component: () => import('../views/reports/Commission.vue'),
+        meta: { title: '提成报表', moduleKey: 'reports' }
+      },
       // 促销
       {
         path: 'promotions',
@@ -222,18 +252,31 @@ const routes = [
         component: () => import('../views/promotions/Index.vue'),
         meta: { title: '促销方案', moduleKey: 'promotions' }
       },
-      // 系统
+      // 交账
       {
-        path: 'units',
-        name: 'Units',
-        component: () => import('../views/units/Index.vue'),
-        meta: { title: '单位管理', moduleKey: 'products' }
+        path: 'settlements/all',
+        name: 'SettlementsAll',
+        component: () => import('../views/settlement/All.vue'),
+        meta: { title: '交账单据', moduleKey: 'sales' }
       },
+      {
+        path: 'settlements',
+        name: 'Settlements',
+        component: () => import('../views/settlement/Index.vue'),
+        meta: { title: '交账管理', moduleKey: 'sales' }
+      },
+      {
+        path: 'monitor',
+        name: 'Monitor',
+        component: () => import('../views/monitor/Index.vue'),
+        meta: { title: '异常监控', moduleKey: 'sales' }
+      },
+      // 系统
       {
         path: 'system/roles',
         name: 'Roles',
         component: () => import('../views/system/Roles.vue'),
-        meta: { title: '角色管理', moduleKey: 'roles' }
+        meta: { title: '角色权限', moduleKey: 'roles' }
       },
       {
         path: 'system/backup',
@@ -259,37 +302,6 @@ const routes = [
         component: () => import('../views/system/Logs.vue'),
         meta: { title: '操作日志', moduleKey: 'system' }
       },
-      // Phase A v3.0
-      {
-        path: 'sales-deliveries',
-        name: 'SalesDeliveries',
-        component: () => import('../views/sales_delivery/Index.vue'),
-        meta: { title: '销售单管理', moduleKey: 'sales' }
-      },
-      {
-        path: 'purchase-receipts',
-        name: 'PurchaseReceipts',
-        component: () => import('../views/purchase_receipt/Index.vue'),
-        meta: { title: '采购入库单', moduleKey: 'purchases' }
-      },
-      {
-        path: 'expenses',
-        name: 'Expenses',
-        component: () => import('../views/expense/Index.vue'),
-        meta: { title: '费用管理', moduleKey: 'finance' }
-      },
-      {
-        path: 'stocktaking',
-        name: 'Stocktaking',
-        component: () => import('../views/stocktaking/Index.vue'),
-        meta: { title: '盘点管理', moduleKey: 'inventory' }
-      },
-      {
-        path: 'return-deliveries',
-        name: 'ReturnDeliveries',
-        component: () => import('../views/sales_return_dlv/Index.vue'),
-        meta: { title: '退货单管理', moduleKey: 'sales' }
-      },
       {
         path: 'audit-logs',
         name: 'AuditLogs',
@@ -302,48 +314,17 @@ const routes = [
         component: () => import('../views/account_ledger/Index.vue'),
         meta: { title: '往来账', moduleKey: 'finance' }
       },
-      // Phase B+C+D v3.0
       {
-        path: 'vehicle-loads',
-        name: 'VehicleLoads',
-        component: () => import('../views/vehicle_load/Index.vue'),
-        meta: { title: '装车单管理', moduleKey: 'inventory' }
-      },
-      {
-        path: 'settlements',
-        name: 'Settlements',
-        component: () => import('../views/settlement/Index.vue'),
-        meta: { title: '交账管理', moduleKey: 'sales' }
+        path: 'expenses',
+        name: 'Expenses',
+        component: () => import('../views/expense/Index.vue'),
+        meta: { title: '费用管理', moduleKey: 'finance' }
       },
       {
         path: 'advance-payments',
         name: 'AdvancePayments',
         component: () => import('../views/advance_payment/Index.vue'),
         meta: { title: '预收付款', moduleKey: 'finance' }
-      },
-      {
-        path: 'damage-reports',
-        name: 'DamageReports',
-        component: () => import('../views/damage_report/Index.vue'),
-        meta: { title: '报损单', moduleKey: 'inventory' }
-      },
-      {
-        path: 'reports/sales-detail',
-        name: 'SalesDetailReport',
-        component: () => import('../views/reports/SalesDetail.vue'),
-        meta: { title: '销售明细报表', moduleKey: 'reports' }
-      },
-      {
-        path: 'reports/commission',
-        name: 'CommissionReport',
-        component: () => import('../views/reports/Commission.vue'),
-        meta: { title: '提成报表', moduleKey: 'reports' }
-      },
-      {
-        path: 'monitor',
-        name: 'Monitor',
-        component: () => import('../views/monitor/Index.vue'),
-        meta: { title: '异常监控', moduleKey: 'sales' }
       },
       {
         path: 'reconciliations',

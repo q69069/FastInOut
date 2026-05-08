@@ -69,7 +69,7 @@ def create_damage_report(data: dict, authorization: str = Header(None), db: Sess
     if not data.get("items"):
         raise HTTPException(400, "请添加报损明细")
     dr = DamageReport(
-        code=_gen_code(db), warehouse_id=data["warehouse_id"],
+        code=_gen_code(db), warehouse_id=data.get("warehouse_id"),
         report_type=data.get("report_type", "general"),
         status="pending", remark=data.get("remark"), created_by=user.id
     )

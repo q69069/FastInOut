@@ -4,11 +4,13 @@ from datetime import datetime
 
 
 class PurchaseReceiptItemCreate(BaseModel):
-    product_id: int
+    product_id: Optional[int] = None
     order_item_id: Optional[int] = None
     quantity: float = Field(gt=0, description="数量必须大于0")
     unit_price: float = Field(ge=0, description="单价不能为负")
     amount: float = 0
+    remark: Optional[str] = None
+    production_date: Optional[str] = None
 
 
 class PurchaseReceiptItemOut(BaseModel):
@@ -24,9 +26,11 @@ class PurchaseReceiptItemOut(BaseModel):
 
 
 class PurchaseReceiptCreate(BaseModel):
-    purchase_order_id: int
+    purchase_order_id: Optional[int] = None
     supplier_id: int
     warehouse_id: int
+    purchaser_id: Optional[int] = None
+    trade_date: Optional[str] = None
     total_amount: float = 0
     remark: Optional[str] = None
     items: List[PurchaseReceiptItemCreate] = []

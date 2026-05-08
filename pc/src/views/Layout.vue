@@ -125,44 +125,42 @@ const mainModules = [
   { key: 'archives', label: '档案', icon: 'Folder', subs: [
     { path: '/products', label: '商品管理', module: 'products' },
     { path: '/customers', label: '客户管理', module: 'customers' },
-    { path: '/customer-prices', label: '客户价格等级', module: 'customers' },
     { path: '/suppliers', label: '供应商管理', module: 'suppliers' },
-    { path: '/supplier-reconciliation', label: '供应商对账', module: 'suppliers' },
-    { path: '/customers/crm', label: '客户关系管理', module: 'customers' },
-    { path: '/units', label: '单位管理', module: 'products' },
     { path: '/brands', label: '品牌管理', module: 'products' },
     { path: '/channels', label: '渠道管理', module: 'customers' },
     { path: '/customer-levels', label: '客户等级', module: 'customers' },
+    { path: '/units', label: '单位管理', module: 'products' },
+    { path: '/warehouses', label: '仓库管理', module: 'warehouses' },
   ]},
+  // 采购
   { key: 'purchase', label: '采购', icon: 'ShoppingCart', subs: [
+    { path: '/purchases/all', label: '查看采购单据', module: 'purchases' },
     { path: '/purchases', label: '采购订单', module: 'purchases' },
-    { path: '/purchase-receipts', label: '采购入库单', module: 'purchases' },
-    { path: '/purchase-returns', label: '采购退货', module: 'purchases' },
-    { path: '/purchase-return-deliveries', label: '采购退货出库单', module: 'purchases' },
+    { path: '/purchase-receipts', label: '采购单', module: 'purchases' },
+    { path: '/purchase-returns', label: '采购退货订单', module: 'purchases' },
+    { path: '/purchase-return-deliveries', label: '采购退货', module: 'purchases' },
   ]},
-  { key: 'sale', label: '销售', icon: 'Sell', subs: [
+  // 销售
+  { key: 'sales', label: '销售', icon: 'Sell', subs: [
+    { path: '/sales/all', label: '查看销售单', module: 'sales' },
     { path: '/sales', label: '销售订单', module: 'sales' },
-    { path: '/sales-returns', label: '退货订单', module: 'sales' },
     { path: '/sales-deliveries', label: '销售单', module: 'sales' },
+    { path: '/sales-returns', label: '退货订单', module: 'sales' },
     { path: '/return-deliveries', label: '退货单', module: 'sales' },
-    { path: '/sales-documents', label: '查看销售单据', module: 'sales' },
-    { path: '/settlements', label: '交账管理', module: 'sales' },
-    { path: '/monitor', label: '异常监控', module: 'sales' },
     { path: '/salesmen', label: '业务员管理', module: 'sales' },
   ]},
-  { key: 'promotions', label: '促销', icon: 'PriceTag', subs: [
-    { path: '/promotions', label: '促销方案', module: 'promotions' },
-  ]},
+  // 仓库
   { key: 'warehouse', label: '仓库', icon: 'Box', subs: [
+    { path: '/inventory/all', label: '查看库存单据', module: 'inventory' },
     { path: '/inventory', label: '库存查询', module: 'inventory' },
     { path: '/transfers', label: '库存调拨', module: 'inventory' },
     { path: '/stocktaking', label: '盘点管理', module: 'inventory' },
-    { path: '/vehicle-loads', label: '装车单管理', module: 'inventory' },
+    { path: '/vehicle-loads', label: '装车调度', module: 'inventory' },
     { path: '/damage-reports', label: '报损单', module: 'inventory' },
-    { path: '/warehouses', label: '仓库管理', module: 'warehouses' },
-    { path: '/batches', label: '批次管理', module: 'batches' },
   ]},
+  // 财务
   { key: 'finance', label: '财务', icon: 'Money', subs: [
+    { path: '/finance/all', label: '查看财务单据', module: 'finance' },
     { path: '/finance', label: '收支管理', module: 'finance' },
     { path: '/expenses', label: '费用管理', module: 'finance' },
     { path: '/account-ledger', label: '往来账', module: 'finance' },
@@ -171,6 +169,13 @@ const mainModules = [
     { path: '/bank-reconciliation', label: '银行对账', module: 'finance' },
     { path: '/invoices', label: '发票管理', module: 'finance' },
   ]},
+  // 交账
+  { key: 'settlement', label: '交账', icon: 'Tickets', subs: [
+    { path: '/settlements/all', label: '查看交账单据', module: 'sales' },
+    { path: '/settlements', label: '交账管理', module: 'sales' },
+    { path: '/monitor', label: '异常监控', module: 'sales' },
+  ]},
+  // 报表
   { key: 'reports', label: '报表', icon: 'Document', subs: [
     { path: '/reports/profit', label: '利润统计', module: 'reports' },
     { path: '/reports/inventory', label: '库存汇总', module: 'reports' },
@@ -179,8 +184,9 @@ const mainModules = [
     { path: '/reports/sales-detail', label: '销售明细报表', module: 'reports' },
     { path: '/reports/commission', label: '提成报表', module: 'reports' },
   ]},
+  // 系统
   { key: 'system', label: '系统', icon: 'Setting', subs: [
-    { path: '/system/roles', label: '角色管理', module: 'roles' },
+    { path: '/system/roles', label: '角色权限', module: 'roles' },
     { path: '/system/backup', label: '数据备份', module: 'system' },
     { path: '/system/print-templates', label: '打印模板', module: 'system' },
     { path: '/system/data-import', label: '数据导入', module: 'system' },
@@ -196,9 +202,12 @@ const visibleMainModules = computed(() => mainModules.filter(m => {
   if (m.key === 'archives') return hasMod('products') || hasMod('customers')
   if (m.key === 'warehouse') return hasMod('inventory') || hasMod('warehouses')
   if (m.key === 'system') return hasMod('roles') || hasMod('system')
-  if (m.key === 'sale') return hasMod('sales') || hasMod('sale')
-  if (m.key === 'purchase') return hasMod('purchases') || hasMod('purchase')
-  if (m.key === 'promotions') return hasMod('promotion') || hasMod('promotions')
+  if (m.key === 'sales') return hasMod('sales')
+  if (m.key === 'purchase') return hasMod('purchases')
+  if (m.key === 'settlement') return hasMod('sales')
+  if (m.key === 'promotions') return hasMod('promotions')
+  if (m.key === 'finance') return hasMod('finance')
+  if (m.key === 'reports') return hasMod('reports')
   return hasMod(m.key)
 }))
 

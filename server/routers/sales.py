@@ -165,6 +165,22 @@ def delete_sales_order(order_id: int, db: Session = Depends(get_db)):
     return ResponseModel(message="订单已作废")
 
 
+@router.post("/sales-orders/{order_id}/audit", response_model=ResponseModel)
+def audit_sales_order(order_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
+    order = db.query(SalesOrder).get(order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="销售订单不存在")
+    if order.status != 0:
+        raise HTTPException(status_code=400, detail="只有草稿状态可以确认")
+    order.status = 1
+    order.confirmed_at = datetime.now()
+    order.auditor_id = user.id
+    order.audit_time = datetime.now()
+    db.commit()
+    db.refresh(order)
+    return ResponseModel(message="订单已确认", data=SalesOrderOut.model_validate(order))
+
+
 @router.post("/sales-orders/{order_id}/stockout", response_model=ResponseModel)
 def order_to_stockout(order_id: int, db: Session = Depends(get_db)):
     order = db.query(SalesOrder).get(order_id)

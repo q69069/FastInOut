@@ -1,20 +1,30 @@
 <template>
-  <div>
-    <el-card>
-      <template #header>
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span>异常交易监控</span>
+  <div class="order-page">
+    <el-card class="header-card">
+      <div class="page-header">
+        <div class="page-title">
+          <span class="title-text">异常监控</span>
+        </div>
+        <div class="header-info">
+          <span class="info-item">{{ now }}</span>
+        </div>
+        <div class="header-actions">
           <el-button type="primary" @click="loadData">刷新</el-button>
         </div>
-      </template>
-      <el-form inline style="margin-bottom:16px">
+      </div>
+    </el-card>
+
+    <el-card class="form-card">
+      <el-form inline style="margin-bottom:12px">
         <el-form-item label="检测天数">
           <el-input-number v-model="params.days" :min="1" :max="90" style="width:120px" />
         </el-form-item>
         <el-form-item label="偏差阈值">
           <el-input-number v-model="params.threshold" :min="0.1" :max="1" :step="0.05" :precision="2" style="width:120px" />
         </el-form-item>
-        <el-form-item><el-button type="primary" @click="loadData">检测</el-button></el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="loadData">检测</el-button>
+        </el-form-item>
       </el-form>
 
       <el-alert :title="`发现 ${anomalies.length} 条异常`" :type="anomalies.length ? 'warning' : 'success'" show-icon style="margin-bottom:16px" />
@@ -22,7 +32,7 @@
       <el-table :data="anomalies" border stripe>
         <el-table-column label="严重度" width="80" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.severity==='high'?'danger':'warning'" size="small">{{ row.severity==='high'?'高':'中' }}</el-tag>
+            <el-tag :type="row.severity === 'high' ? 'danger' : 'warning'" size="small">{{ row.severity === 'high' ? '高' : '中' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="type" label="类型" width="120">
@@ -42,6 +52,7 @@
 import { ref, onMounted } from 'vue'
 import { getAnomalies } from '../../api'
 
+const now = new Date().toLocaleString('zh-CN')
 const params = ref({ days: 7, threshold: 0.3 })
 const anomalies = ref([])
 
@@ -59,3 +70,13 @@ const loadData = async () => {
 
 onMounted(() => { loadData() })
 </script>
+
+<style scoped>
+.order-page { padding: 16px; background: #f5f5f5; min-height: 100vh }
+.page-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px }
+.page-title { display: flex; align-items: center; gap: 12px }
+.title-text { font-size: 18px; font-weight: 600; color: #303133 }
+.header-info { display: flex; gap: 24px; color: #909399; font-size: 13px }
+.header-actions { display: flex; gap: 8px }
+.form-card { margin-top: 12px }
+</style>
