@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from datetime import date, timedelta
 from database import get_db
+from deps import require_inventory_module
 from models.batch import ProductBatch
 from models.product import Product
 from models.warehouse import Warehouse
@@ -20,7 +21,8 @@ def list_batches(
     warehouse_id: int = Query(None),
     status: str = Query(None),
     keyword: str = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _=Depends(require_inventory_module)
 ):
     q = db.query(ProductBatch)
     if product_id:
@@ -51,7 +53,7 @@ def list_batches(
 
 
 @router.post("", response_model=ResponseModel)
-def create_batch(req: BatchCreate, db: Session = Depends(get_db)):
+def create_batch(req: BatchCreate, db: Session = Depends(get_db), _=Depends(require_inventory_module)):
     product = db.query(Product).get(req.product_id)
     if not product:
         raise HTTPException(status_code=404, detail="商品不存在")
@@ -67,7 +69,7 @@ def create_batch(req: BatchCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{batch_id}", response_model=ResponseModel)
-def update_batch(batch_id: int, req: BatchUpdate, db: Session = Depends(get_db)):
+def update_batch(batch_id: int, req: BatchUpdate, db: Session = Depends(get_db), _=Depends(require_inventory_module)):
     batch = db.query(ProductBatch).get(batch_id)
     if not batch:
         raise HTTPException(status_code=404, detail="批次不存在")
@@ -79,7 +81,7 @@ def update_batch(batch_id: int, req: BatchUpdate, db: Session = Depends(get_db))
 
 
 @router.get("/expiring", response_model=ResponseModel)
-def get_expiring_batches(days: int = Query(30, ge=1), db: Session = Depends(get_db)):
+def get_expiring_batches(days: int = Query(30, ge=1), db: Session = Depends(get_db), _=Depends(require_inventory_module)):
     """获取即将过期的批次（默认30天内）"""
     cutoff = date.today() + timedelta(days=days)
     batches = db.query(ProductBatch).filter(
@@ -108,7 +110,8 @@ def get_fifo_batches(
     product_id: int,
     warehouse_id: int = Query(None),
     quantity: float = Query(..., gt=0),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _=Depends(require_inventory_module)
 ):
     """FIFO先进先出：获取扣减批次列表"""
     q = db.query(ProductBatch).filter(
@@ -150,7 +153,8 @@ def deduct_batch_stock(
     product_id: int = Query(...),
     warehouse_id: int = Query(None),
     quantity: float = Query(..., gt=0),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _=Depends(require_inventory_module)
 ):
     """FIFO扣减批次库存"""
     q = db.query(ProductBatch).filter(

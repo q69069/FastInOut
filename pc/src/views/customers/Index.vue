@@ -41,7 +41,7 @@
     <el-dialog v-model="dialogVisible" :title="form.id ? '编辑客户' : '新增客户'" width="600px">
       <el-form :model="form" label-width="80px">
         <el-form-item label="编码" required>
-          <el-input v-model="form.code" />
+          <el-input v-model="form.code" @input="_codeEdited = true" />
         </el-form-item>
         <el-form-item label="名称" required>
           <el-input v-model="form.name" />
@@ -72,8 +72,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { pinyin } from 'pinyin-pro'
 import { getCustomers, createCustomer, updateCustomer, deleteCustomer } from '../../api'
 
 const list = ref([])
@@ -81,6 +82,13 @@ const total = ref(0)
 const query = ref({ page: 1, page_size: 20, keyword: '' })
 const dialogVisible = ref(false)
 const form = ref({})
+const _codeEdited = ref(false)
+
+watch(() => form.value.name, (name) => {
+  if (!form.value.id && !_codeEdited.value && name) {
+    form.value.code = pinyin(name, { pattern: 'first', toneType: 'none' }).replace(/\s/g, '')
+  }
+})
 
 const loadData = async () => {
   const res = await getCustomers(query.value)
@@ -89,6 +97,7 @@ const loadData = async () => {
 }
 
 const showDialog = (row) => {
+  _codeEdited.value = false
   form.value = row ? { ...row } : { code: '', name: '', contact: '', phone: '', address: '', level: '普通' }
   dialogVisible.value = true
 }

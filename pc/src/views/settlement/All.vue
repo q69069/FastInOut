@@ -47,7 +47,7 @@
         <el-table-column prop="no" label="单据号" width="160">
           <template #default="{ row }">{{ row.no || row.settlement_no }}</template>
         </el-table-column>
-        <el-table-column prop="created_at" label="时间" width="150" />
+        <el-table-column prop="created_at" label="时间" width="150" :formatter="fmtDate" />
         <el-table-column prop="employee_name" label="业务员" />
         <el-table-column prop="total_amount" label="金额" width="110" align="right">
           <template #default="{ row }">¥{{ Number(row.total_sales || row.total_amount || 0).toFixed(2) }}</template>
@@ -79,7 +79,7 @@
         <el-descriptions-item label="状态">
           <el-tag :type="statusMap[detail.status]?.type">{{ statusMap[detail.status]?.label }}</el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ detail.created_at }}</el-descriptions-item>
+        <el-descriptions-item label="创建时间">{{ fmtDateVal(detail.created_at) }}</el-descriptions-item>
         <el-descriptions-item label="备注" :span="2">{{ detail.remark || '-' }}</el-descriptions-item>
       </el-descriptions>
     </el-dialog>
@@ -113,7 +113,7 @@ const statusMap = {
 }
 
 const typeTagMap = {
-  settlement: { label: '交账记录', type: '' },
+  settlement: { label: '交账记录', type: 'primary' },
   monitor: { label: '异常监控', type: 'warning' },
 }
 
@@ -131,6 +131,8 @@ const buildParams = () => {
   return p
 }
 
+const fmtDate = (_r, _c, v) => v ? String(v).replace('T', ' ').slice(0, 16) : ''
+const fmtDateVal = (v) => v ? String(v).replace('T', ' ').slice(0, 16) : ''
 const loadData = async () => {
   list.value = []
   total.value = 0
@@ -148,7 +150,7 @@ const loadSettlements = async () => {
     items.forEach(i => { i._type = 'settlement'; i.no = i.settlement_no })
     list.value.push(...items)
     total.value += res.total || 0
-  } catch {}
+  } catch (e) { console.error('操作失败:', e) }
 }
 
 const getSummary = ({ columns, data }) => {

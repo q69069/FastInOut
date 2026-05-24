@@ -2,6 +2,7 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from database import get_db
+from deps import require_customers_module
 from models.customer_price import CustomerPrice
 from models.customer import Customer
 from models.product import Product
@@ -15,7 +16,8 @@ router = APIRouter(prefix="/api/customer-prices", tags=["客户价格等级"])
 def query_customer_price(
     customer_id: int = Query(...),
     product_id: int = Query(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _=Depends(require_customers_module)
 ):
     """查询客户对某商品的专属价格"""
     cp = db.query(CustomerPrice).filter(
@@ -33,7 +35,8 @@ def list_customer_prices(
     page_size: int = Query(20, ge=1, le=100),
     customer_id: int = Query(None),
     product_id: int = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _=Depends(require_customers_module)
 ):
     """客户价格列表"""
     q = db.query(CustomerPrice)
@@ -61,7 +64,7 @@ def list_customer_prices(
 
 
 @router.post("", response_model=ResponseModel)
-def create_customer_price(req: CustomerPriceCreate, db: Session = Depends(get_db)):
+def create_customer_price(req: CustomerPriceCreate, db: Session = Depends(get_db), _=Depends(require_customers_module)):
     """新增客户价格协议"""
     # 校验客户存在
     customer = db.query(Customer).get(req.customer_id)
@@ -91,7 +94,7 @@ def create_customer_price(req: CustomerPriceCreate, db: Session = Depends(get_db
 
 
 @router.put("/{price_id}", response_model=ResponseModel)
-def update_customer_price(price_id: int, req: CustomerPriceUpdate, db: Session = Depends(get_db)):
+def update_customer_price(price_id: int, req: CustomerPriceUpdate, db: Session = Depends(get_db), _=Depends(require_customers_module)):
     """更新客户价格协议"""
     cp = db.query(CustomerPrice).get(price_id)
     if not cp:
@@ -135,7 +138,7 @@ def update_customer_price(price_id: int, req: CustomerPriceUpdate, db: Session =
 
 
 @router.delete("/{price_id}", response_model=ResponseModel)
-def delete_customer_price(price_id: int, db: Session = Depends(get_db)):
+def delete_customer_price(price_id: int, db: Session = Depends(get_db), _=Depends(require_customers_module)):
     """删除客户价格协议"""
     cp = db.query(CustomerPrice).get(price_id)
     if not cp:
@@ -149,7 +152,8 @@ def delete_customer_price(price_id: int, db: Session = Depends(get_db)):
 def smart_price_query(
     customer_id: int = Query(...),
     product_id: int = Query(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _=Depends(require_customers_module)
 ):
     """智能查价：专属价 > 等级价 > 零售价"""
     customer = db.query(Customer).get(customer_id)
@@ -190,7 +194,8 @@ def smart_price_query(
 @router.get("/batch-query", response_model=ResponseModel)
 def batch_price_query(
     customer_id: int = Query(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _=Depends(require_customers_module)
 ):
     """批量查价：查询客户对所有商品的价格"""
     customer = db.query(Customer).get(customer_id)

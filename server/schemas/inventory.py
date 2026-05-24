@@ -27,6 +27,9 @@ class InventoryCheckItemCreate(BaseModel):
     product_id: int
     system_qty: float
     actual_qty: float
+    unit_id: Optional[int] = None
+    unit_quantity: Optional[float] = 1.0
+    unit_conv_rate: Optional[float] = 1.0
 
 
 class InventoryCheckOut(InventoryCheckBase):
@@ -53,6 +56,9 @@ class InventoryTransferCreate(InventoryTransferBase):
 class InventoryTransferItemCreate(BaseModel):
     product_id: int
     quantity: float
+    unit_id: Optional[int] = None
+    unit_quantity: Optional[float] = 1.0
+    unit_conv_rate: Optional[float] = 1.0
 
 
 class InventoryTransferOut(InventoryTransferBase):

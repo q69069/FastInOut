@@ -126,6 +126,7 @@ export const useAuthStore = defineStore('auth', () => {
     operations.value = []
     localStorage.removeItem('token')
     localStorage.removeItem('currentRoleId')
+    localStorage.removeItem('fi_tabs')
   }
 
   return {

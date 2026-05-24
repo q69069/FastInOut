@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, func
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, Float, ForeignKey, DateTime, func
 from database import Base
 
 
@@ -11,7 +12,7 @@ class Unit(Base):
     symbol = Column(String(20))  # 单位符号，如 kg、瓶
     description = Column(String(200))  # 描述
     status = Column(Integer, default=1)  # 1=启用 0=禁用
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
 
 
 class UnitConversion(Base):
@@ -24,4 +25,4 @@ class UnitConversion(Base):
     to_unit_id = Column(Integer, ForeignKey("units.id"), nullable=False)  # 目标单位（小单位）
     ratio = Column(Float, nullable=False)  # 换算比例：1个from = ratio个to
     level = Column(Integer, default=1)  # 层级：1=第一层（件→中包），2=第二层（中包→支）
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)

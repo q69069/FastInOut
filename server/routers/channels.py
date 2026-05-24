@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
 from models.channel import Channel
+from models.employee import Employee
 from schemas.channel import ChannelCreate, ChannelUpdate, ChannelOut
 from schemas.common import ResponseModel, PaginatedResponse
+from deps import get_current_user
+
 
 router = APIRouter(prefix="/api/channels", tags=["渠道管理"])
 
@@ -14,6 +17,7 @@ def list_channels(
     page_size: int = Query(20, ge=1, le=100),
     keyword: str = Query(None),
     status: int = Query(None),
+    user: Employee = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     q = db.query(Channel)
@@ -27,7 +31,7 @@ def list_channels(
 
 
 @router.post("", response_model=ResponseModel)
-def create_channel(req: ChannelCreate, db: Session = Depends(get_db)):
+def create_channel(req: ChannelCreate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     channel = Channel(**req.model_dump())
     db.add(channel)
     db.commit()
@@ -36,7 +40,7 @@ def create_channel(req: ChannelCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{channel_id}", response_model=ResponseModel)
-def get_channel(channel_id: int, db: Session = Depends(get_db)):
+def get_channel(channel_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     channel = db.query(Channel).get(channel_id)
     if not channel:
         from fastapi import HTTPException
@@ -45,7 +49,7 @@ def get_channel(channel_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{channel_id}", response_model=ResponseModel)
-def update_channel(channel_id: int, req: ChannelUpdate, db: Session = Depends(get_db)):
+def update_channel(channel_id: int, req: ChannelUpdate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     channel = db.query(Channel).get(channel_id)
     if not channel:
         from fastapi import HTTPException
@@ -58,7 +62,7 @@ def update_channel(channel_id: int, req: ChannelUpdate, db: Session = Depends(ge
 
 
 @router.delete("/{channel_id}", response_model=ResponseModel)
-def delete_channel(channel_id: int, db: Session = Depends(get_db)):
+def delete_channel(channel_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     channel = db.query(Channel).get(channel_id)
     if not channel:
         from fastapi import HTTPException

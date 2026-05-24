@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, Text, DateTime
 from sqlalchemy.sql import func
 from database import Base
 
@@ -16,4 +17,4 @@ class HttpAuditLog(Base):
     new_value = Column(Text)
     ip_address = Column(String(45))
     user_agent = Column(String(200))
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)

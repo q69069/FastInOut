@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, func
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, Float, DateTime, func
 from database import Base
 
 
@@ -15,4 +16,4 @@ class Promotion(Base):
     end_date = Column(DateTime)  # 结束时间
     status = Column(Integer, default=1)  # 1=启用 0=禁用
     remark = Column(String(500))
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)

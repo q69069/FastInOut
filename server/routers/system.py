@@ -1,17 +1,19 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, Header
 from sqlalchemy.orm import Session
 from database import get_db
-from models.system import OperationLog, Message, BackupRecord
+from models.operation_log import OperationLog
+from models.system import Message, BackupRecord
 from models.employee import Employee
 from schemas.system import OperationLogOut, MessageCreate, MessageOut, BackupRecordOut
 from schemas.common import ResponseModel, PaginatedResponse
 from utils.auth import hash_password
+from deps import get_current_user
 from datetime import datetime
 import os
+import secrets
 
 router = APIRouter(prefix="/api/system", tags=["系统"])
 
-# M6: 初始化接口保护 token（从环境变量读取）
 SETUP_TOKEN = os.environ.get("SETUP_TOKEN", "")
 
 
@@ -23,17 +25,25 @@ def check_init(db: Session = Depends(get_db)):
 
 @router.post("/init", response_model=ResponseModel)
 def init_system(db: Session = Depends(get_db), authorization: str = Header(None)):
-    # M6: 如果设置了 SETUP_TOKEN，则要求请求头中携带该 token
-    if SETUP_TOKEN:
+    # S-07: SETUP_TOKEN 必须设置，否则自动生成并要求从控制台获取
+    if not SETUP_TOKEN:
+        generated_token = secrets.token_urlsafe(24)
+        print(f"[初始化] SETUP_TOKEN 环境变量未设置。自动生成的一次性令牌: {generated_token}")
+        print(f"[初始化] 请使用此令牌调用初始化接口，或设置 SETUP_TOKEN 环境变量后重启服务")
+        token = authorization.replace("Bearer ", "") if authorization else ""
+        if token != generated_token:
+            raise HTTPException(status_code=403, detail="SETUP_TOKEN 未设置，请查看服务端控制台获取一次性令牌")
+    else:
         token = authorization.replace("Bearer ", "") if authorization else ""
         if token != SETUP_TOKEN:
             raise HTTPException(status_code=403, detail="无效的初始化令牌")
-    else:
-        print("[警告] SETUP_TOKEN 未设置，初始化接口无认证保护！请在生产环境设置 SETUP_TOKEN 环境变量")
     existing = db.query(Employee).filter(Employee.username == "admin").first()
     if existing:
         raise HTTPException(status_code=400, detail="系统已初始化")
-    default_password = "admin123"
+    # S-08: 从环境变量读取或随机生成默认密码
+    default_password = os.environ.get("ADMIN_DEFAULT_PASSWORD", "")
+    if not default_password:
+        default_password = secrets.token_urlsafe(12)
     admin = Employee(
         code="EMP001",
         name="管理员",
@@ -44,7 +54,6 @@ def init_system(db: Session = Depends(get_db), authorization: str = Header(None)
     )
     db.add(admin)
     db.commit()
-    # M2: 仅在服务端控制台输出密码，不在 API 响应中返回
     print(f"[初始化] 管理员账号已创建 - 用户名: admin, 密码: {default_password}")
     print(f"[初始化] 请登录后立即修改默认密码！")
     return ResponseModel(message="初始化成功，请查看服务端控制台获取管理员账号信息")
@@ -54,7 +63,9 @@ def init_system(db: Session = Depends(get_db), authorization: str = Header(None)
 def list_logs(
     page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
     operator: str = Query(None), action: str = Query(None),
-    keyword: str = Query(None), db: Session = Depends(get_db)
+    keyword: str = Query(None),
+    user: Employee = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     q = db.query(OperationLog)
     if operator:
@@ -71,7 +82,9 @@ def list_logs(
 @router.get("/messages", response_model=PaginatedResponse)
 def list_messages(
     page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
-    is_read: int = Query(None), db: Session = Depends(get_db)
+    is_read: int = Query(None),
+    user: Employee = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     q = db.query(Message)
     if is_read is not None:
@@ -82,7 +95,7 @@ def list_messages(
 
 
 @router.put("/messages/{msg_id}/read", response_model=ResponseModel)
-def mark_read(msg_id: int, db: Session = Depends(get_db)):
+def mark_read(msg_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     msg = db.query(Message).get(msg_id)
     if msg:
         msg.is_read = 1
@@ -97,12 +110,12 @@ def upload_image():
 
 
 @router.post("/backup", response_model=ResponseModel)
-def create_backup(db: Session = Depends(get_db)):
+def create_backup(user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     return ResponseModel(message="功能开发中")
 
 
 @router.get("/backup/list", response_model=ResponseModel)
-def list_backups(db: Session = Depends(get_db)):
+def list_backups(user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     items = db.query(BackupRecord).order_by(BackupRecord.created_at.desc()).all()
     return ResponseModel(data=[BackupRecordOut.model_validate(i) for i in items])
 

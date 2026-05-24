@@ -29,7 +29,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" width="180" />
+        <el-table-column prop="created_at" label="创建时间" width="180" :formatter="fmtDate" />
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="showDialog(row)">编辑</el-button>
@@ -139,6 +139,7 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getRoles, createRole, updateRole, deleteRole } from '../../api'
 
+const fmtDate = (_r, _c, v) => v ? String(v).replace("T", " ").slice(0, 16) : ""
 const modulePermissionTable = ref([])
 const selectedOperations = ref([])
 
@@ -176,6 +177,7 @@ const operationOptions = [
   { value: 'inventory:view', label: '查看库存' },
   { value: 'inventory:adjust', label: '调整库存' },
   { value: 'inventory:transfer', label: '调拨库存' },
+  { value: 'inventory:view_purchase_price', label: '查看进价' },
   { value: 'purchases:create', label: '创建采购' },
   { value: 'purchases:edit', label: '编辑采购' },
   { value: 'finance:view', label: '查看财务' },

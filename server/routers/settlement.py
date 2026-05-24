@@ -17,24 +17,9 @@ from models.employee import Employee
 from schemas.common import ResponseModel, PaginatedResponse
 from utils.status import SettlementStatus
 from utils.role_check import require_role
+from deps import get_current_user
 
 router = APIRouter(prefix="/api", tags=["交账"])
-
-
-def get_current_user(authorization: str = None, db: Session = Depends(get_db)) -> Employee:
-    if not authorization:
-        raise HTTPException(status_code=401, detail="未登录")
-    from utils.auth import decode_access_token
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="token格式错误")
-    payload = decode_access_token(authorization.replace("Bearer ", ""))
-    if not payload:
-        raise HTTPException(status_code=401, detail="token无效")
-    user = db.query(Employee).get(payload.get("user_id"))
-    if not user:
-        raise HTTPException(status_code=401, detail="用户不存在")
-    return user
-
 
 def _gen_settlement_no(db):
     today = datetime.now().strftime("%Y%m%d")

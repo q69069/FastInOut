@@ -22,7 +22,7 @@
           <template #default="{ row }">¥{{ Number(row.amount || 0).toFixed(2) }}</template>
         </el-table-column>
         <el-table-column prop="payment_method" label="方式" width="100" />
-        <el-table-column prop="created_at" label="时间" width="180" />
+        <el-table-column prop="created_at" label="时间" width="180" :formatter="fmtDate" />
       </el-table>
     </el-card>
 
@@ -36,7 +36,7 @@
           <template #default="{ row }">¥{{ Number(row.amount || 0).toFixed(2) }}</template>
         </el-table-column>
         <el-table-column prop="payment_method" label="方式" width="100" />
-        <el-table-column prop="created_at" label="时间" width="180" />
+        <el-table-column prop="created_at" label="时间" width="180" :formatter="fmtDate" />
       </el-table>
     </el-card>
 
@@ -83,7 +83,7 @@
         </el-table-column>
         <el-table-column prop="party_name" label="对方" />
         <el-table-column prop="payment_method" label="方式" width="100" />
-        <el-table-column prop="created_at" label="时间" width="180" />
+        <el-table-column prop="created_at" label="时间" width="180" :formatter="fmtDate" />
       </el-table>
     </el-card>
   </div>
@@ -93,6 +93,7 @@
 import { ref, onMounted } from 'vue'
 import { getReceipts, getPayments, getReceivables, getPayables, getFinanceFlow } from '../../api'
 
+const fmtDate = (_r, _c, v) => v ? String(v).replace("T", " ").slice(0, 16) : ""
 const now = new Date().toLocaleString('zh-CN')
 
 const receipts = ref([])

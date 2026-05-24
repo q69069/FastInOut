@@ -1,62 +1,41 @@
-"""
-操作日志查询
-"""
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from database import get_db
 from models.operation_log import OperationLog
-from pydantic import BaseModel, ConfigDict
-from typing import Optional
-from datetime import datetime
-from routers.auth import get_current_user
+from models.employee import Employee
+from schemas.system import OperationLogOut
+from schemas.common import PaginatedResponse
+from deps import get_current_user
 
-router = APIRouter(prefix="/operation-logs", tags=["日志"])
-
-
-class OperationLogResponse(BaseModel):
-    id: int
-    user_id: Optional[int] = None
-    username: Optional[str] = None
-    module: Optional[str] = None
-    action: Optional[str] = None
-    target_type: Optional[str] = None
-    target_id: Optional[int] = None
-    target_name: Optional[str] = None
-    detail: Optional[str] = None
-    ip_address: Optional[str] = None
-    created_at: Optional[datetime] = None
-
-    model_config = ConfigDict(from_attributes=True)
+router = APIRouter(prefix="/api/operation-logs", tags=["日志"])
 
 
-@router.get("/", response_model=list[OperationLogResponse])
+@router.get("/", response_model=PaginatedResponse)
 def list_operation_logs(
-    module: str = None,
-    action: str = None,
-    target_type: str = None,
-    target_id: int = None,
-    start_date: str = None,
-    end_date: str = None,
-    page: int = 1,
-    page_size: int = 50,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    module: str = Query(None),
+    action: str = Query(None),
+    target_type: str = Query(None),
+    target_id: int = Query(None),
+    start_date: str = Query(None),
+    end_date: str = Query(None),
+    user: Employee = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    query = db.query(OperationLog)
-
+    q = db.query(OperationLog)
     if module:
-        query = query.filter(OperationLog.module == module)
+        q = q.filter(OperationLog.module == module)
     if action:
-        query = query.filter(OperationLog.action == action)
+        q = q.filter(OperationLog.action == action)
     if target_type:
-        query = query.filter(OperationLog.target_type == target_type)
+        q = q.filter(OperationLog.target_type == target_type)
     if target_id:
-        query = query.filter(OperationLog.target_id == target_id)
+        q = q.filter(OperationLog.target_id == target_id)
     if start_date:
-        query = query.filter(OperationLog.created_at >= start_date)
+        q = q.filter(OperationLog.created_at >= start_date)
     if end_date:
-        query = query.filter(OperationLog.created_at <= end_date)
-
-    query = query.order_by(OperationLog.created_at.desc())
-    offset = (page - 1) * page_size
-    return query.offset(offset).limit(page_size).all()
+        q = q.filter(OperationLog.created_at <= end_date)
+    total = q.count()
+    items = q.order_by(OperationLog.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    return PaginatedResponse(data=[OperationLogOut.model_validate(i) for i in items], total=total, page=page, page_size=page_size)

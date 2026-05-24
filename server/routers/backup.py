@@ -7,12 +7,13 @@ from sqlalchemy.orm import Session
 from database import get_db
 from config import DB_PATH, DATA_DIR
 from schemas.common import ResponseModel
+from deps import require_admin_dep
 
 router = APIRouter(prefix="/api/backup", tags=["数据备份"])
 
 
 @router.get("/export")
-def export_backup():
+def export_backup(user=Depends(require_admin_dep)):
     """导出数据库备份文件"""
     if not os.path.exists(DB_PATH):
         raise HTTPException(status_code=404, detail="数据库文件不存在")
@@ -28,7 +29,7 @@ def export_backup():
 
 
 @router.post("/import", response_model=ResponseModel)
-async def import_backup(file: UploadFile = File(...)):
+async def import_backup(file: UploadFile = File(...), user=Depends(require_admin_dep)):
     """导入数据库备份文件，覆盖现有数据库"""
     # 验证文件扩展名
     if not file.filename.endswith('.db'):

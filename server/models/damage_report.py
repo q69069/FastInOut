@@ -1,5 +1,6 @@
+from datetime import datetime
 """报损单模型 — Phase C"""
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, func
+from sqlalchemy import text, Column, Integer, String, Float, DateTime, ForeignKey, Text, func
 from database import Base
 
 
@@ -14,7 +15,7 @@ class DamageReport(Base):
     status = Column(String(20), default="pending")  # pending/audited/adjusted
     remark = Column(Text)
     created_by = Column(Integer, ForeignKey("employees.id"))
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
     audited_at = Column(DateTime)
 
 
@@ -28,3 +29,6 @@ class DamageReportItem(Base):
     unit_cost = Column(Float, default=0)
     amount = Column(Float, default=0)
     reason = Column(String(200))
+    unit_id = Column(Integer, ForeignKey("units.id"), nullable=True)
+    unit_quantity = Column(Float, default=1)
+    unit_conv_rate = Column(Float, default=1)

@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, ForeignKey, DateTime, func
 from database import Base
 
 
@@ -10,7 +11,7 @@ class Category(Base):
     name = Column(String(200), nullable=False)
     level = Column(Integer, default=1)
     sort_order = Column(Integer, default=0)
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
 
 
 class CustomerCategory(Base):
@@ -19,7 +20,7 @@ class CustomerCategory(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(200), nullable=False)
     sort_order = Column(Integer, default=0)
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
 
 
 class SupplierCategory(Base):
@@ -28,4 +29,4 @@ class SupplierCategory(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(200), nullable=False)
     sort_order = Column(Integer, default=0)
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)

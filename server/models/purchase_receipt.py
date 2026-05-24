@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, Text, DateTime, ForeignKey
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, Float, Text, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from database import Base
 
@@ -18,10 +19,14 @@ class PurchaseReceipt(Base):
     trade_date = Column(String(20), nullable=True)
 
     received_by = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    auditor_id = Column(Integer, ForeignKey("employees.id"), nullable=True)
     confirmed_at = Column(DateTime)
 
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
     remark = Column(Text)
+    reverse_reason = Column(String(200))
+    reversed_by = Column(Integer, ForeignKey("employees.id"))
+    reversed_at = Column(DateTime)
 
 
 class PurchaseReceiptItem(Base):
@@ -36,3 +41,7 @@ class PurchaseReceiptItem(Base):
     amount = Column(Float, default=0)
     remark = Column(String(500), nullable=True)
     production_date = Column(String(20), nullable=True)
+    unit_id = Column(Integer, ForeignKey("units.id"), nullable=True)
+    unit_level = Column(String(10), nullable=True)  # small/medium/large
+    unit_quantity = Column(Float, default=1)
+    unit_conv_rate = Column(Float, default=1)

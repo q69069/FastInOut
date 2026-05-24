@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from database import get_db
+from deps import require_finance_module
 from models.supplier import Supplier
 from models.purchase import PurchaseStockin, PurchaseReturn
 from models.finance import Payment
@@ -15,7 +16,8 @@ def supplier_statement(
     supplier_id: int = Query(...),
     start_date: str = Query(None),
     end_date: str = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _=Depends(require_finance_module)
 ):
     """供应商对账单：期初应付+本期采购-本期退货-本期付款=期末应付"""
     supplier = db.query(Supplier).get(supplier_id)
@@ -119,7 +121,7 @@ def supplier_statement(
 
 
 @router.get("/summary", response_model=ResponseModel)
-def supplier_summary(db: Session = Depends(get_db)):
+def supplier_summary(db: Session = Depends(get_db), _=Depends(require_finance_module)):
     """所有供应商应付汇总"""
     suppliers = db.query(Supplier).filter(Supplier.payable_balance > 0).all()
     result = []

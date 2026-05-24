@@ -12,39 +12,39 @@ from models.sales_delivery import SalesDelivery, SalesDeliveryItem
 from models.sales import SalesOrder, SalesOrderItem
 from models.customer import Customer
 from models.product import Product
+from models.warehouse import Warehouse
 from models.employee import Employee
 from schemas.sales_delivery import (
     SalesDeliveryCreate, SalesDeliveryOut, SalesDeliveryItemOut, SalesDeliveryVoid
 )
-from schemas.common import ResponseModel, PaginatedResponse
+from schemas.common import ResponseModel, PaginatedResponse, ReverseRequest
 from services.inventory_service import InventoryService
 from utils.status import SalesDeliveryStatus
 from utils.role_check import require_role, require_owner_or_admin
+from utils.unit_convert import resolve_unit_conversion, resolve_by_unit_level
+from deps import get_current_user
 
 router = APIRouter(prefix="/api", tags=["销售单"])
 
 
-def get_current_user(authorization: str = None, db: Session = Depends(get_db)) -> Employee:
-    if not authorization:
-        raise HTTPException(status_code=401, detail="未登录")
-    from utils.auth import decode_access_token
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="token格式错误")
-    payload = decode_access_token(authorization.replace("Bearer ", ""))
-    if not payload:
-        raise HTTPException(status_code=401, detail="token无效")
-    user = db.query(Employee).get(payload.get("user_id"))
-    if not user:
-        raise HTTPException(status_code=401, detail="用户不存在")
-    return user
-
+def _enrich_names(db, result):
+    if result.get("auditor_id"):
+        emp = db.query(Employee).get(result["auditor_id"])
+        if emp:
+            result["auditor_name"] = emp.name
+    if result.get("operator_id"):
+        emp = db.query(Employee).get(result["operator_id"])
+        if emp:
+            result["operator_name"] = emp.name
 
 def _gen_delivery_no(db: Session) -> str:
     today = datetime.now().strftime("%Y%m%d")
-    count = db.query(SalesDelivery).filter(
-        func.strftime("%Y%m%d", SalesDelivery.created_at) == today
-    ).count()
-    return f"XS{today}-{count + 1:03d}"
+    prefix = f"XS{today}"
+    # Count by delivery_no prefix instead of created_at date
+    count = db.query(func.count(SalesDelivery.id)).filter(
+        SalesDelivery.delivery_no.like(f"{prefix}%")
+    ).scalar()
+    return f"{prefix}-{count + 1:03d}"
 
 
 # ========== 创建销售单（开单） ==========
@@ -95,11 +95,18 @@ def create_sales_delivery(
     # 创建明细 + 扣库存
     for item in req.items:
         amount = item.amount or (item.quantity * item.unit_price)
+        if getattr(item, 'unit_level', None):
+            base_qty, conv_rate = resolve_by_unit_level(item.product_id, item.unit_level, item.unit_quantity or item.quantity, item.unit_conv_rate, db)
+        else:
+            base_qty, conv_rate = resolve_unit_conversion(item.product_id, item.unit_id, item.unit_quantity or item.quantity, db)
         di = SalesDeliveryItem(
             delivery_id=delivery.id,
             product_id=item.product_id,
             batch_id=item.batch_id,
-            quantity=item.quantity,
+            quantity=base_qty,
+            unit_id=item.unit_id,
+            unit_quantity=item.unit_quantity or item.quantity,
+            unit_conv_rate=conv_rate,
             unit_price=item.unit_price,
             amount=amount,
             source_order_item_id=item.source_order_item_id
@@ -107,6 +114,94 @@ def create_sales_delivery(
         db.add(di)
 
         # 扣库存（仓库或车辆）
+        stock_id = req.warehouse_id or req.vehicle_id
+        InventoryService.deduct(db, item.product_id, stock_id, item.quantity)
+
+    # 更新客户应收
+    if total > 0:
+        customer.receivable_balance = (customer.receivable_balance or 0) + total - (req.cash_amount or 0) - (req.wechat_amount or 0) - (req.alipay_amount or 0)
+
+    db.commit()
+    db.refresh(delivery)
+    return ResponseModel(data=SalesDeliveryOut.model_validate(delivery))
+
+
+# ========== 修改销售单（仅pending状态） ==========
+@router.put("/sales-deliveries/{delivery_id}", response_model=ResponseModel)
+def update_sales_delivery(
+    delivery_id: int,
+    req: SalesDeliveryCreate,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    user = get_current_user(authorization, db)
+    delivery = db.query(SalesDelivery).get(delivery_id)
+    if not delivery:
+        raise HTTPException(404, "销售单不存在")
+    if delivery.status != SalesDeliveryStatus.PENDING:
+        raise HTTPException(400, f"当前状态 {delivery.status} 不允许修改")
+
+    if not req.warehouse_id and not req.vehicle_id:
+        raise HTTPException(400, "warehouse_id 和 vehicle_id 必须提供一个")
+    if req.warehouse_id and req.vehicle_id:
+        raise HTTPException(400, "warehouse_id 和 vehicle_id 不能同时提供")
+
+    customer = db.query(Customer).get(req.customer_id)
+    if not customer:
+        raise HTTPException(400, "客户不存在")
+
+    # 回滚旧库存
+    old_items = db.query(SalesDeliveryItem).filter(SalesDeliveryItem.delivery_id == delivery_id).all()
+    old_stock_id = delivery.warehouse_id or delivery.vehicle_id
+    for item in old_items:
+        InventoryService.restore(db, item.product_id, old_stock_id, item.quantity)
+
+    # 回滚旧客户应收
+    old_total = delivery.total_amount or 0
+    old_credit = old_total - (delivery.cash_amount or 0) - (delivery.wechat_amount or 0) - (delivery.alipay_amount or 0)
+    if old_credit > 0:
+        customer.receivable_balance = max(0, (customer.receivable_balance or 0) - old_credit)
+
+    # 删除旧明细
+    db.query(SalesDeliveryItem).filter(SalesDeliveryItem.delivery_id == delivery_id).delete()
+
+    # 计算新总金额
+    total = req.total_amount
+    if not total and req.items:
+        total = sum(item.amount or (item.quantity * item.unit_price) for item in req.items)
+
+    # 更新主单
+    delivery.customer_id = req.customer_id
+    delivery.warehouse_id = req.warehouse_id
+    delivery.vehicle_id = req.vehicle_id
+    delivery.total_amount = total
+    delivery.cash_amount = req.cash_amount
+    delivery.wechat_amount = req.wechat_amount
+    delivery.alipay_amount = req.alipay_amount
+    delivery.credit_amount = req.credit_amount
+    delivery.source_type = req.source_type
+    delivery.remark = req.remark
+
+    # 创建新明细 + 扣库存
+    for item in req.items:
+        amount = item.amount or (item.quantity * item.unit_price)
+        if getattr(item, 'unit_level', None):
+            base_qty, conv_rate = resolve_by_unit_level(item.product_id, item.unit_level, item.unit_quantity or item.quantity, item.unit_conv_rate, db)
+        else:
+            base_qty, conv_rate = resolve_unit_conversion(item.product_id, item.unit_id, item.unit_quantity or item.quantity, db)
+        di = SalesDeliveryItem(
+            delivery_id=delivery.id,
+            product_id=item.product_id,
+            batch_id=item.batch_id,
+            quantity=base_qty,
+            unit_id=item.unit_id,
+            unit_quantity=item.unit_quantity or item.quantity,
+            unit_conv_rate=conv_rate,
+            unit_price=item.unit_price,
+            amount=amount,
+            source_order_item_id=item.source_order_item_id
+        )
+        db.add(di)
         stock_id = req.warehouse_id or req.vehicle_id
         InventoryService.deduct(db, item.product_id, stock_id, item.quantity)
 
@@ -148,8 +243,18 @@ def list_sales_deliveries(
 
     total = q.count()
     items = q.order_by(SalesDelivery.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    result = []
+    for sd in items:
+        d = SalesDeliveryOut.model_validate(sd).model_dump()
+        if sd.customer_id:
+            cust = db.query(Customer).get(sd.customer_id)
+            d['customer_name'] = cust.name if cust else ''
+        if sd.warehouse_id:
+            wh = db.query(Warehouse).get(sd.warehouse_id)
+            d['warehouse_name'] = wh.name if wh else ''
+        result.append(d)
     return PaginatedResponse(
-        data=[SalesDeliveryOut.model_validate(i) for i in items],
+        data=result,
         total=total, page=page, page_size=page_size
     )
 
@@ -167,6 +272,7 @@ def get_sales_delivery(delivery_id: int, db: Session = Depends(get_db)):
 
     result = SalesDeliveryOut.model_validate(delivery).model_dump()
     result["items"] = [SalesDeliveryItemOut.model_validate(i) for i in items]
+    _enrich_names(db, result)
     return ResponseModel(data=result)
 
 
@@ -215,9 +321,30 @@ def void_sales_delivery(
 
 
 # ========== 红冲销售单 ==========
+@router.post("/sales-deliveries/{delivery_id}/audit", response_model=ResponseModel)
+def audit_sales_delivery(
+    delivery_id: int,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    user = get_current_user(authorization, db)
+    delivery = db.query(SalesDelivery).get(delivery_id)
+    if not delivery:
+        raise HTTPException(404, "销售单不存在")
+    if delivery.status != SalesDeliveryStatus.PENDING:
+        raise HTTPException(400, f"当前状态 {delivery.status} 不允许审核")
+    delivery.status = SalesDeliveryStatus.SETTLED
+    delivery.auditor_id = user.id
+    delivery.audited_at = datetime.now()
+    db.commit()
+    db.refresh(delivery)
+    return ResponseModel(message="审核成功", data=SalesDeliveryOut.model_validate(delivery))
+
+
 @router.post("/sales-deliveries/{delivery_id}/reverse", response_model=ResponseModel)
 def reverse_sales_delivery(
     delivery_id: int,
+    req: ReverseRequest,
     authorization: str = Header(None),
     db: Session = Depends(get_db)
 ):
@@ -227,7 +354,7 @@ def reverse_sales_delivery(
         raise HTTPException(404, "销售单不存在")
 
     # 只有 locked/settled 可以红冲
-    if delivery.status not in (SalesDeliveryStatus.LOCKED, SalesDeliveryStatus.SETTLED):
+    if delivery.status not in (SalesDeliveryStatus.LOCKED, SalesDeliveryStatus.SETTLED, SalesDeliveryStatus.PENDING):
         raise HTTPException(400, f"当前状态 {delivery.status} 不允许红冲")
 
     # 只有主管/admin可以红冲
@@ -248,5 +375,8 @@ def reverse_sales_delivery(
         customer.receivable_balance = max(0, (customer.receivable_balance or 0) - credit_amount)
 
     delivery.status = SalesDeliveryStatus.REVERSED
+    delivery.reverse_reason = req.reason
+    delivery.reversed_by = user.id
+    delivery.reversed_at = datetime.now()
     db.commit()
     return ResponseModel(message="红冲成功，库存已回滚")

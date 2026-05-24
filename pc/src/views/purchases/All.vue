@@ -40,12 +40,21 @@
             <el-option v-for="w in warehouses" :key="w.id" :label="w.name" :value="w.id" />
           </el-select>
         </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="query.status" clearable placeholder="全部" style="width:120px">
+            <el-option label="草稿" :value="0" />
+            <el-option label="已确认" :value="1" />
+            <el-option label="已入库" :value="2" />
+            <el-option label="已冲红" :value="3" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="关键词">
           <el-input v-model="query.keyword" clearable placeholder="单据号" style="width:150px" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="loadData">查询</el-button>
           <el-button @click="clearFilter">清空</el-button>
+          <el-button type="success" @click="handleExport">导出Excel</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -64,7 +73,7 @@
             <span>{{ row.no || row.stockin_no || row.return_no }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="交易时间" width="150" />
+        <el-table-column prop="created_at" label="交易时间" width="150" :formatter="fmtDate" />
         <el-table-column prop="supplier_name" label="供应商" />
         <el-table-column prop="warehouse_name" label="仓库" width="100" />
         <el-table-column prop="total_amount" label="金额" width="100" align="right">
@@ -72,7 +81,7 @@
         </el-table-column>
         <el-table-column label="状态" width="90" align="center">
           <template #default="{ row }">
-            <el-tag :type="statusMap[row.status]?.type">{{ statusMap[row.status]?.label || row.status }}</el-tag>
+            <el-tag :type="statusMap[row.status]?.type" size="small">{{ statusMap[row.status]?.label || row.status || '-' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="remark" label="备注" />
@@ -86,60 +95,31 @@
         layout="total, prev, pager, next" style="margin-top:16px" @current-change="loadData" />
     </el-card>
 
-    <!-- 多窗口详情弹窗 -->
-    <template v-for="(dlg, key) in dialogs" :key="key">
-      <el-dialog :model-value="dlg.visible" :title="'单据详情 - ' + (dlg.data?.no || dlg.data?.stockin_no || dlg.data?.return_no || '')" width="700px" @update:model-value="v => { if (!v) closeDialog(key) }">
-        <div v-if="dlg.loading" style="text-align:center;padding:40px">加载中...</div>
-        <template v-else-if="dlg.data">
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="单号">{{ dlg.data.no || dlg.data.stockin_no || dlg.data.return_no }}</el-descriptions-item>
-            <el-descriptions-item label="类型">
-              <el-tag size="small" :type="typeTagMap[dlg.data._type]?.type">{{ typeTagMap[dlg.data._type]?.label }}</el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="状态">
-              <el-tag :type="statusMap[dlg.data.status]?.type">{{ statusMap[dlg.data.status]?.label }}</el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="供应商">{{ dlg.data.supplier_name }}</el-descriptions-item>
-            <el-descriptions-item label="仓库">{{ dlg.data.warehouse_name }}</el-descriptions-item>
-            <el-descriptions-item label="总金额">¥{{ Number(dlg.data.total_amount||0).toFixed(2) }}</el-descriptions-item>
-            <el-descriptions-item label="创建时间">{{ dlg.data.created_at }}</el-descriptions-item>
-            <el-descriptions-item label="备注" :span="2">{{ dlg.data.remark || '-' }}</el-descriptions-item>
-          </el-descriptions>
-          <el-table :data="dlg.data.items || []" border size="small" style="margin-top:16px">
-            <el-table-column prop="product_name" label="商品" />
-            <el-table-column prop="quantity" label="数量" width="80" align="right" />
-            <el-table-column prop="unit_price" label="单价" width="80" align="right" />
-            <el-table-column prop="amount" label="金额" width="100" align="right" />
-          </el-table>
-        </template>
-      </el-dialog>
-    </template>
-
     <!-- 新建入口 -->
     <el-dialog v-model="createVisible" title="新建采购单据" width="400px">
       <div class="create-menu">
-        <div class="create-item" @click="$router.push('/purchases'); createVisible = false">
+        <div class="create-item" @click="$router.push({ path: '/purchases', query: { id: 'new-' + Date.now() } }); createVisible = false">
           <div class="create-icon">📋</div>
           <div class="create-text">
             <div class="create-title">采购订单</div>
             <div class="create-desc">创建新的采购订单</div>
           </div>
         </div>
-        <div class="create-item" @click="$router.push('/purchase-receipts'); createVisible = false">
+        <div class="create-item" @click="$router.push({ path: '/purchase-receipts', query: { id: 'new-' + Date.now() } }); createVisible = false">
           <div class="create-icon">📥</div>
           <div class="create-text">
             <div class="create-title">采购单</div>
             <div class="create-desc">创建新的采购单（入库单）</div>
           </div>
         </div>
-        <div class="create-item" @click="$router.push('/purchase-returns'); createVisible = false">
+        <div class="create-item" @click="$router.push({ path: '/purchase-returns', query: { id: 'new-' + Date.now() } }); createVisible = false">
           <div class="create-icon">↩️</div>
           <div class="create-text">
             <div class="create-title">采购退货订单</div>
             <div class="create-desc">创建新的采购退货订单</div>
           </div>
         </div>
-        <div class="create-item" @click="$router.push('/purchase-return-deliveries'); createVisible = false">
+        <div class="create-item" @click="$router.push({ path: '/purchase-return-deliveries', query: { id: 'new-' + Date.now() } }); createVisible = false">
           <div class="create-icon">📦</div>
           <div class="create-text">
             <div class="create-title">采购退货</div>
@@ -157,10 +137,11 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
   getPurchaseOrders, getPurchaseOrder,
-  getPurchaseStockins, getPurchaseStockin,
+  getPurchaseReceipts, getPurchaseReceipt,
   getPurchaseReturns, getPurchaseReturn,
   getPurchaseReturnDlvs, getPurchaseReturnDlv,
-  getSuppliers, getWarehouses
+  getSuppliers, getWarehouses,
+  exportDocuments
 } from '../../api'
 import { useAuthStore } from '../../stores/auth'
 
@@ -170,28 +151,30 @@ const now = new Date().toLocaleString('zh-CN')
 
 const activeType = ref('all')
 const createVisible = ref(false)
-const dialogs = ref({})
 
 const suppliers = ref([])
 const warehouses = ref([])
 const list = ref([])
 const total = ref(0)
 
-const query = ref({ page: 1, page_size: 20, date_range: [], supplier_id: '', warehouse_id: '', keyword: '' })
+const query = ref({ page: 1, page_size: 20, date_range: [], supplier_id: '', warehouse_id: '', keyword: '', status: '' })
 
 const statusMap = {
   0: { label: '草稿', type: 'info' },
-  1: { label: '已确认', type: '' },
+  1: { label: '已确认', type: 'warning' },
   2: { label: '已入库', type: 'success' },
-  3: { label: '已关闭', type: 'warning' },
-  pending: { label: '待处理', type: 'warning' },
-  confirmed: { label: '已确认', type: '' },
-  settled: { label: '已结清', type: 'success' },
+  3: { label: '已冲红', type: 'danger' },
+  pending: { label: '草稿', type: 'info' },
+  confirmed: { label: '已入库', type: 'success' },
+  settled: { label: '已结算', type: 'success' },
+  warehouse_confirmed: { label: '已出库', type: 'primary' },
+  finance_confirmed: { label: '已结算', type: 'success' },
+  reversed: { label: '已冲红', type: 'danger' },
   voided: { label: '已作废', type: 'info' },
 }
 
 const typeTagMap = {
-  order: { label: '采购订单', type: '' },
+  order: { label: '采购订单', type: 'primary' },
   delivery: { label: '采购单', type: 'success' },
   return_order: { label: '采购退货订单', type: 'warning' },
   return_delivery: { label: '采购退货', type: 'danger' },
@@ -201,7 +184,7 @@ const handleCreate = () => { createVisible.value = true }
 const onTypeChange = () => { query.value.page = 1; loadData() }
 
 const clearFilter = () => {
-  query.value = { page: 1, page_size: 20, date_range: [], supplier_id: '', warehouse_id: '', keyword: '' }
+  query.value = { page: 1, page_size: 20, date_range: [], supplier_id: '', warehouse_id: '', keyword: '', status: '' }
   loadData()
 }
 
@@ -210,10 +193,12 @@ const buildParams = () => {
   if (query.value.date_range?.length === 2) { p.start_date = query.value.date_range[0]; p.end_date = query.value.date_range[1] }
   if (query.value.supplier_id) p.supplier_id = query.value.supplier_id
   if (query.value.warehouse_id) p.warehouse_id = query.value.warehouse_id
+  if (query.value.status !== '' && query.value.status !== null) p.status = query.value.status
   if (query.value.keyword) p.keyword = query.value.keyword
   return p
 }
 
+const fmtDate = (_r, _c, v) => v ? String(v).replace('T', ' ').slice(0, 16) : ''
 const loadData = async () => {
   list.value = []
   total.value = 0
@@ -230,40 +215,40 @@ const loadOrders = async () => {
   try {
     const res = await getPurchaseOrders(buildParams())
     const items = (res.data?.list || res.data || [])
-    items.forEach(i => { i._type = 'order'; i.no = i.order_no })
+    items.forEach(i => { i._type = 'order'; i.no = i.code })
     list.value.push(...items)
     total.value += res.total || 0
-  } catch {}
+  } catch (e) { console.error('操作失败:', e) }
 }
 
 const loadDeliveries = async () => {
   try {
-    const res = await getPurchaseStockins(buildParams())
+    const res = await getPurchaseReceipts(buildParams())
     const items = (res.data?.list || res.data || [])
-    items.forEach(i => { i._type = 'delivery'; i.no = i.stockin_no })
+    items.forEach(i => { i._type = 'delivery'; i.no = i.receipt_no })
     list.value.push(...items)
     total.value += res.total || 0
-  } catch {}
+  } catch (e) { console.error('操作失败:', e) }
 }
 
 const loadReturnOrders = async () => {
   try {
     const res = await getPurchaseReturns(buildParams())
     const items = (res.data?.list || res.data || [])
-    items.forEach(i => { i._type = 'return_order'; i.no = i.return_no })
+    items.forEach(i => { i._type = 'return_order'; i.no = i.code })
     list.value.push(...items)
     total.value += res.total || 0
-  } catch {}
+  } catch (e) { console.error('操作失败:', e) }
 }
 
 const loadReturnDeliveries = async () => {
   try {
     const res = await getPurchaseReturnDlvs(buildParams())
     const items = (res.data?.list || res.data || [])
-    items.forEach(i => { i._type = 'return_delivery'; i.no = i.delivery_no })
+    items.forEach(i => { i._type = 'return_delivery'; i.no = i.return_dlv_no })
     list.value.push(...items)
     total.value += res.total || 0
-  } catch {}
+  } catch (e) { console.error('操作失败:', e) }
 }
 
 const getSummary = ({ columns, data }) => {
@@ -278,40 +263,34 @@ const getSummary = ({ columns, data }) => {
   return sums
 }
 
-const openDocument = async (row) => {
-  const key = `${row._type}_${row.id}`
-  if (dialogs.value[key]) {
-    dialogs.value[key].visible = true
-    dialogs.value[key].data = row
-    return
+const openDocument = (row) => {
+  const routeMap = {
+    order: '/purchases',
+    delivery: '/purchase-receipts',
+    return_order: '/purchase-returns',
+    return_delivery: '/purchase-return-deliveries'
   }
-  dialogs.value[key] = { visible: true, data: row, loading: true }
-  try {
-    const apiMap = {
-      order: getPurchaseOrder,
-      delivery: getPurchaseStockin,
-      return_order: getPurchaseReturn,
-      return_delivery: getPurchaseReturnDlv
-    }
-    const api = apiMap[row._type]
-    if (api) {
-      const res = await api(row.id)
-      const data = res.data || res
-      if (dialogs.value[key]) {
-        dialogs.value[key].data = { ...row, ...data }
-        dialogs.value[key].loading = false
-      }
-    } else {
-      if (dialogs.value[key]) dialogs.value[key].loading = false
-    }
-  } catch {
-    if (dialogs.value[key]) dialogs.value[key].loading = false
-  }
+  const path = routeMap[row._type]
+  if (path) router.push({ path, query: { id: row.id } })
 }
 
-const closeDialog = (key) => {
-  if (dialogs.value[key]) {
-    dialogs.value[key].visible = false
+const handleExport = async () => {
+  try {
+    const params = {}
+    if (activeType.value && activeType.value !== 'all') params.type = activeType.value === 'order' ? 'purchase_order' : activeType.value === 'delivery' ? 'purchase_receipt' : activeType.value === 'return_order' ? 'purchase_return_order' : 'purchase_return_dlv'
+    if (query.value.date_range?.length === 2) { params.start_date = query.value.date_range[0]; params.end_date = query.value.date_range[1] }
+    if (query.value.keyword) params.keyword = query.value.keyword
+    const res = await exportDocuments(params)
+    const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `采购单据导出_${new Date().toISOString().slice(0,10)}.xlsx`
+    a.click()
+    URL.revokeObjectURL(url)
+    ElMessage.success('导出成功')
+  } catch (e) {
+    ElMessage.error('导出失败')
   }
 }
 

@@ -10,24 +10,9 @@ from models.finance import Receipt
 from models.customer import Customer
 from models.employee import Employee
 from schemas.common import ResponseModel, PaginatedResponse
+from deps import get_current_user
 
 router = APIRouter(prefix="/api", tags=["客户对账"])
-
-
-def get_current_user(authorization: str = None, db: Session = Depends(get_db)) -> Employee:
-    if not authorization:
-        raise HTTPException(status_code=401, detail="未登录")
-    from utils.auth import decode_access_token
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="token格式错误")
-    payload = decode_access_token(authorization.replace("Bearer ", ""))
-    if not payload:
-        raise HTTPException(status_code=401, detail="token无效")
-    user = db.query(Employee).get(payload.get("user_id"))
-    if not user:
-        raise HTTPException(status_code=401, detail="用户不存在")
-    return user
-
 
 def _gen_code(db):
     today = datetime.now().strftime("%Y%m%d")
@@ -77,10 +62,10 @@ def create_reconciliation(data: dict, authorization: str = Header(None), db: Ses
     period_start = data["period_start"]
     period_end = data["period_end"]
 
-    # 汇总销售
+    # 汇总销售（status为字符串：pending/settling/settled/locked/voided/reversed）
     sales = db.query(SalesDelivery).filter(
         SalesDelivery.customer_id == customer_id,
-        SalesDelivery.status.in_(["locked", "settled"]),
+        SalesDelivery.status.in_(["settling", "settled", "locked"]),
         SalesDelivery.created_at >= period_start,
         SalesDelivery.created_at <= f"{period_end} 23:59:59"
     ).all()
@@ -95,9 +80,10 @@ def create_reconciliation(data: dict, authorization: str = Header(None), db: Ses
     ).all()
     total_returns = sum(r.total_amount or 0 for r in returns)
 
-    # 汇总收款
+    # 汇总收款（只统计已确认的收款）
     receipts = db.query(Receipt).filter(
         Receipt.customer_id == customer_id,
+        Receipt.status == 1,
         Receipt.created_at >= period_start,
         Receipt.created_at <= f"{period_end} 23:59:59"
     ).all()

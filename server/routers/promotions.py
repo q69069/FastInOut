@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from database import get_db
+from deps import require_sales_module
 from models.promotion import Promotion
 from schemas.promotion import PromotionCreate, PromotionUpdate, PromotionOut
 from schemas.common import ResponseModel, PaginatedResponse
@@ -14,7 +15,8 @@ def list_promotions(
     page_size: int = Query(20, ge=1, le=100),
     keyword: str = Query(None),
     status: int = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _=Depends(require_sales_module)
 ):
     q = db.query(Promotion)
     if keyword:
@@ -30,7 +32,7 @@ def list_promotions(
 
 
 @router.post("", response_model=ResponseModel)
-def create_promotion(req: PromotionCreate, db: Session = Depends(get_db)):
+def create_promotion(req: PromotionCreate, db: Session = Depends(get_db), _=Depends(require_sales_module)):
     if req.promo_type not in ("threshold", "discount"):
         raise HTTPException(status_code=400, detail="促销类型必须为 threshold(满减) 或 discount(折扣)")
     if req.promo_type == "threshold" and req.threshold_amount <= 0:
@@ -45,7 +47,7 @@ def create_promotion(req: PromotionCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{promo_id}", response_model=ResponseModel)
-def get_promotion(promo_id: int, db: Session = Depends(get_db)):
+def get_promotion(promo_id: int, db: Session = Depends(get_db), _=Depends(require_sales_module)):
     promo = db.query(Promotion).get(promo_id)
     if not promo:
         raise HTTPException(status_code=404, detail="促销方案不存在")
@@ -53,7 +55,7 @@ def get_promotion(promo_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{promo_id}", response_model=ResponseModel)
-def update_promotion(promo_id: int, req: PromotionUpdate, db: Session = Depends(get_db)):
+def update_promotion(promo_id: int, req: PromotionUpdate, db: Session = Depends(get_db), _=Depends(require_sales_module)):
     promo = db.query(Promotion).get(promo_id)
     if not promo:
         raise HTTPException(status_code=404, detail="促销方案不存在")
@@ -65,7 +67,7 @@ def update_promotion(promo_id: int, req: PromotionUpdate, db: Session = Depends(
 
 
 @router.delete("/{promo_id}", response_model=ResponseModel)
-def delete_promotion(promo_id: int, db: Session = Depends(get_db)):
+def delete_promotion(promo_id: int, db: Session = Depends(get_db), _=Depends(require_sales_module)):
     promo = db.query(Promotion).get(promo_id)
     if not promo:
         raise HTTPException(status_code=404, detail="促销方案不存在")

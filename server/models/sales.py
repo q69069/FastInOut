@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text, func
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, Float, ForeignKey, DateTime, Text, func
 from database import Base
 
 
@@ -19,8 +20,11 @@ class SalesOrder(Base):
     audit_time = Column(DateTime, comment="审核时间")
     audit_comment = Column(Text, comment="审核意见")
     remark = Column(Text)
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
     confirmed_at = Column(DateTime)
+    reverse_reason = Column(String(200))
+    reversed_by = Column(Integer, ForeignKey("employees.id"))
+    reversed_at = Column(DateTime)
 
 
 class SalesOrderItem(Base):
@@ -33,6 +37,9 @@ class SalesOrderItem(Base):
     price = Column(Float, default=0)
     amount = Column(Float, default=0)
     delivered_qty = Column(Float, default=0)  # 已出库数量
+    unit_id = Column(Integer, ForeignKey("units.id"), nullable=True)
+    unit_quantity = Column(Float, default=1)
+    unit_conv_rate = Column(Float, default=1)
 
 
 class SalesStockout(Base):
@@ -51,7 +58,10 @@ class SalesStockout(Base):
     audit_time = Column(DateTime, comment="审核时间")
     audit_comment = Column(Text, comment="审核意见")
     remark = Column(Text)
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
+    reverse_reason = Column(String(200))
+    reversed_by = Column(Integer, ForeignKey("employees.id"))
+    reversed_at = Column(DateTime)
 
 
 class SalesStockoutItem(Base):
@@ -63,6 +73,9 @@ class SalesStockoutItem(Base):
     quantity = Column(Float, default=0)
     price = Column(Float, default=0)
     amount = Column(Float, default=0)
+    unit_id = Column(Integer, ForeignKey("units.id"), nullable=True)
+    unit_quantity = Column(Float, default=1)
+    unit_conv_rate = Column(Float, default=1)
 
 
 class SalesReturn(Base):
@@ -71,6 +84,7 @@ class SalesReturn(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     code = Column(String(50), unique=True, nullable=False)  # ST+日期+序号
     stockout_id = Column(Integer, ForeignKey("sales_stockouts.id"))
+    doc_type = Column(String(20), default="return_order", comment="单据类型: return_order=退货订单, return_delivery=退货单")
     customer_id = Column(Integer, ForeignKey("customers.id"))
     warehouse_id = Column(Integer, ForeignKey("warehouses.id"))
     operator_id = Column(Integer, ForeignKey("employees.id"))
@@ -81,8 +95,11 @@ class SalesReturn(Base):
     audit_time = Column(DateTime, comment="审核时间")
     audit_comment = Column(Text, comment="审核意见")
     remark = Column(Text)
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
     confirmed_at = Column(DateTime)
+    reverse_reason = Column(String(200))
+    reversed_by = Column(Integer, ForeignKey("employees.id"))
+    reversed_at = Column(DateTime)
 
 
 class SalesReturnItem(Base):
@@ -94,3 +111,6 @@ class SalesReturnItem(Base):
     quantity = Column(Float, default=0)
     price = Column(Float, default=0)
     amount = Column(Float, default=0)
+    unit_id = Column(Integer, ForeignKey("units.id"), nullable=True)
+    unit_quantity = Column(Float, default=1)
+    unit_conv_rate = Column(Float, default=1)

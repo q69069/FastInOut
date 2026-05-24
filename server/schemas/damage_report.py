@@ -10,6 +10,10 @@ class DamageReportItemCreate(BaseModel):
     unit_cost: float = 0
     amount: float = 0
     reason: Optional[str] = None
+    unit_id: Optional[int] = None
+    unit_level: Optional[str] = None  # small/medium/large
+    unit_quantity: Optional[float] = 1.0
+    unit_conv_rate: Optional[float] = 1.0
 
 
 class DamageReportItemOut(BaseModel):
@@ -20,6 +24,10 @@ class DamageReportItemOut(BaseModel):
     unit_cost: float = 0
     amount: float = 0
     reason: Optional[str] = None
+    unit_id: Optional[int] = None
+    unit_quantity: Optional[float] = 1.0
+    unit_conv_rate: Optional[float] = 1.0
+    unit_name: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 

@@ -1,7 +1,8 @@
+from datetime import datetime
 """
 操作日志
 """
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, func
+from sqlalchemy import text, Column, Integer, String, Text, DateTime, ForeignKey, func
 from database import Base
 
 
@@ -19,4 +20,4 @@ class OperationLog(Base):
     target_name = Column(String(200), comment="操作对象名称")
     detail = Column(Text, comment="操作详情")
     ip_address = Column(String(50), comment="IP地址")
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)

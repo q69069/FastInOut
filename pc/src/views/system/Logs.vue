@@ -33,7 +33,7 @@
       <el-table-column prop="target" label="操作对象" min-width="200" />
       <el-table-column prop="detail" label="详情" min-width="250" show-overflow-tooltip />
       <el-table-column prop="ip" label="IP" width="130" />
-      <el-table-column prop="created_at" label="时间" width="170" />
+      <el-table-column prop="created_at" label="时间" width="170" :formatter="fmtDate" />
     </el-table>
 
     <el-pagination
@@ -53,6 +53,7 @@
 import { ref, onMounted } from 'vue'
 import { getOperationLogs } from '../../api'
 
+const fmtDate = (_r, _c, v) => v ? String(v).replace("T", " ").slice(0, 16) : ""
 const list = ref([])
 const total = ref(0)
 const query = ref({ page: 1, page_size: 20, operator: '', action: '', keyword: '' })

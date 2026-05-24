@@ -8,6 +8,10 @@ class SalesOrderItemBase(BaseModel):
     quantity: float
     price: float
     amount: float = 0
+    unit_id: Optional[int] = None
+    unit_level: Optional[str] = None  # small/medium/large
+    unit_quantity: Optional[float] = 1.0
+    unit_conv_rate: Optional[float] = 1.0
 
 
 class SalesOrderItemCreate(SalesOrderItemBase):
@@ -19,6 +23,7 @@ class SalesOrderItemOut(SalesOrderItemBase):
     id: int
     order_id: int
     delivered_qty: float = 0
+    unit_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -61,6 +66,10 @@ class SalesStockoutItemBase(BaseModel):
     quantity: float
     price: float
     amount: float = 0
+    unit_id: Optional[int] = None
+    unit_level: Optional[str] = None  # small/medium/large
+    unit_quantity: Optional[float] = 1.0
+    unit_conv_rate: Optional[float] = 1.0
 
 
 class SalesStockoutItemCreate(SalesStockoutItemBase):
@@ -71,6 +80,7 @@ class SalesStockoutItemCreate(SalesStockoutItemBase):
 class SalesStockoutItemOut(SalesStockoutItemBase):
     id: int
     stockout_id: int
+    unit_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -91,6 +101,7 @@ class SalesStockoutOut(SalesStockoutBase):
     id: int
     code: str
     operator_id: Optional[int] = None
+    auditor_id: Optional[int] = None
     status: int
     created_at: Optional[datetime] = None
 
@@ -102,10 +113,22 @@ class SalesReturnItemBase(BaseModel):
     quantity: float
     price: float
     amount: float = 0
+    unit_id: Optional[int] = None
+    unit_level: Optional[str] = None  # small/medium/large
+    unit_quantity: Optional[float] = 1.0
+    unit_conv_rate: Optional[float] = 1.0
 
 
 class SalesReturnItemCreate(SalesReturnItemBase):
     quantity: float = Field(gt=0, description="数量必须大于0")
+
+
+class SalesReturnItemOut(SalesReturnItemBase):
+    id: int
+    return_id: int
+    unit_name: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
     price: float = Field(ge=0, description="单价不能为负")
 
 
@@ -125,6 +148,7 @@ class SalesReturnOut(SalesReturnBase):
     id: int
     code: str
     operator_id: Optional[int] = None
+    auditor_id: Optional[int] = None
     status: int
     created_at: Optional[datetime] = None
     confirmed_at: Optional[datetime] = None

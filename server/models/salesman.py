@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, func
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, Float, ForeignKey, DateTime, func
 from database import Base
 
 
@@ -11,5 +12,5 @@ class Salesman(Base):
     commission_rate = Column(Float, default=0)  # 提成比例 (0.05 = 5%)
     target_amount = Column(Float, default=0)  # 月度目标金额
     status = Column(Integer, default=1)
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)

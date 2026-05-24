@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Date, func
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, Float, ForeignKey, DateTime, Date, func
 from database import Base
 
 
@@ -15,5 +16,5 @@ class ProductBatch(Base):
     warehouse_id = Column(Integer, ForeignKey("warehouses.id"))
     status = Column(String(20), default="active")  # active=正常, expired=过期, used=用完
     remark = Column(String(500))
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)

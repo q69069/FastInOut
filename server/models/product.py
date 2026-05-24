@@ -1,4 +1,6 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, func
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, Float, ForeignKey, DateTime, func
+from sqlalchemy.orm import relationship
 from database import Base
 
 
@@ -12,6 +14,13 @@ class Product(Base):
     spec = Column(String(200))  # 规格
     unit = Column(String(20))  # 基本单位（最小单位）
     base_unit_id = Column(Integer, ForeignKey("units.id"))  # 关联单位表
+    # 三单位
+    small_unit_name = Column(String(20), default='')
+    medium_unit_name = Column(String(20), nullable=True)
+    medium_conv_rate = Column(Float, nullable=True)
+    large_unit_name = Column(String(20), nullable=True)
+    large_conv_rate = Column(Float, nullable=True)
+    default_unit_level = Column(String(10), default='small')
     category_id = Column(Integer, ForeignKey("categories.id"))
     purchase_price = Column(Float, default=0)  # 进价（基本单位）
     retail_price = Column(Float, default=0)  # 零售价（基本单位）
@@ -22,8 +31,9 @@ class Product(Base):
     stock_max = Column(Float, default=0)  # 库存上限
     image = Column(String(500))  # 图片路径
     level_prices = Column(String(500))  # JSON: {"VIP":50,"A":55,"B":58,"C":60}
-    brand = Column(String(50))  # 品牌
+    brand_id = Column(Integer, ForeignKey("brands.id"), nullable=True)
+    brand_rel = relationship("Brand", foreign_keys=[brand_id])
     status = Column(Integer, default=1)  # 1=启用 0=禁用
     remark = Column(String(500))
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)

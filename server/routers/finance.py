@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Header
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from datetime import datetime
 from database import get_db
 from models.finance import Receipt, Payment
@@ -13,29 +14,12 @@ from schemas.finance import (
     PreReceiptCreate, PrePaymentCreate, PreToReceivable, PreToPayable
 )
 from schemas.common import ResponseModel, PaginatedResponse
-from utils.auth import decode_access_token
 from utils.data_filter import DataFilter
 from utils.role_check import require_role, require_owner_or_admin
+from deps import require_finance_module, require_admin_dep
 from datetime import datetime
 
 router = APIRouter(prefix="/api/finance", tags=["财务"])
-
-
-def get_current_user(authorization: str = None, db: Session = Depends(get_db)) -> Employee:
-    """从请求头解析当前用户"""
-    if not authorization:
-        raise HTTPException(status_code=401, detail="未登录")
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="token格式错误")
-    token = authorization.replace("Bearer ", "")
-    payload = decode_access_token(token)
-    if not payload:
-        raise HTTPException(status_code=401, detail="token无效")
-    user = db.query(Employee).get(payload.get("user_id"))
-    if not user:
-        raise HTTPException(status_code=401, detail="用户不存在")
-    return user
-
 
 def _gen_code(prefix: str, db: Session, model) -> str:
     today = datetime.now().strftime("%Y%m%d")
@@ -50,10 +34,9 @@ def list_receipts(
     customer_id: int = Query(None), payment_method: str = Query(None),
     start_date: str = Query(None), end_date: str = Query(None),
     receipt_type: str = Query(None),
-    authorization: str = Header(None),
+    user: Employee = Depends(require_finance_module),
     db: Session = Depends(get_db)
 ):
-    user = get_current_user(authorization, db)
     q = db.query(Receipt)
     # 应用数据权限过滤（财务按客户路线过滤）
     q = DataFilter.apply_scope(q, Receipt, user, db, scope_field="created_by", module_key="finance")
@@ -85,27 +68,42 @@ def list_receipts(
 
 
 @router.post("/receipts", response_model=ResponseModel)
-def create_receipt(req: ReceiptCreate, authorization: str = Header(None), db: Session = Depends(get_db)):
-    user = get_current_user(authorization, db)
+def create_receipt(req: ReceiptCreate, user: Employee = Depends(require_finance_module), db: Session = Depends(get_db)):
     code = _gen_code("SK", db, Receipt)
     receipt = Receipt(
         code=code, customer_id=req.customer_id, amount=req.amount,
         payment_method=req.payment_method, stockout_id=req.stockout_id,
-        receipt_type="normal", status=1, remark=req.remark,
-        confirmed_at=datetime.now(), created_by=user.id
+        receipt_type="normal", status=0, remark=req.remark,
+        created_by=user.id
     )
     db.add(receipt)
-    customer = db.query(Customer).get(req.customer_id)
-    if customer:
-        customer.receivable_balance -= req.amount
     db.commit()
     db.refresh(receipt)
     return ResponseModel(data={"id": receipt.id, "code": code})
 
 
+@router.post("/receipts/{receipt_id}/confirm", response_model=ResponseModel)
+def confirm_receipt(receipt_id: int, user: Employee = Depends(require_finance_module), db: Session = Depends(get_db)):
+    """确认收款单，确认时扣减客户应收余额"""
+    r = db.query(Receipt).get(receipt_id)
+    if not r:
+        raise HTTPException(status_code=404, detail="收款单不存在")
+    require_owner_or_admin(user, r.created_by, db, "无权操作此收款单")
+    if r.status != 0:
+        raise HTTPException(400, "只有待确认状态的收款单可以确认")
+    customer = db.query(Customer).get(r.customer_id)
+    if customer:
+        customer.receivable_balance = (customer.receivable_balance or 0) - r.amount
+    r.status = 1
+    r.confirmed_at = datetime.now()
+    r.operator_id = user.id
+    db.commit()
+    db.refresh(r)
+    return ResponseModel(message="收款确认成功")
+
+
 @router.get("/receipts/{receipt_id}", response_model=ResponseModel)
-def get_receipt(receipt_id: int, authorization: str = Header(None), db: Session = Depends(get_db)):
-    user = get_current_user(authorization, db)
+def get_receipt(receipt_id: int, user: Employee = Depends(require_finance_module), db: Session = Depends(get_db)):
     r = db.query(Receipt).get(receipt_id)
     if not r:
         raise HTTPException(status_code=404, detail="收款单不存在")
@@ -117,19 +115,41 @@ def get_receipt(receipt_id: int, authorization: str = Header(None), db: Session 
         "amount": r.amount, "payment_method": r.payment_method,
         "stockout_id": r.stockout_id, "receipt_type": r.receipt_type,
         "status": r.status, "remark": r.remark,
-        "created_at": str(r.created_at)
+        "created_at": str(r.created_at),
+        "confirmed_at": str(r.confirmed_at) if r.confirmed_at else None
     })
 
 
+@router.post("/receipts/{receipt_id}/reverse", response_model=ResponseModel)
+def reverse_receipt(receipt_id: int, req: dict, user: Employee = Depends(require_finance_module), db: Session = Depends(get_db)):
+    """红冲收款单，回滚客户应收余额"""
+    reason = req.get("reason", "")
+    r = db.query(Receipt).get(receipt_id)
+    if not r:
+        raise HTTPException(status_code=404, detail="收款单不存在")
+    require_owner_or_admin(user, r.created_by, db, "无权操作此收款单")
+    if r.status == 3:
+        raise HTTPException(400, "收款单已冲红，不能重复操作")
+    # 回滚客户应收余额
+    customer = db.query(Customer).get(r.customer_id)
+    if customer and r.status == 1:
+        customer.receivable_balance = (customer.receivable_balance or 0) + r.amount
+    r.status = 3
+    r.reverse_reason = reason
+    r.reversed_by = user.id
+    r.reversed_at = datetime.now()
+    db.commit()
+    return ResponseModel(message="收款单冲红成功")
+
+
 @router.delete("/receipts/{receipt_id}", response_model=ResponseModel)
-def delete_receipt(receipt_id: int, authorization: str = Header(None), db: Session = Depends(get_db)):
-    user = get_current_user(authorization, db)
+def delete_receipt(receipt_id: int, user: Employee = Depends(require_finance_module), db: Session = Depends(get_db)):
     r = db.query(Receipt).get(receipt_id)
     if not r:
         raise HTTPException(status_code=404, detail="收款单不存在")
     require_owner_or_admin(user, r.created_by, db, "无权删除此收款单")
-    if r.status == 1:
-        raise HTTPException(400, "已确认的收款单不能删除，请使用红冲")
+    if r.status != 0:
+        raise HTTPException(400, "只有待确认状态的收款单可以删除，请使用红冲")
     db.delete(r)
     db.commit()
     return ResponseModel(message="已删除")
@@ -142,10 +162,9 @@ def list_payments(
     supplier_id: int = Query(None), payment_method: str = Query(None),
     start_date: str = Query(None), end_date: str = Query(None),
     payment_type: str = Query(None),
-    authorization: str = Header(None),
+    user: Employee = Depends(require_finance_module),
     db: Session = Depends(get_db)
 ):
-    user = get_current_user(authorization, db)
     q = db.query(Payment)
     # 应用数据权限过滤
     q = DataFilter.apply_scope(q, Payment, user, db, scope_field="created_by", module_key="finance")
@@ -177,8 +196,7 @@ def list_payments(
 
 
 @router.post("/payments", response_model=ResponseModel)
-def create_payment(req: PaymentCreate, authorization: str = Header(None), db: Session = Depends(get_db)):
-    user = get_current_user(authorization, db)
+def create_payment(req: PaymentCreate, user: Employee = Depends(require_finance_module), db: Session = Depends(get_db)):
     code = _gen_code("FK", db, Payment)
     payment = Payment(
         code=code, supplier_id=req.supplier_id, amount=req.amount,
@@ -196,8 +214,7 @@ def create_payment(req: PaymentCreate, authorization: str = Header(None), db: Se
 
 
 @router.get("/payments/{payment_id}", response_model=ResponseModel)
-def get_payment(payment_id: int, authorization: str = Header(None), db: Session = Depends(get_db)):
-    user = get_current_user(authorization, db)
+def get_payment(payment_id: int, user: Employee = Depends(require_finance_module), db: Session = Depends(get_db)):
     p = db.query(Payment).get(payment_id)
     if not p:
         raise HTTPException(status_code=404, detail="付款单不存在")
@@ -214,8 +231,7 @@ def get_payment(payment_id: int, authorization: str = Header(None), db: Session 
 
 
 @router.delete("/payments/{payment_id}", response_model=ResponseModel)
-def delete_payment(payment_id: int, authorization: str = Header(None), db: Session = Depends(get_db)):
-    user = get_current_user(authorization, db)
+def delete_payment(payment_id: int, user: Employee = Depends(require_finance_module), db: Session = Depends(get_db)):
     p = db.query(Payment).get(payment_id)
     if not p:
         raise HTTPException(status_code=404, detail="付款单不存在")
@@ -229,48 +245,77 @@ def delete_payment(payment_id: int, authorization: str = Header(None), db: Sessi
 
 # ========== 预收款/预付款 ==========
 @router.post("/pre-receipt", response_model=ResponseModel)
-def create_pre_receipt(req: PreReceiptCreate, authorization: str = Header(None), db: Session = Depends(get_db)):
-    user = get_current_user(authorization, db)
+def create_pre_receipt(req: PreReceiptCreate, user: Employee = Depends(require_finance_module), db: Session = Depends(get_db)):
     code = _gen_code("SK", db, Receipt)
     receipt = Receipt(
         code=code, customer_id=req.customer_id, amount=req.amount,
         payment_method=req.payment_method, receipt_type="pre",
-        status=1, remark=req.remark, confirmed_at=datetime.now(),
+        status=0, remark=req.remark,
         created_by=user.id
     )
     db.add(receipt)
-    # 预收款减少客户应收余额
+    # 预收款增加客户预收余额，不影响应收余额
     customer = db.query(Customer).get(req.customer_id)
     if customer:
-        customer.receivable_balance = (customer.receivable_balance or 0) - req.amount
+        customer.prepaid_balance = (customer.prepaid_balance or 0) + req.amount
     db.commit()
     db.refresh(receipt)
     return ResponseModel(data={"id": receipt.id, "code": code, "message": "预收款登记成功"})
 
 
+@router.post("/pre-receipt/{receipt_id}/confirm", response_model=ResponseModel)
+def confirm_pre_receipt(receipt_id: int, user: Employee = Depends(require_finance_module), db: Session = Depends(get_db)):
+    """确认预收款单"""
+    r = db.query(Receipt).get(receipt_id)
+    if not r:
+        raise HTTPException(status_code=404, detail="预收款单不存在")
+    require_owner_or_admin(user, r.created_by, db, "无权操作此收款单")
+    if r.status != 0:
+        raise HTTPException(400, "只有待确认状态的预收款可以确认")
+    r.status = 1
+    r.confirmed_at = datetime.now()
+    r.operator_id = user.id
+    db.commit()
+    return ResponseModel(message="预收款确认成功")
+
+
 @router.post("/pre-payment", response_model=ResponseModel)
-def create_pre_payment(req: PrePaymentCreate, authorization: str = Header(None), db: Session = Depends(get_db)):
-    user = get_current_user(authorization, db)
+def create_pre_payment(req: PrePaymentCreate, user: Employee = Depends(require_finance_module), db: Session = Depends(get_db)):
     code = _gen_code("FK", db, Payment)
     payment = Payment(
         code=code, supplier_id=req.supplier_id, amount=req.amount,
         payment_method=req.payment_method, payment_type="pre",
-        status=1, remark=req.remark, confirmed_at=datetime.now(),
+        status=0, remark=req.remark,
         created_by=user.id
     )
     db.add(payment)
-    # 预付款减少供应商应付余额
+    # 预付款增加供应商预付余额，不影响应付余额
     supplier = db.query(Supplier).get(req.supplier_id)
     if supplier:
-        supplier.payable_balance = (supplier.payable_balance or 0) - req.amount
+        supplier.prepaid_balance = (supplier.prepaid_balance or 0) + req.amount
     db.commit()
     db.refresh(payment)
     return ResponseModel(data={"id": payment.id, "code": code, "message": "预付款登记成功"})
 
 
+@router.post("/pre-payment/{payment_id}/confirm", response_model=ResponseModel)
+def confirm_pre_payment(payment_id: int, user: Employee = Depends(require_finance_module), db: Session = Depends(get_db)):
+    """确认预付款单"""
+    p = db.query(Payment).get(payment_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="预付款单不存在")
+    require_owner_or_admin(user, p.created_by, db, "无权操作此付款单")
+    if p.status != 0:
+        raise HTTPException(400, "只有待确认状态的预付款可以确认")
+    p.status = 1
+    p.confirmed_at = datetime.now()
+    p.operator_id = user.id
+    db.commit()
+    return ResponseModel(message="预付款确认成功")
+
+
 @router.post("/pre-to-receivable", response_model=ResponseModel)
-def pre_to_receivable(req: PreToReceivable, authorization: str = Header(None), db: Session = Depends(get_db)):
-    user = get_current_user(authorization, db)
+def pre_to_receivable(req: PreToReceivable, user: Employee = Depends(require_finance_module), db: Session = Depends(get_db)):
     receipt = db.query(Receipt).get(req.receipt_id)
     if not receipt:
         raise HTTPException(status_code=404, detail="预收款单不存在")
@@ -283,16 +328,16 @@ def pre_to_receivable(req: PreToReceivable, authorization: str = Header(None), d
     if not stockout:
         raise HTTPException(status_code=404, detail="出库单不存在")
     receipt.amount -= req.amount
+    # 客户预收余额减少（应收余额已在销售出库时产生，此处只消耗预收不重复扣减）
     customer = db.query(Customer).get(receipt.customer_id)
     if customer:
-        customer.receivable_balance -= req.amount
+        customer.prepaid_balance = (customer.prepaid_balance or 0) - req.amount
     db.commit()
     return ResponseModel(message="预收冲应收成功")
 
 
 @router.post("/pre-to-payable", response_model=ResponseModel)
-def pre_to_payable(req: PreToPayable, authorization: str = Header(None), db: Session = Depends(get_db)):
-    user = get_current_user(authorization, db)
+def pre_to_payable(req: PreToPayable, user: Employee = Depends(require_finance_module), db: Session = Depends(get_db)):
     payment = db.query(Payment).get(req.payment_id)
     if not payment:
         raise HTTPException(status_code=404, detail="预付款单不存在")
@@ -305,16 +350,17 @@ def pre_to_payable(req: PreToPayable, authorization: str = Header(None), db: Ses
     if not stockin:
         raise HTTPException(status_code=404, detail="入库单不存在")
     payment.amount -= req.amount
+    # 供应商预付余额减少（应付余额已在采购入库时产生，此处只消耗预付不重复扣减）
     supplier = db.query(Supplier).get(payment.supplier_id)
     if supplier:
-        supplier.payable_balance -= req.amount
+        supplier.prepaid_balance = (supplier.prepaid_balance or 0) - req.amount
     db.commit()
     return ResponseModel(message="预付冲应付成功")
 
 
 # ========== 应收账款 ==========
 @router.get("/receivables", response_model=ResponseModel)
-def list_receivables(db: Session = Depends(get_db)):
+def list_receivables(user: Employee = Depends(require_finance_module), db: Session = Depends(get_db)):
     customers = db.query(Customer).filter(Customer.receivable_balance != 0).all()
     result = []
     for c in customers:
@@ -326,7 +372,7 @@ def list_receivables(db: Session = Depends(get_db)):
 
 
 @router.get("/receivables/{customer_id}", response_model=ResponseModel)
-def get_receivable_detail(customer_id: int, db: Session = Depends(get_db)):
+def get_receivable_detail(customer_id: int, user: Employee = Depends(require_finance_module), db: Session = Depends(get_db)):
     customer = db.query(Customer).get(customer_id)
     if not customer:
         raise HTTPException(status_code=404, detail="客户不存在")
@@ -348,7 +394,7 @@ def get_receivable_detail(customer_id: int, db: Session = Depends(get_db)):
 
 # ========== 应付账款 ==========
 @router.get("/payables", response_model=ResponseModel)
-def list_payables(db: Session = Depends(get_db)):
+def list_payables(user: Employee = Depends(require_finance_module), db: Session = Depends(get_db)):
     suppliers = db.query(Supplier).filter(Supplier.payable_balance != 0).all()
     result = []
     for s in suppliers:
@@ -360,7 +406,7 @@ def list_payables(db: Session = Depends(get_db)):
 
 
 @router.get("/payables/{supplier_id}", response_model=ResponseModel)
-def get_payable_detail(supplier_id: int, db: Session = Depends(get_db)):
+def get_payable_detail(supplier_id: int, user: Employee = Depends(require_finance_module), db: Session = Depends(get_db)):
     supplier = db.query(Supplier).get(supplier_id)
     if not supplier:
         raise HTTPException(status_code=404, detail="供应商不存在")
@@ -386,10 +432,9 @@ def finance_flow(
     type: str = Query(None),  # income/expense
     start_date: str = Query(None), end_date: str = Query(None),
     page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
-    authorization: str = Header(None),
+    user: Employee = Depends(require_finance_module),
     db: Session = Depends(get_db)
 ):
-    user = get_current_user(authorization, db)
     # M8: 批量预加载客户和供应商名称，避免逐条查询
     customers_map = {c.id: c.name for c in db.query(Customer).all()}
     suppliers_map = {s.id: s.name for s in db.query(Supplier).all()}
@@ -430,3 +475,83 @@ def finance_flow(
     start = (page - 1) * page_size
     end = start + page_size
     return PaginatedResponse(data=records[start:end], total=total, page=page, page_size=page_size)
+
+
+# ========== 余额重算 ==========
+@router.post("/recalculate-balances", response_model=ResponseModel)
+def recalculate_balances(user: Employee = Depends(require_admin_dep), db: Session = Depends(get_db)):
+    """从源交易重算所有客户应收余额和供应商应付余额"""
+    from models.sales import SalesReturn
+    from models.purchase import PurchaseReturn
+    from models.finance import Receipt, Payment
+
+    customer_changes = []
+    supplier_changes = []
+
+    # 重算客户应收余额
+    customers = db.query(Customer).all()
+    for cust in customers:
+        old_balance = cust.receivable_balance or 0
+
+        # + 已确认出库总额
+        stockout_total = db.query(func.coalesce(func.sum(SalesStockout.total_amount), 0)).filter(
+            SalesStockout.customer_id == cust.id, SalesStockout.status == 2
+        ).scalar()
+
+        # - 已确认退货总额
+        return_total = db.query(func.coalesce(func.sum(SalesReturn.total_amount), 0)).filter(
+            SalesReturn.customer_id == cust.id, SalesReturn.status >= 2
+        ).scalar()
+
+        # - 已确认收款总额
+        receipt_total = db.query(func.coalesce(func.sum(Receipt.amount), 0)).filter(
+            Receipt.customer_id == cust.id, Receipt.status == 1
+        ).scalar()
+
+        new_balance = round(float(stockout_total) - float(return_total) - float(receipt_total), 2)
+
+        if abs(new_balance - old_balance) > 0.01:
+            customer_changes.append({
+                "id": cust.id, "name": cust.name,
+                "old_balance": old_balance, "new_balance": new_balance,
+                "diff": round(new_balance - old_balance, 2)
+            })
+            cust.receivable_balance = new_balance
+
+    # 重算供应商应付余额
+    suppliers = db.query(Supplier).all()
+    for sup in suppliers:
+        old_balance = sup.payable_balance or 0
+
+        # + 已确认入库总额
+        stockin_total = db.query(func.coalesce(func.sum(PurchaseStockin.total_amount), 0)).filter(
+            PurchaseStockin.supplier_id == sup.id, PurchaseStockin.status == 2
+        ).scalar()
+
+        # - 已确认退货总额
+        return_total = db.query(func.coalesce(func.sum(PurchaseReturn.total_amount), 0)).filter(
+            PurchaseReturn.supplier_id == sup.id, PurchaseReturn.status >= 2
+        ).scalar()
+
+        # - 已确认付款总额
+        payment_total = db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(
+            Payment.supplier_id == sup.id, Payment.status == 1
+        ).scalar()
+
+        new_balance = round(float(stockin_total) - float(return_total) - float(payment_total), 2)
+
+        if abs(new_balance - old_balance) > 0.01:
+            supplier_changes.append({
+                "id": sup.id, "name": sup.name,
+                "old_balance": old_balance, "new_balance": new_balance,
+                "diff": round(new_balance - old_balance, 2)
+            })
+            sup.payable_balance = new_balance
+
+    db.commit()
+    return ResponseModel(data={
+        "customer_changes": customer_changes,
+        "supplier_changes": supplier_changes,
+        "total_customer_fixes": len(customer_changes),
+        "total_supplier_fixes": len(supplier_changes)
+    })

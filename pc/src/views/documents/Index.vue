@@ -17,10 +17,12 @@
           <el-select v-model="filter.type" clearable placeholder="全部类型" style="width:140px" @change="loadData">
             <el-option label="采购订单" value="purchase_order" />
             <el-option label="采购单" value="purchase_receipt" />
+            <el-option label="入库单" value="purchase_stockin" />
             <el-option label="采购退货订单" value="purchase_return_order" />
             <el-option label="采购退货" value="purchase_return_dlv" />
             <el-option label="销售订单" value="sales_order" />
             <el-option label="销售单" value="sales_delivery" />
+            <el-option label="出库单" value="sales_stockout" />
             <el-option label="退货订单" value="sales_return_order" />
             <el-option label="退货单" value="return_delivery" />
             <el-option label="库存调拨" value="transfer" />
@@ -39,6 +41,7 @@
         <el-form-item>
           <el-button type="primary" @click="loadData">查询</el-button>
           <el-button @click="clearFilter">清空</el-button>
+          <el-button type="success" @click="handleExport">导出Excel</el-button>
         </el-form-item>
       </el-form>
 
@@ -48,9 +51,11 @@
             <el-tag :type="typeTagType(row.type)" size="small">{{ typeName(row.type) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="code" label="单号" width="160" />
+        <el-table-column label="单号" width="160">
+          <template #default="{ row }">{{ row[getCodeKey(row.type)] || row.code || '-' }}</template>
+        </el-table-column>
         <el-table-column :label="partyLabel" min-width="140">
-          <template #default="{ row }">{{ row.party_name || '-' }}</template>
+          <template #default="{ row }">{{ row[getPartyKey(row.type)] || row.party_name || '-' }}</template>
         </el-table-column>
         <el-table-column prop="warehouse_name" label="仓库" width="110" />
         <el-table-column prop="total_amount" label="金额" width="110" align="right">
@@ -64,10 +69,11 @@
             <el-tag :type="statusTagType(row)" size="small">{{ statusText(row) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" width="170" />
-        <el-table-column label="操作" width="160" fixed="right">
+        <el-table-column prop="created_at" label="创建时间" width="170" :formatter="fmtDate" />
+        <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="showDetail(row)">详情</el-button>
+            <el-button v-if="canFulfill(row)" link type="success" size="small" @click="handleFulfill(row)">{{ fulfillLabel(row.type) }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -82,30 +88,8 @@
       />
     </el-card>
 
-    <!-- 详情弹窗 -->
-    <el-dialog v-model="detailVisible" :title="`${typeName(currentRow?.type)}详情`" width="700px">
-      <el-descriptions :column="2" border v-if="detail">
-        <el-descriptions-item label="单号">{{ detail.code }}</el-descriptions-item>
-        <el-descriptions-item :label="partyLabel">{{ detail.party_name || detail.supplier_name || detail.customer_name || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="仓库">{{ detail.warehouse_name || detail.from_warehouse_name || detail.to_warehouse_name || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="金额" v-if="detail.total_amount != null">¥{{ Number(detail.total_amount || 0).toFixed(2) }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag :type="statusTagType({ type: currentRow?.type, status: detail.status })">{{ statusText({ type: currentRow?.type, status: detail.status }) }}</el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ detail.created_at }}</el-descriptions-item>
-        <el-descriptions-item label="备注" :span="2">{{ detail.remark || '-' }}</el-descriptions-item>
-      </el-descriptions>
-      <el-table :data="detail.items || []" border size="small" style="margin-top:16px" v-if="detail.items?.length">
-        <el-table-column prop="product_name" label="商品" />
-        <el-table-column prop="quantity" label="数量" width="80" align="right" />
-        <el-table-column prop="unit_price" label="单价" width="80" align="right">
-          <template #default="{ row }">{{ row.unit_price != null ? '¥' + Number(row.unit_price).toFixed(2) : '-' }}</template>
-        </el-table-column>
-        <el-table-column prop="amount" label="金额" width="100" align="right">
-          <template #default="{ row }">{{ row.amount != null ? '¥' + Number(row.amount).toFixed(2) : '-' }}</template>
-        </el-table-column>
-      </el-table>
-    </el-dialog>
+    <DocumentDetail v-model="detailVisible" :title="`${typeName(currentRow?.type)}详情`"
+      :fields="detailFields" :items="detail.items || []" :item-columns="detailItemColumns" />
   </div>
 </template>
 
@@ -118,9 +102,16 @@ import {
   getTransfers, getStocktaking, getVehicleLoads, getDamageReports, getSettlements,
   getPurchaseOrder, getPurchaseReceipt, getPurchaseReturn, getPurchaseReturnDlv,
   getSalesOrder, getSalesDelivery, getSalesReturn, getReturnDelivery,
-  getTransfer, getStocktakingDetail, getVehicleLoad, getDamageReport, getSettlement
+  getTransfer, getStocktakingDetail, getVehicleLoad, getDamageReport, getSettlement,
+  quickConfirmPurchaseOrder, quickConfirmSalesOrder, fulfillSalesReturn, fulfillPurchaseReturn,
+  getSalesStockouts, getSalesStockout, getPurchaseStockins, getPurchaseStockin,
+  exportDocuments
 } from '../../api'
+import { ElMessageBox } from 'element-plus'
+import DocumentDetail from '../../components/DocumentDetail.vue'
 
+const fmtDateVal = (v) => v ? String(v).replace("T", " ").slice(0, 16) : ""
+const fmtDate = (_r, _c, v) => v ? String(v).replace('T', ' ').slice(0, 16) : ''
 const now = new Date().toLocaleString('zh-CN')
 
 const loading = ref(false)
@@ -136,10 +127,12 @@ const filter = ref({ type: '', keyword: '', date_range: [] })
 const typeMap = {
   purchase_order: '采购订单',
   purchase_receipt: '采购单',
+  purchase_stockin: '入库单',
   purchase_return_order: '采购退货订单',
   purchase_return_dlv: '采购退货',
   sales_order: '销售订单',
   sales_delivery: '销售单',
+  sales_stockout: '出库单',
   sales_return_order: '退货订单',
   return_delivery: '退货单',
   transfer: '库存调拨',
@@ -150,17 +143,20 @@ const typeMap = {
 }
 
 const typeTagType = (type) => ({
-  purchase_order: '', purchase_receipt: 'success', purchase_return_order: '', purchase_return_dlv: 'warning',
-  sales_order: 'primary', sales_delivery: 'success', sales_return_order: '', return_delivery: 'warning',
+  purchase_order: 'primary', purchase_receipt: 'success', purchase_stockin: 'success', purchase_return_order: 'warning', purchase_return_dlv: 'warning',
+  sales_order: 'primary', sales_delivery: 'success', sales_stockout: 'success', sales_return_order: 'warning', return_delivery: 'warning',
   transfer: 'info', stocktaking: 'warning', vehicle_load: 'info', damage_report: 'danger', settlement: 'primary'
 })[type] || 'info'
 
 const typeName = (type) => typeMap[type] || type
 
+const getCodeKey = (type) => apiMap[type]?.codeKey || 'code'
+const getPartyKey = (type) => apiMap[type]?.partyKey || 'party_name'
+
 const partyLabel = computed(() => {
   const map = {
-    purchase_order: '供应商', purchase_receipt: '供应商', purchase_return_order: '供应商', purchase_return_dlv: '供应商',
-    sales_order: '客户', sales_delivery: '客户', sales_return_order: '客户', return_delivery: '客户',
+    purchase_order: '供应商', purchase_receipt: '供应商', purchase_stockin: '供应商', purchase_return_order: '供应商', purchase_return_dlv: '供应商',
+    sales_order: '客户', sales_delivery: '客户', sales_stockout: '客户', sales_return_order: '客户', return_delivery: '客户',
     transfer: '调拨', stocktaking: '盘点', vehicle_load: '装车', damage_report: '报损', settlement: '业务员'
   }
   return map[filter.value.type] || '客户/供应商'
@@ -168,77 +164,181 @@ const partyLabel = computed(() => {
 
 const statusText = (row) => {
   const { type, status } = row
+  const s = Number(status)
   if (type === 'purchase_order') {
-    return { pending: '待审核', approved: '已通过', rejected: '已驳回' }[status] || status
+    return { 0: '草稿', 1: '已确认', 2: '已入库', 3: '已冲红' }[s] || status
   }
   if (type === 'purchase_receipt') {
-    return { pending: '待入库', confirmed: '已入库', cancelled: '已取消' }[status] || status
+    return { pending: '草稿', confirmed: '已入库', cancelled: '已取消', reversed: '已冲红' }[status] || status
+  }
+  if (type === 'purchase_stockin') {
+    return { 0: '草稿', 1: '已入库', 2: '已入库', 3: '已冲红' }[s] || status
   }
   if (type === 'purchase_return_order') {
-    return { pending: '待审核', approved: '已通过', rejected: '已驳回' }[status] || status
+    return { 0: '草稿', 1: '已确认', 2: '已出库', 3: '已冲红' }[s] || status
   }
   if (type === 'purchase_return_dlv') {
-    return { pending: '待仓管确认', warehouse_confirmed: '仓管已确认', finance_confirmed: '财务已确认', settled: '已结算' }[status] || status
+    return { pending: '草稿', warehouse_confirmed: '已出库', finance_confirmed: '已结算', settled: '已结算', reversed: '已冲红' }[status] || status
   }
   if (type === 'sales_order') {
-    return { pending: '待审核', approved: '已通过', rejected: '已驳回' }[status] || status
+    return { 0: '草稿', 1: '已确认', 2: '已出库', 3: '已冲红' }[s] || status
   }
   if (type === 'sales_delivery') {
-    return { pending: '待审核', confirmed: '已确认', voided: '已作废', reversed: '已红冲' }[status] || status
+    return { pending: '草稿', confirmed: '已出库', settled: '已结算', voided: '已作废', reversed: '已冲红' }[status] || status
+  }
+  if (type === 'sales_stockout') {
+    return { 0: '草稿', 1: '已出库', 2: '已出库', 3: '已冲红' }[s] || status
   }
   if (type === 'sales_return_order') {
-    return { pending: '待审核', approved: '已通过', rejected: '已驳回' }[status] || status
+    return { 0: '草稿', 1: '已确认', 2: '已入库', 3: '已冲红' }[s] || status
   }
   if (type === 'return_delivery') {
-    return { pending: '待仓管确认', warehouse_confirmed: '仓管已确认', finance_confirmed: '财务已确认' }[status] || status
+    return { 0: '草稿', 1: '已入库', 2: '已入库', 3: '已结算' }[s] || status
   }
   if (type === 'transfer') {
-    return { 1: '调拨中', 2: '已确认', 3: '已取消' }[Number(status)] || status
+    return { 0: '草稿', 1: '调拨中', 2: '已确认', 3: '已取消' }[s] || status
   }
   if (type === 'stocktaking') {
-    return { 1: '盘点中', 2: '已审核', 3: '已调整', 4: '已作废' }[Number(status)] || status
+    return { 1: '盘点中', 2: '已审核', 3: '已调整', 4: '已作废' }[s] || status
   }
   if (type === 'vehicle_load') {
     return { draft: '草稿', loaded: '已装车', returned: '已退库' }[status] || status
   }
   if (type === 'damage_report') {
-    return { pending: '待审核', adjusted: '已调整' }[status] || status
+    return { pending: '草稿', adjusted: '已调整' }[status] || status
   }
   if (type === 'settlement') {
-    return { pending: '待审核', audited: '已通过', rejected: '已驳回' }[status] || status
+    return { pending: '草稿', audited: '已通过', rejected: '已驳回' }[status] || status
   }
   return status
 }
 
 const statusTagType = (row) => {
   const { type, status } = row
+  const s = Number(status)
+  if (type === 'purchase_order' || type === 'sales_order') {
+    return { 0: 'info', 1: 'warning', 2: 'success', 3: 'danger' }[s] || 'info'
+  }
+  if (type === 'purchase_return_order' || type === 'sales_return_order') {
+    return { 0: 'info', 1: 'warning', 2: 'success', 3: 'danger' }[s] || 'info'
+  }
+  if (type === 'sales_stockout' || type === 'purchase_stockin') {
+    return { 0: 'info', 1: 'warning', 2: 'success', 3: 'danger' }[s] || 'info'
+  }
   if (type === 'transfer') {
-    return { 1: 'warning', 2: 'success', 3: 'info' }[Number(status)] || 'info'
+    return { 1: 'warning', 2: 'success', 3: 'info' }[s] || 'info'
   }
   if (type === 'stocktaking') {
-    return { 1: 'info', 2: 'success', 3: '', 4: 'danger' }[Number(status)] || 'info'
+    return { 1: 'info', 2: 'success', 3: 'warning', 4: 'danger' }[s] || 'info'
   }
   if (type === 'vehicle_load') {
     return { draft: 'info', loaded: 'success', returned: 'danger' }[status] || 'info'
   }
-  const s = String(status)
-  return { pending: 'warning', approved: 'success', confirmed: 'success', audited: 'success', adjusted: 'success', warehouse_confirmed: 'success', finance_confirmed: 'success', settled: 'success', rejected: 'danger', cancelled: 'info', voided: 'info', reversed: 'info' }[s] || 'info'
+  const ss = String(status)
+  return { pending: 'warning', approved: 'success', confirmed: 'success', audited: 'success', adjusted: 'success', warehouse_confirmed: 'success', finance_confirmed: 'success', settled: 'success', rejected: 'danger', cancelled: 'info', voided: 'info', reversed: 'info' }[ss] || 'info'
 }
+
+const detailFields = computed(() => {
+  const d = detail.value
+  const t = currentRow.value?.type
+  const codeKey = getCodeKey(t)
+  const partyKey = getPartyKey(t)
+  const code = d[codeKey] || d.code
+  if (!code) return []
+  const fields = [
+    { label: '单号', value: code },
+    { label: partyLabel.value, value: d[partyKey] || d.party_name || d.supplier_name || d.customer_name || '-' },
+    { label: '仓库', value: d.warehouse_name || d.from_warehouse_name || d.to_warehouse_name || '-' }
+  ]
+  if (d.total_amount != null) fields.push({ label: '金额', value: Number(d.total_amount).toFixed(2), type: 'money' })
+  fields.push(
+    { label: '状态', value: statusText({ type: t, status: d.status }), type: 'tag', tagType: statusTagType({ type: t, status: d.status }) },
+    { label: '创建时间', value: fmtDateVal(d.created_at) },
+    { label: '备注', value: d.remark, span: 2 }
+  )
+  return fields
+})
+
+const detailItemColumns = [
+  { prop: 'product_name', label: '商品', minWidth: 150 },
+  { prop: 'quantity', label: '数量', width: 80, align: 'right' },
+  { prop: 'unit_price', label: '单价', width: 80, align: 'right', type: 'money' },
+  { prop: 'amount', label: '金额', width: 100, align: 'right', type: 'money' }
+]
 
 const tableRowClassName = ({ row }) => {
   if (row.type === 'damage_report' || row.type === 'stocktaking') return 'warning-row'
   return ''
 }
 
+const canFulfill = (row) => {
+  const orderTypes = ['purchase_order', 'sales_order', 'purchase_return_order', 'sales_return_order']
+  return orderTypes.includes(row.type) && Number(row.status) === 1
+}
+
+const fulfillLabel = (type) => {
+  return { purchase_order: '确认到货', sales_order: '确认发货', purchase_return_order: '确认退货', sales_return_order: '确认退货' }[type] || '确认'
+}
+
+const handleFulfill = async (row) => {
+  const label = fulfillLabel(row.type)
+  try {
+    await ElMessageBox.confirm(`确定要${label}吗？`, '确认操作', { type: 'warning' })
+  } catch { return }
+  loading.value = true
+  try {
+    const apiMap = {
+      purchase_order: quickConfirmPurchaseOrder,
+      sales_order: quickConfirmSalesOrder,
+      purchase_return_order: fulfillPurchaseReturn,
+      sales_return_order: fulfillSalesReturn
+    }
+    const fn = apiMap[row.type]
+    if (!fn) return
+    await fn(row.id)
+    ElMessage.success(`${label}成功`)
+    loadData()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.detail || `${label}失败`)
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleExport = async () => {
+  try {
+    const params = {}
+    if (filter.value.type) params.type = filter.value.type
+    if (filter.value.date_range?.length === 2) {
+      params.start_date = filter.value.date_range[0]
+      params.end_date = filter.value.date_range[1]
+    }
+    if (filter.value.keyword) params.keyword = filter.value.keyword
+    const res = await exportDocuments(params)
+    const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `单据导出_${new Date().toISOString().slice(0,10)}.xlsx`
+    a.click()
+    URL.revokeObjectURL(url)
+    ElMessage.success('导出成功')
+  } catch (e) {
+    ElMessage.error('导出失败')
+  }
+}
+
 const apiMap = {
-  purchase_order: { list: getPurchaseOrders, detail: getPurchaseOrder, codeKey: 'order_no', partyKey: 'supplier_name' },
+  purchase_order: { list: getPurchaseOrders, detail: getPurchaseOrder, codeKey: 'code', partyKey: 'supplier_name' },
   purchase_receipt: { list: getPurchaseReceipts, detail: getPurchaseReceipt, codeKey: 'receipt_no', partyKey: 'supplier_name' },
-  purchase_return_order: { list: getPurchaseReturns, detail: getPurchaseReturn, codeKey: 'return_no', partyKey: 'supplier_name' },
+  purchase_stockin: { list: getPurchaseStockins, detail: getPurchaseStockin, codeKey: 'code', partyKey: 'supplier_name' },
+  purchase_return_order: { list: getPurchaseReturns, detail: getPurchaseReturn, codeKey: 'code', partyKey: 'supplier_name' },
   purchase_return_dlv: { list: getPurchaseReturnDlvs, detail: getPurchaseReturnDlv, codeKey: 'return_dlv_no', partyKey: 'supplier_name' },
-  sales_order: { list: getSalesOrders, detail: getSalesOrder, codeKey: 'order_no', partyKey: 'customer_name' },
+  sales_order: { list: getSalesOrders, detail: getSalesOrder, codeKey: 'code', partyKey: 'customer_name' },
   sales_delivery: { list: getSalesDeliveries, detail: getSalesDelivery, codeKey: 'delivery_no', partyKey: 'customer_name' },
-  sales_return_order: { list: getSalesReturns, detail: getSalesReturn, codeKey: 'return_no', partyKey: 'customer_name' },
-  return_delivery: { list: getReturnDeliveries, detail: getReturnDelivery, codeKey: 'return_dlv_no', partyKey: 'customer_name' },
+  sales_stockout: { list: getSalesStockouts, detail: getSalesStockout, codeKey: 'code', partyKey: 'customer_name' },
+  sales_return_order: { list: getSalesReturns, detail: getSalesReturn, codeKey: 'code', partyKey: 'customer_name' },
+  return_delivery: { list: getReturnDeliveries, detail: getReturnDelivery, codeKey: 'code', partyKey: 'customer_name' },
   transfer: { list: getTransfers, detail: getTransfer, codeKey: 'code', partyKey: 'from_warehouse_name' },
   stocktaking: { list: getStocktaking, detail: getStocktakingDetail, codeKey: 'code', partyKey: 'warehouse_name' },
   vehicle_load: { list: getVehicleLoads, detail: getVehicleLoad, codeKey: 'load_no', partyKey: 'from_warehouse_name' },

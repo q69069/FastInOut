@@ -8,7 +8,7 @@ from typing import Optional
 from datetime import datetime
 from database import get_db
 from models.advance_deduction import AdvanceDeduction
-from routers.auth import get_current_user
+from deps import get_current_user
 
 router = APIRouter(prefix="/advance-deductions", tags=["预收预付"])
 

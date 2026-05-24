@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from database import get_db
+from deps import require_finance_module
 from models.bank import BankStatement
 from models.finance import Receipt, Payment
 from models.customer import Customer
@@ -20,7 +21,8 @@ def list_statements(
     matched: bool = Query(None),
     start_date: str = Query(None),
     end_date: str = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _=Depends(require_finance_module)
 ):
     q = db.query(BankStatement)
     if bank_account:
@@ -40,7 +42,7 @@ def list_statements(
 
 
 @router.post("", response_model=ResponseModel)
-def create_statement(req: BankStatementCreate, db: Session = Depends(get_db)):
+def create_statement(req: BankStatementCreate, db: Session = Depends(get_db), _=Depends(require_finance_module)):
     stmt = BankStatement(**req.model_dump())
     db.add(stmt)
     db.commit()
@@ -49,7 +51,7 @@ def create_statement(req: BankStatementCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/auto-match", response_model=ResponseModel)
-def auto_match(db: Session = Depends(get_db)):
+def auto_match(db: Session = Depends(get_db), _=Depends(require_finance_module)):
     """自动匹配银行流水与收付款记录"""
     unmatched = db.query(BankStatement).filter(BankStatement.matched == False).all()
     matched_count = 0
@@ -93,7 +95,7 @@ def auto_match(db: Session = Depends(get_db)):
 
 
 @router.get("/summary", response_model=ResponseModel)
-def get_summary(db: Session = Depends(get_db)):
+def get_summary(db: Session = Depends(get_db), _=Depends(require_finance_module)):
     """银行对账汇总"""
     stmts = db.query(BankStatement).all()
     total_debit = sum(s.debit for s in stmts)

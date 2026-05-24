@@ -66,7 +66,7 @@
     <el-dialog v-model="dialogVisible" :title="form.id ? '编辑仓库' : '新增仓库'" width="600px">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="编码" prop="code">
-          <el-input v-model="form.code" placeholder="如：WH001" />
+          <el-input v-model="form.code" placeholder="如：WH001" @input="_codeEdited = true" />
         </el-form-item>
         <el-form-item label="名称" prop="name">
           <el-input v-model="form.name" placeholder="仓库全名" />
@@ -109,8 +109,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { pinyin } from 'pinyin-pro'
 import { getWarehouses, createWarehouse, updateWarehouse, deleteWarehouse, setWarehouseDefault } from '../../api'
 
 const warehouseTypeMap = {
@@ -125,6 +126,13 @@ const query = ref({ page: 1, page_size: 20, keyword: '', warehouse_type: '' })
 const dialogVisible = ref(false)
 const form = ref({})
 const formRef = ref(null)
+const _codeEdited = ref(false)
+
+watch(() => form.value.name, (name) => {
+  if (!form.value.id && !_codeEdited.value && name) {
+    form.value.code = pinyin(name, { pattern: 'first', toneType: 'none' }).replace(/\s/g, '')
+  }
+})
 
 const rules = {
   code: [{ required: true, message: '请输入仓库编码', trigger: 'blur' }],
@@ -140,6 +148,7 @@ const loadData = async () => {
 }
 
 const showDialog = (row) => {
+  _codeEdited.value = false
   form.value = row ? { ...row } : {
     code: '', name: '', warehouse_type: 'normal', address: '', manager: '', phone: '', description: '', is_default: false, status: 1
   }

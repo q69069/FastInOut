@@ -8,6 +8,10 @@ class PurchaseReturnDlvItemCreate(BaseModel):
     quantity: float = Field(gt=0, description="数量必须大于0")
     unit_price: float = Field(ge=0, description="单价不能为负")
     amount: float = 0
+    unit_id: Optional[int] = None
+    unit_level: Optional[str] = None  # small/medium/large
+    unit_quantity: Optional[float] = 1.0
+    unit_conv_rate: Optional[float] = 1.0
 
 
 class PurchaseReturnDlvItemOut(BaseModel):
@@ -17,6 +21,10 @@ class PurchaseReturnDlvItemOut(BaseModel):
     quantity: float
     unit_price: float
     amount: float
+    unit_id: Optional[int] = None
+    unit_quantity: Optional[float] = 1.0
+    unit_conv_rate: Optional[float] = 1.0
+    unit_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

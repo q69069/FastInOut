@@ -2,8 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from database import get_db
 from models.customer_contact import CustomerContact
+from models.employee import Employee
 from schemas.customer_contact import CustomerContactCreate, CustomerContactUpdate, CustomerContactOut
 from schemas.common import ResponseModel, PaginatedResponse
+from deps import get_current_user
 
 router = APIRouter(prefix="/api/customer-contacts", tags=["客户联系人"])
 
@@ -14,6 +16,7 @@ def list_contacts(
     page_size: int = Query(20, ge=1, le=100),
     customer_id: int = Query(None),
     keyword: str = Query(None),
+    user: Employee = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     q = db.query(CustomerContact)
@@ -30,7 +33,7 @@ def list_contacts(
 
 
 @router.post("", response_model=ResponseModel)
-def create_contact(req: CustomerContactCreate, db: Session = Depends(get_db)):
+def create_contact(req: CustomerContactCreate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     contact = CustomerContact(**req.model_dump())
     db.add(contact)
     db.commit()
@@ -39,7 +42,7 @@ def create_contact(req: CustomerContactCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{contact_id}", response_model=ResponseModel)
-def update_contact(contact_id: int, req: CustomerContactUpdate, db: Session = Depends(get_db)):
+def update_contact(contact_id: int, req: CustomerContactUpdate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     contact = db.query(CustomerContact).get(contact_id)
     if not contact:
         raise HTTPException(status_code=404, detail="联系人不存在")
@@ -51,7 +54,7 @@ def update_contact(contact_id: int, req: CustomerContactUpdate, db: Session = De
 
 
 @router.delete("/{contact_id}", response_model=ResponseModel)
-def delete_contact(contact_id: int, db: Session = Depends(get_db)):
+def delete_contact(contact_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     contact = db.query(CustomerContact).get(contact_id)
     if not contact:
         raise HTTPException(status_code=404, detail="联系人不存在")

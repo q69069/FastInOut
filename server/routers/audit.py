@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models.audit import AuditLog
 from schemas import AuditLogResponse
-from routers.auth import get_current_user
+from deps import get_current_user
 
 router = APIRouter(prefix="/api/audit-logs", tags=["审核"])
 

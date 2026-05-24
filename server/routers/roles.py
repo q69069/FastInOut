@@ -2,6 +2,7 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from database import get_db
+from deps import require_admin_dep
 from models.role import Role
 from models.module import Module
 from models.role_module_permission import RoleModulePermission
@@ -238,6 +239,7 @@ def _role_to_out(role: Role, db: Session) -> RoleOut:
 def list_roles(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    user=Depends(require_admin_dep),
     db: Session = Depends(get_db)
 ):
     q = db.query(Role)
@@ -250,13 +252,13 @@ def list_roles(
 
 
 @router.get("/all", response_model=ResponseModel)
-def list_all_roles(db: Session = Depends(get_db)):
+def list_all_roles(user=Depends(require_admin_dep), db: Session = Depends(get_db)):
     roles = db.query(Role).order_by(Role.id).all()
     return ResponseModel(data=[_role_to_out(r, db) for r in roles])
 
 
 @router.post("", response_model=ResponseModel)
-def create_role(req: RoleCreate, db: Session = Depends(get_db)):
+def create_role(req: RoleCreate, user=Depends(require_admin_dep), db: Session = Depends(get_db)):
     existing = db.query(Role).filter(Role.name == req.name).first()
     if existing:
         raise HTTPException(status_code=400, detail="角色名称已存在")
@@ -298,7 +300,7 @@ def create_role(req: RoleCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{role_id}", response_model=ResponseModel)
-def update_role(role_id: int, req: RoleUpdate, db: Session = Depends(get_db)):
+def update_role(role_id: int, req: RoleUpdate, user=Depends(require_admin_dep), db: Session = Depends(get_db)):
     role = db.query(Role).get(role_id)
     if not role:
         raise HTTPException(status_code=404, detail="角色不存在")
@@ -347,7 +349,7 @@ def update_role(role_id: int, req: RoleUpdate, db: Session = Depends(get_db)):
 
 
 @router.delete("/{role_id}", response_model=ResponseModel)
-def delete_role(role_id: int, db: Session = Depends(get_db)):
+def delete_role(role_id: int, user=Depends(require_admin_dep), db: Session = Depends(get_db)):
     role = db.query(Role).get(role_id)
     if not role:
         raise HTTPException(status_code=404, detail="角色不存在")
@@ -360,7 +362,7 @@ def delete_role(role_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/assign", response_model=ResponseModel)
-def assign_role(req: AssignRole, db: Session = Depends(get_db)):
+def assign_role(req: AssignRole, user=Depends(require_admin_dep), db: Session = Depends(get_db)):
     employee = db.query(Employee).get(req.employee_id)
     if not employee:
         raise HTTPException(status_code=404, detail="员工不存在")

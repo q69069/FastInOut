@@ -11,6 +11,10 @@ class PurchaseReceiptItemCreate(BaseModel):
     amount: float = 0
     remark: Optional[str] = None
     production_date: Optional[str] = None
+    unit_id: Optional[int] = None
+    unit_level: Optional[str] = None  # small/medium/large
+    unit_quantity: Optional[float] = 1.0
+    unit_conv_rate: Optional[float] = 1.0
 
 
 class PurchaseReceiptItemOut(BaseModel):
@@ -21,6 +25,11 @@ class PurchaseReceiptItemOut(BaseModel):
     quantity: float
     unit_price: float
     amount: float
+    unit_id: Optional[int] = None
+    unit_level: Optional[str] = None
+    unit_quantity: Optional[float] = 1.0
+    unit_conv_rate: Optional[float] = 1.0
+    unit_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -39,14 +48,20 @@ class PurchaseReceiptCreate(BaseModel):
 class PurchaseReceiptOut(BaseModel):
     id: int
     receipt_no: str
-    purchase_order_id: int
+    purchase_order_id: Optional[int] = None
     supplier_id: int
     warehouse_id: int
     total_amount: float
     status: str
+    purchaser_id: Optional[int] = None
+    trade_date: Optional[str] = None
     received_by: int
+    auditor_id: Optional[int] = None
     confirmed_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     remark: Optional[str] = None
+    reverse_reason: Optional[str] = None
+    reversed_by: Optional[int] = None
+    reversed_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)

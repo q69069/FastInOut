@@ -17,24 +17,9 @@ from schemas.common import ResponseModel, PaginatedResponse
 from services.inventory_service import InventoryService
 from utils.status import StocktakingStatus
 from utils.role_check import require_role
+from deps import get_current_user
 
 router = APIRouter(prefix="/api", tags=["盘点单"])
-
-
-def get_current_user(authorization: str = None, db: Session = Depends(get_db)) -> Employee:
-    if not authorization:
-        raise HTTPException(status_code=401, detail="未登录")
-    from utils.auth import decode_access_token
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="token格式错误")
-    payload = decode_access_token(authorization.replace("Bearer ", ""))
-    if not payload:
-        raise HTTPException(status_code=401, detail="token无效")
-    user = db.query(Employee).get(payload.get("user_id"))
-    if not user:
-        raise HTTPException(status_code=401, detail="用户不存在")
-    return user
-
 
 @router.get("/stocktaking", response_model=PaginatedResponse)
 def list_stocktaking(
@@ -120,6 +105,64 @@ def get_stocktaking(check_id: int, db: Session = Depends(get_db)):
     })
 
 
+# ========== 修改盘点单（仅待处理/盘点中状态） ==========
+@router.put("/stocktaking/{check_id}", response_model=ResponseModel)
+def update_stocktaking(
+    check_id: int,
+    data: dict,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    user = get_current_user(authorization, db)
+    check = db.query(InventoryCheck).get(check_id)
+    if not check:
+        raise HTTPException(404, "盘点单不存在")
+    if check.status not in (0, 1):
+        raise HTTPException(400, f"当前状态 {check.status} 不允许修改")
+
+    # 删除旧明细
+    db.query(InventoryCheckItem).filter(InventoryCheckItem.check_id == check_id).delete()
+
+    # 更新主单
+    if data.get("warehouse_id"):
+        check.warehouse_id = data["warehouse_id"]
+    if data.get("remark") is not None:
+        check.remark = data["remark"]
+
+    # 创建新明细
+    if data.get("items"):
+        for item in data["items"]:
+            inv = db.query(Inventory).filter(
+                Inventory.warehouse_id == check.warehouse_id,
+                Inventory.product_id == item["product_id"]
+            ).first()
+            system_qty = inv.quantity if inv else 0
+            actual_qty = item.get("count_num", system_qty)
+            ci = InventoryCheckItem(
+                check_id=check.id,
+                product_id=item["product_id"],
+                system_qty=system_qty,
+                actual_qty=actual_qty,
+                diff_qty=actual_qty - system_qty
+            )
+            db.add(ci)
+    else:
+        invs = db.query(Inventory).filter(Inventory.warehouse_id == check.warehouse_id).all()
+        for inv in invs:
+            ci = InventoryCheckItem(
+                check_id=check.id,
+                product_id=inv.product_id,
+                system_qty=inv.quantity,
+                actual_qty=inv.quantity,
+                diff_qty=0
+            )
+            db.add(ci)
+
+    db.commit()
+    db.refresh(check)
+    return ResponseModel(data={"id": check.id, "code": check.code, "status": check.status})
+
+
 @router.post("/stocktaking/{check_id}/audit", response_model=ResponseModel)
 def audit_stocktaking(
     check_id: int,
@@ -152,6 +195,7 @@ def audit_stocktaking(
         check.status = 2
 
     check.confirmed_at = datetime.now()
+    check.auditor_id = user.id
     db.commit()
     return ResponseModel(message=f"审核通过，差异率{diff_rate:.1f}%")
 

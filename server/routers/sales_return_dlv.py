@@ -14,30 +14,18 @@ from database import get_db
 from models.sales import SalesReturn, SalesReturnItem
 from models.customer import Customer
 from models.product import Product
+from models.warehouse import Warehouse
 from models.inventory import Inventory
 from models.employee import Employee
-from schemas.common import ResponseModel, PaginatedResponse
+from schemas.common import ResponseModel, PaginatedResponse, ReverseRequest
+from services.inventory_service import InventoryService
 from schemas.sales import SalesReturnCreate, SalesReturnOut
 from utils.status import ReturnDeliveryStatus
 from utils.role_check import require_role, require_owner_or_admin
+from utils.unit_convert import resolve_unit_conversion, resolve_by_unit_level
+from deps import get_current_user
 
 router = APIRouter(prefix="/api", tags=["退货单"])
-
-
-def get_current_user(authorization: str = None, db: Session = Depends(get_db)) -> Employee:
-    if not authorization:
-        raise HTTPException(status_code=401, detail="未登录")
-    from utils.auth import decode_access_token
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="token格式错误")
-    payload = decode_access_token(authorization.replace("Bearer ", ""))
-    if not payload:
-        raise HTTPException(status_code=401, detail="token无效")
-    user = db.query(Employee).get(payload.get("user_id"))
-    if not user:
-        raise HTTPException(status_code=401, detail="用户不存在")
-    return user
-
 
 @router.get("/return-deliveries", response_model=PaginatedResponse)
 def list_return_deliveries(
@@ -52,7 +40,7 @@ def list_return_deliveries(
     db: Session = Depends(get_db)
 ):
     user = get_current_user(authorization, db)
-    q = db.query(SalesReturn)
+    q = db.query(SalesReturn).filter(SalesReturn.doc_type == "return_delivery")
 
     if status is not None:
         q = q.filter(SalesReturn.status == status)
@@ -71,12 +59,17 @@ def list_return_deliveries(
     result = []
     for ret in items:
         customer = db.query(Customer).get(ret.customer_id)
+        warehouse_name = ""
+        if ret.warehouse_id:
+            wh = db.query(Warehouse).get(ret.warehouse_id)
+            warehouse_name = wh.name if wh else ""
         result.append({
             "id": ret.id,
             "code": ret.code,
             "customer_id": ret.customer_id,
             "customer_name": customer.name if customer else "",
             "warehouse_id": ret.warehouse_id,
+            "warehouse_name": warehouse_name,
             "total_amount": ret.total_amount,
             "status": ret.status,
             "status_text": _get_status_text(ret.status),
@@ -96,10 +89,19 @@ def _get_status_text(status: int) -> str:
 
 def _gen_code(db):
     today = datetime.now().strftime("%Y%m%d")
-    prefix = f"XT{today}"
+    prefix = f"TD{today}"
     last = db.query(SalesReturn).filter(SalesReturn.code.like(f"{prefix}%")).order_by(SalesReturn.id.desc()).first()
-    seq = int(last.code[-4:]) + 1 if last else 1
-    return f"{prefix}{seq:04d}"
+    if last:
+        seq = int(last.code[-4:]) + 1
+    else:
+        seq = 1
+    # 再次检查确保不重复
+    while True:
+        code = f"{prefix}{seq:04d}"
+        existing = db.query(SalesReturn).filter(SalesReturn.code == code).first()
+        if not existing:
+            return code
+        seq += 1
 
 
 @router.post("/return-deliveries", response_model=ResponseModel)
@@ -110,19 +112,76 @@ def create_return_delivery(req: SalesReturnCreate, authorization: str = Header(N
     code = _gen_code(db)
     total = sum(item.amount or (item.quantity * item.price) for item in req.items)
     ret = SalesReturn(
-        code=code, stockout_id=req.stockout_id, customer_id=req.customer_id,
-        warehouse_id=req.warehouse_id, total_amount=total, remark=req.remark,
-        operator_id=user.id, status=0
+        code=code, stockout_id=req.stockout_id, doc_type="return_delivery",
+        customer_id=req.customer_id, warehouse_id=req.warehouse_id,
+        total_amount=total, remark=req.remark, operator_id=user.id, status=0
     )
     db.add(ret)
     db.flush()
     for item in req.items:
         amount = item.amount or (item.quantity * item.price)
+        if getattr(item, 'unit_level', None):
+            base_qty, conv_rate = resolve_by_unit_level(item.product_id, item.unit_level, item.unit_quantity or item.quantity, item.unit_conv_rate, db)
+        else:
+            base_qty, conv_rate = resolve_unit_conversion(item.product_id, item.unit_id, item.unit_quantity or item.quantity, db)
         ri = SalesReturnItem(
             return_id=ret.id, product_id=item.product_id,
-            quantity=item.quantity, price=item.price, amount=amount
+            quantity=base_qty, unit_id=item.unit_id, unit_quantity=item.unit_quantity or item.quantity, unit_conv_rate=conv_rate,
+            price=item.price, amount=amount
         )
         db.add(ri)
+    db.commit()
+    db.refresh(ret)
+    return ResponseModel(data=SalesReturnOut.model_validate(ret))
+
+
+# ========== 修改退货单（仅草稿状态） ==========
+@router.put("/return-deliveries/{return_id}", response_model=ResponseModel)
+def update_return_delivery(
+    return_id: int,
+    req: SalesReturnCreate,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    user = get_current_user(authorization, db)
+    ret = db.query(SalesReturn).get(return_id)
+    if not ret:
+        raise HTTPException(404, "退货单不存在")
+    if ret.doc_type != "return_delivery":
+        raise HTTPException(400, "非退货出库单")
+    if ret.status != 0:
+        raise HTTPException(400, f"当前状态 {ret.status} 不允许修改")
+
+    if not req.items:
+        raise HTTPException(400, "请添加退货明细")
+
+    # 删除旧明细
+    db.query(SalesReturnItem).filter(SalesReturnItem.return_id == return_id).delete()
+
+    # 计算新总金额
+    total = sum(item.amount or (item.quantity * item.price) for item in req.items)
+
+    # 更新主单
+    ret.stockout_id = req.stockout_id
+    ret.customer_id = req.customer_id
+    ret.warehouse_id = req.warehouse_id
+    ret.total_amount = total
+    ret.remark = req.remark
+
+    # 创建新明细
+    for item in req.items:
+        amount = item.amount or (item.quantity * item.price)
+        if getattr(item, 'unit_level', None):
+            base_qty, conv_rate = resolve_by_unit_level(item.product_id, item.unit_level, item.unit_quantity or item.quantity, item.unit_conv_rate, db)
+        else:
+            base_qty, conv_rate = resolve_unit_conversion(item.product_id, item.unit_id, item.unit_quantity or item.quantity, db)
+        ri = SalesReturnItem(
+            return_id=ret.id, product_id=item.product_id,
+            quantity=base_qty, unit_id=item.unit_id, unit_quantity=item.unit_quantity or item.quantity, unit_conv_rate=conv_rate,
+            price=item.price, amount=amount
+        )
+        db.add(ri)
+
     db.commit()
     db.refresh(ret)
     return ResponseModel(data=SalesReturnOut.model_validate(ret))
@@ -149,6 +208,17 @@ def get_return_delivery(return_id: int, db: Session = Depends(get_db)):
             "amount": item.amount
         })
 
+    auditor_name = ""
+    if ret.auditor_id:
+        auditor = db.query(Employee).get(ret.auditor_id)
+        if auditor:
+            auditor_name = auditor.name
+    operator_name = ""
+    if ret.operator_id:
+        operator = db.query(Employee).get(ret.operator_id)
+        if operator:
+            operator_name = operator.name
+
     return ResponseModel(data={
         "id": ret.id,
         "code": ret.code,
@@ -159,6 +229,9 @@ def get_return_delivery(return_id: int, db: Session = Depends(get_db)):
         "status": ret.status,
         "status_text": _get_status_text(ret.status),
         "operator_id": ret.operator_id,
+        "operator_name": operator_name,
+        "auditor_id": ret.auditor_id,
+        "auditor_name": auditor_name,
         "remark": ret.remark,
         "items": detail,
         "created_at": str(ret.created_at),
@@ -206,6 +279,7 @@ def warehouse_confirm_return(
             db.add(inv)
 
     ret.status = 2  # 仓管已确认
+    ret.auditor_id = user.id
     db.commit()
     return ResponseModel(message="仓管确认成功，退货已入库")
 
@@ -235,3 +309,45 @@ def finance_confirm_return(
     ret.status = 3  # 财务已确认
     db.commit()
     return ResponseModel(message="财务确认成功，已冲减客户应收")
+
+
+# ========== 冲红 ==========
+@router.post("/return-deliveries/{return_id}/reverse", response_model=ResponseModel)
+def reverse_return_delivery(
+    return_id: int,
+    req: ReverseRequest,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    """冲红退货单 — 回滚库存和应收"""
+    user = get_current_user(authorization, db)
+    ret = db.query(SalesReturn).get(return_id)
+    if not ret:
+        raise HTTPException(404, "退货单不存在")
+    if ret.status == 0:
+        raise HTTPException(400, "草稿状态不能冲红")
+    if ret.status == 3:
+        raise HTTPException(400, "已冲红单据不能重复冲红")
+
+    # 只有管理员可以冲红
+    require_role(user, db, "admin", message="只有管理员可以冲红")
+
+    items = db.query(SalesReturnItem).filter(SalesReturnItem.return_id == return_id).all()
+
+    # 如果仓管已确认（增加了库存），需要扣回库存
+    if ret.status >= 2:
+        for item in items:
+            InventoryService.deduct(db, item.product_id, ret.warehouse_id, item.quantity)
+
+    # 如果财务已确认（冲减了应收），需要加回应收
+    if ret.status >= 3:
+        customer = db.query(Customer).get(ret.customer_id)
+        if customer and ret.total_amount:
+            customer.receivable_balance = (customer.receivable_balance or 0) + ret.total_amount
+
+    ret.status = 3  # 已冲红（复用status=3）
+    ret.reverse_reason = req.reason
+    ret.reversed_by = user.id
+    ret.reversed_at = datetime.now()
+    db.commit()
+    return ResponseModel(message="冲红成功，库存已回滚")

@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime
 from database import get_db
+from models.employee import Employee
+from deps import require_reports_module
 from models.product import Product
 from models.customer import Customer
 from models.supplier import Supplier
@@ -18,7 +20,7 @@ router = APIRouter(prefix="/api/reports", tags=["报表"])
 
 # ========== 经营看板 ==========
 @router.get("/dashboard", response_model=ResponseModel)
-def dashboard(db: Session = Depends(get_db)):
+def dashboard(user: Employee = Depends(require_reports_module), db: Session = Depends(get_db)):
     today = datetime.now().strftime("%Y-%m-%d")
     # 今日销售额
     today_sales = db.query(func.sum(SalesStockout.total_amount)).filter(
@@ -79,6 +81,7 @@ def sales_report(
     group_by: str = Query("day"),  # day/week/month/year
     start_date: str = Query(None), end_date: str = Query(None),
     customer_id: int = Query(None), product_id: int = Query(None),
+    user: Employee = Depends(require_reports_module),
     db: Session = Depends(get_db)
 ):
     q = db.query(SalesStockout).filter(SalesStockout.status == 2)
@@ -120,6 +123,7 @@ def purchase_report(
     group_by: str = Query("day"),
     start_date: str = Query(None), end_date: str = Query(None),
     supplier_id: int = Query(None),
+    user: Employee = Depends(require_reports_module),
     db: Session = Depends(get_db)
 ):
     q = db.query(PurchaseStockin).filter(PurchaseStockin.status == 2)
@@ -147,7 +151,7 @@ def purchase_report(
 
 # ========== 库存报表 ==========
 @router.get("/inventory", response_model=ResponseModel)
-def inventory_report(warehouse_id: int = Query(None), db: Session = Depends(get_db)):
+def inventory_report(warehouse_id: int = Query(None), user: Employee = Depends(require_reports_module), db: Session = Depends(get_db)):
     q = db.query(Inventory)
     if warehouse_id:
         q = q.filter(Inventory.warehouse_id == warehouse_id)
@@ -175,6 +179,7 @@ def inventory_report(warehouse_id: int = Query(None), db: Session = Depends(get_
 def profit_report(
     group_by: str = Query("day"),
     start_date: str = Query(None), end_date: str = Query(None),
+    user: Employee = Depends(require_reports_module),
     db: Session = Depends(get_db)
 ):
     # 销售收入
@@ -224,6 +229,7 @@ def profit_report(
 def export_sales(
     start_date: str = Query(None),
     end_date: str = Query(None),
+    user: Employee = Depends(require_reports_module),
     db: Session = Depends(get_db)
 ):
     from fastapi.responses import StreamingResponse
@@ -267,7 +273,7 @@ def export_sales(
 
 
 @router.get("/export/inventory")
-def export_inventory(db: Session = Depends(get_db)):
+def export_inventory(user: Employee = Depends(require_reports_module), db: Session = Depends(get_db)):
     from fastapi.responses import StreamingResponse
     from openpyxl import Workbook
     from io import BytesIO
@@ -310,6 +316,7 @@ def export_profit(
     group_by: str = Query("day"),
     start_date: str = Query(None),
     end_date: str = Query(None),
+    user: Employee = Depends(require_reports_module),
     db: Session = Depends(get_db)
 ):
     from fastapi.responses import StreamingResponse
@@ -396,6 +403,7 @@ def export_profit(
 def export_finance(
     start_date: str = Query(None),
     end_date: str = Query(None),
+    user: Employee = Depends(require_reports_module),
     db: Session = Depends(get_db)
 ):
     from fastapi.responses import StreamingResponse
@@ -442,12 +450,211 @@ def export_finance(
     )
 
 
+# ========== 单据导出 ==========
+@router.get("/export/documents")
+def export_documents(
+    type: str = Query(None),
+    start_date: str = Query(None),
+    end_date: str = Query(None),
+    keyword: str = Query(None),
+    user: Employee = Depends(require_reports_module),
+    db: Session = Depends(get_db)
+):
+    from fastapi.responses import StreamingResponse
+    from openpyxl import Workbook
+    from io import BytesIO
+    from models.purchase import PurchaseOrder, PurchaseStockin, PurchaseReturn
+    from models.sales import SalesOrder, SalesStockout, SalesReturn
+    from models.purchase_receipt import PurchaseReceipt
+    from models.sales_delivery import SalesDelivery
+    from models.purchase_return_dlv import PurchaseReturnDelivery
+    from models.inventory import InventoryTransfer, InventoryCheck
+    from models.vehicle_load import VehicleLoad
+    from models.damage_report import DamageReport
+    from models.settlement import Settlement
+    from models.warehouse import Warehouse as Wh
+    from models.customer import Customer as Cust
+    from models.supplier import Supplier as Sup
+
+    # Bulk pre-fetch name lookups
+    warehouses_map = {w.id: w.name for w in db.query(Wh).all()}
+    customers_map = {c.id: c.name for c in db.query(Cust).all()}
+    suppliers_map = {s.id: s.name for s in db.query(Sup).all()}
+
+    def date_filter(q, model):
+        if start_date:
+            q = q.filter(model.created_at >= start_date)
+        if end_date:
+            q = q.filter(model.created_at <= datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+        return q
+
+    def code_filter(q, model, col):
+        if keyword:
+            q = q.filter(col.contains(keyword))
+        return q
+
+    rows = []
+
+    # 1. 采购订单
+    if not type or type == 'purchase_order':
+        q = db.query(PurchaseOrder)
+        q = date_filter(q, PurchaseOrder)
+        if keyword:
+            q = q.filter(PurchaseOrder.code.contains(keyword))
+        for o in q.order_by(PurchaseOrder.created_at.desc()).all():
+            rows.append(["采购订单", o.code, suppliers_map.get(o.supplier_id, ""), warehouses_map.get(o.warehouse_id, ""), o.total_amount or 0, {0:"草稿",1:"已确认",2:"已入库",3:"已冲红"}.get(o.status, str(o.status)), str(o.created_at)[:19], o.remark or ""])
+
+    # 2. 采购单
+    if not type or type == 'purchase_receipt':
+        q = db.query(PurchaseReceipt)
+        q = date_filter(q, PurchaseReceipt)
+        if keyword:
+            q = q.filter(PurchaseReceipt.receipt_no.contains(keyword))
+        for r in q.order_by(PurchaseReceipt.created_at.desc()).all():
+            rows.append(["采购单", r.receipt_no, suppliers_map.get(r.supplier_id, ""), warehouses_map.get(r.warehouse_id, ""), r.total_amount or 0, {"pending":"草稿","confirmed":"已入库","cancelled":"已取消","reversed":"已冲红"}.get(r.status, r.status), str(r.created_at)[:19], r.remark or ""])
+
+    # 3. 入库单
+    if not type or type == 'purchase_stockin':
+        q = db.query(PurchaseStockin)
+        q = date_filter(q, PurchaseStockin)
+        if keyword:
+            q = q.filter(PurchaseStockin.code.contains(keyword))
+        for si in q.order_by(PurchaseStockin.created_at.desc()).all():
+            rows.append(["入库单", si.code, suppliers_map.get(si.supplier_id, ""), warehouses_map.get(si.warehouse_id, ""), si.total_amount or 0, {0:"草稿",1:"已入库",2:"已入库",3:"已冲红"}.get(si.status, str(si.status)), str(si.created_at)[:19], si.remark or ""])
+
+    # 4. 采购退货订单
+    if not type or type == 'purchase_return_order':
+        q = db.query(PurchaseReturn)
+        q = date_filter(q, PurchaseReturn)
+        if keyword:
+            q = q.filter(PurchaseReturn.code.contains(keyword))
+        for r in q.order_by(PurchaseReturn.created_at.desc()).all():
+            rows.append(["采购退货订单", r.code, suppliers_map.get(r.supplier_id, ""), warehouses_map.get(r.warehouse_id, ""), r.total_amount or 0, {0:"草稿",1:"已确认",2:"已出库",3:"已冲红"}.get(r.status, str(r.status)), str(r.created_at)[:19], r.remark or ""])
+
+    # 5. 采购退货
+    if not type or type == 'purchase_return_dlv':
+        q = db.query(PurchaseReturnDelivery)
+        q = date_filter(q, PurchaseReturnDelivery)
+        if keyword:
+            q = q.filter(PurchaseReturnDelivery.return_dlv_no.contains(keyword))
+        for d in q.order_by(PurchaseReturnDelivery.created_at.desc()).all():
+            rows.append(["采购退货", d.return_dlv_no, suppliers_map.get(d.supplier_id, ""), warehouses_map.get(d.warehouse_id, ""), d.total_amount or 0, {"pending":"草稿","warehouse_confirmed":"已出库","finance_confirmed":"已结算","settled":"已结算","reversed":"已冲红"}.get(d.status, d.status), str(d.created_at)[:19], d.remark or ""])
+
+    # 6. 销售订单
+    if not type or type == 'sales_order':
+        q = db.query(SalesOrder)
+        q = date_filter(q, SalesOrder)
+        if keyword:
+            q = q.filter(SalesOrder.code.contains(keyword))
+        for o in q.order_by(SalesOrder.created_at.desc()).all():
+            rows.append(["销售订单", o.code, customers_map.get(o.customer_id, ""), warehouses_map.get(o.warehouse_id, ""), o.total_amount or 0, {0:"草稿",1:"已确认",2:"已出库",3:"已冲红"}.get(o.status, str(o.status)), str(o.created_at)[:19], o.remark or ""])
+
+    # 7. 销售单
+    if not type or type == 'sales_delivery':
+        q = db.query(SalesDelivery)
+        q = date_filter(q, SalesDelivery)
+        if keyword:
+            q = q.filter(SalesDelivery.delivery_no.contains(keyword))
+        for sd in q.order_by(SalesDelivery.created_at.desc()).all():
+            rows.append(["销售单", sd.delivery_no, customers_map.get(sd.customer_id, ""), warehouses_map.get(sd.warehouse_id, ""), sd.total_amount or 0, {"pending":"草稿","confirmed":"已出库","settled":"已结算","voided":"已作废","reversed":"已冲红"}.get(sd.status, sd.status), str(sd.created_at)[:19], sd.remark or ""])
+
+    # 8. 出库单
+    if not type or type == 'sales_stockout':
+        q = db.query(SalesStockout)
+        q = date_filter(q, SalesStockout)
+        if keyword:
+            q = q.filter(SalesStockout.code.contains(keyword))
+        for so in q.order_by(SalesStockout.created_at.desc()).all():
+            rows.append(["出库单", so.code, customers_map.get(so.customer_id, ""), warehouses_map.get(so.warehouse_id, ""), so.total_amount or 0, {0:"草稿",1:"已出库",2:"已出库",3:"已冲红"}.get(so.status, str(so.status)), str(so.created_at)[:19], so.remark or ""])
+
+    # 9. 退货订单
+    if not type or type == 'sales_return_order':
+        q = db.query(SalesReturn).filter(SalesReturn.doc_type == "return_order")
+        q = date_filter(q, SalesReturn)
+        if keyword:
+            q = q.filter(SalesReturn.code.contains(keyword))
+        for r in q.order_by(SalesReturn.created_at.desc()).all():
+            rows.append(["退货订单", r.code, customers_map.get(r.customer_id, ""), warehouses_map.get(r.warehouse_id, ""), r.total_amount or 0, {0:"草稿",1:"已确认",2:"已入库",3:"已冲红"}.get(r.status, str(r.status)), str(r.created_at)[:19], r.remark or ""])
+
+    # 10. 退货单
+    if not type or type == 'return_delivery':
+        q = db.query(SalesReturn).filter(SalesReturn.doc_type == "return_delivery")
+        q = date_filter(q, SalesReturn)
+        if keyword:
+            q = q.filter(SalesReturn.code.contains(keyword))
+        for r in q.order_by(SalesReturn.created_at.desc()).all():
+            rows.append(["退货单", r.code, customers_map.get(r.customer_id, ""), warehouses_map.get(r.warehouse_id, ""), r.total_amount or 0, {0:"草稿",1:"已入库",2:"已入库",3:"已结算"}.get(r.status, str(r.status)), str(r.created_at)[:19], r.remark or ""])
+
+    # 11. 库存调拨
+    if not type or type == 'transfer':
+        q = db.query(InventoryTransfer)
+        q = date_filter(q, InventoryTransfer)
+        if keyword:
+            q = q.filter(InventoryTransfer.code.contains(keyword))
+        for t in q.order_by(InventoryTransfer.created_at.desc()).all():
+            rows.append(["库存调拨", t.code, warehouses_map.get(t.from_warehouse_id, ""), warehouses_map.get(t.to_warehouse_id, ""), "", {1:"调拨中",2:"已确认",3:"已取消"}.get(t.status, str(t.status)), str(t.created_at)[:19], t.remark or ""])
+
+    # 12. 盘点单
+    if not type or type == 'stocktaking':
+        q = db.query(InventoryCheck)
+        q = date_filter(q, InventoryCheck)
+        if keyword:
+            q = q.filter(InventoryCheck.code.contains(keyword))
+        for s in q.order_by(InventoryCheck.created_at.desc()).all():
+            rows.append(["盘点单", s.code, warehouses_map.get(s.warehouse_id, ""), warehouses_map.get(s.warehouse_id, ""), "", {1:"盘点中",2:"已审核",3:"已调整",4:"已作废"}.get(s.status, str(s.status)), str(s.created_at)[:19], s.remark or ""])
+
+    # 13. 装车单
+    if not type or type == 'vehicle_load':
+        q = db.query(VehicleLoad)
+        q = date_filter(q, VehicleLoad)
+        if keyword:
+            q = q.filter(VehicleLoad.load_no.contains(keyword))
+        for v in q.order_by(VehicleLoad.created_at.desc()).all():
+            rows.append(["装车单", v.load_no, warehouses_map.get(v.from_warehouse_id, ""), warehouses_map.get(v.vehicle_warehouse_id, ""), "", {"draft":"草稿","loaded":"已装车","returned":"已退库"}.get(v.status, v.status), str(v.created_at)[:19], v.remark or ""])
+
+    # 14. 报损单
+    if not type or type == 'damage_report':
+        q = db.query(DamageReport)
+        q = date_filter(q, DamageReport)
+        if keyword:
+            q = q.filter(DamageReport.code.contains(keyword))
+        for d in q.order_by(DamageReport.created_at.desc()).all():
+            rows.append(["报损单", d.code, warehouses_map.get(d.warehouse_id, ""), warehouses_map.get(d.warehouse_id, ""), d.total_amount or 0, {"pending":"草稿","adjusted":"已调整"}.get(d.status, d.status), str(d.created_at)[:19], d.remark or ""])
+
+    # 15. 交账单
+    if not type or type == 'settlement':
+        q = db.query(Settlement)
+        q = date_filter(q, Settlement)
+        if keyword:
+            q = q.filter(Settlement.settlement_no.contains(keyword))
+        for s in q.order_by(Settlement.created_at.desc()).all():
+            rows.append(["交账单", s.settlement_no, s.employee_name or "", "", s.total_sales or 0, {"pending":"草稿","audited":"已通过","rejected":"已驳回"}.get(s.status, s.status), str(s.created_at)[:19], s.remark or ""])
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "单据导出"
+    ws.append(["单据类型", "单号", "客户/供应商", "仓库", "金额", "状态", "创建时间", "备注"])
+
+    for row in rows:
+        ws.append(row)
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=documents_export_{datetime.now().strftime('%Y%m%d')}.xlsx"}
+    )
+
+
 # ========== 趋势图 ==========
 @router.get("/trend", response_model=ResponseModel)
 def trend_report(
     trend_type: str = Query("sales"),  # sales/purchase
     period: str = Query("month"),  # month/quarter
     months: int = Query(12, ge=1, le=24),
+    user: Employee = Depends(require_reports_module),
     db: Session = Depends(get_db)
 ):
     """采购/销售趋势数据（按月/季度）"""

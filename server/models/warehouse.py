@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, func
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, Float, Boolean, DateTime, func
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -20,7 +21,7 @@ class Warehouse(Base):
     driver_phone = Column(String(20))  # 驾驶员电话
     capacity = Column(Float)  # 载货量
     status = Column(Integer, default=1)  # 1=启用 0=禁用
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     routes = relationship("Route", back_populates="warehouse")

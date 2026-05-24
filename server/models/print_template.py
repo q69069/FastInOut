@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, func
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, Text, Boolean, DateTime, func
 from database import Base
 
 
@@ -13,5 +14,5 @@ class PrintTemplate(Base):
     content = Column(Text)  # HTML模板内容
     is_default = Column(Boolean, default=False)  # 是否默认模板
     status = Column(Integer, default=1)  # 1=启用 0=禁用
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)

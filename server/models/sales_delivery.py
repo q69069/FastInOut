@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, Text, DateTime, ForeignKey
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, Float, Text, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from database import Base
 
@@ -21,6 +22,9 @@ class SalesDelivery(Base):
     status = Column(String(20), default="pending")
     source_type = Column(String(20), default="direct")
     void_reason = Column(String(200))
+    reverse_reason = Column(String(200))
+    reversed_by = Column(Integer, ForeignKey("employees.id"))
+    reversed_at = Column(DateTime)
     originated_from_id = Column(Integer)
     payment_evidence = Column(Text)
 
@@ -30,7 +34,7 @@ class SalesDelivery(Base):
     settled_at = Column(DateTime)
     settlement_id = Column(Integer)
 
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
     remark = Column(Text)
 
 
@@ -45,3 +49,6 @@ class SalesDeliveryItem(Base):
     unit_price = Column(Float, default=0)
     amount = Column(Float, default=0)
     source_order_item_id = Column(Integer)
+    unit_id = Column(Integer, ForeignKey("units.id"), nullable=True)
+    unit_quantity = Column(Float, default=1)
+    unit_conv_rate = Column(Float, default=1)

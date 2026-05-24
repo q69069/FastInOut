@@ -90,12 +90,6 @@ export const createUnit = (data) => api.post('/units', data)
 export const updateUnit = (id, data) => api.put(`/units/${id}`, data)
 export const deleteUnit = (id) => api.delete(`/units/${id}`)
 
-// 单位换算
-export const getUnitConversions = (params) => api.get('/units/conversions', { params })
-export const createUnitConversion = (data) => api.post('/units/conversions', data)
-export const deleteUnitConversion = (id) => api.delete(`/units/conversions/${id}`)
-export const getProductUnitConfig = (productId) => api.get(`/units/product/${productId}/config`)
-export const convertQuantity = (params) => api.post('/units/convert', null, { params })
 
 // 采购
 export const getPurchaseOrders = (params) => api.get('/purchase-orders', { params })
@@ -105,6 +99,7 @@ export const updatePurchaseOrder = (id, data) => api.put(`/purchase-orders/${id}
 export const deletePurchaseOrder = (id) => api.delete(`/purchase-orders/${id}`)
 export const confirmPurchaseOrder = (id) => api.post(`/purchase-orders/${id}/confirm`)
 export const orderToStockin = (id) => api.post(`/purchase-orders/${id}/stockin`)
+export const quickConfirmPurchaseOrder = (id) => api.post(`/purchase-orders/${id}/quick-confirm`)
 
 // 采购入库
 export const getPurchaseStockins = (params) => api.get('/purchase-stockins', { params })
@@ -121,10 +116,12 @@ export const getPurchaseReturn = (id) => api.get(`/purchase-returns/${id}`)
 export const updatePurchaseReturn = (id, data) => api.put(`/purchase-returns/${id}`, data)
 export const deletePurchaseReturn = (id) => api.delete(`/purchase-returns/${id}`)
 export const confirmPurchaseReturn = (id) => api.post(`/purchase-returns/${id}/confirm`)
+export const fulfillPurchaseReturn = (id) => api.post(`/purchase-returns/${id}/fulfill`)
 
 // 采购退货出库单
 export const getPurchaseReturnDlvs = (params) => api.get('/purchase-return-deliveries', { params })
 export const createPurchaseReturnDlv = (data) => api.post('/purchase-return-deliveries', data)
+export const updatePurchaseReturnDlv = (id, data) => api.put(`/purchase-return-deliveries/${id}`, data)
 export const getPurchaseReturnDlv = (id) => api.get(`/purchase-return-deliveries/${id}`)
 export const warehouseConfirmPurchaseReturnDlv = (id) => api.post(`/purchase-return-deliveries/${id}/warehouse-confirm`)
 export const financeConfirmPurchaseReturnDlv = (id) => api.post(`/purchase-return-deliveries/${id}/finance-confirm`)
@@ -155,8 +152,8 @@ export const getSalesOrder = (id) => api.get(`/sales-orders/${id}`)
 export const updateSalesOrder = (id, data) => api.put(`/sales-orders/${id}`, data)
 export const deleteSalesOrder = (id) => api.delete(`/sales-orders/${id}`)
 export const auditSalesOrder = (id) => api.post(`/sales-orders/${id}/audit`)
-export const reverseSalesOrder = (id) => api.post(`/sales-orders/${id}/reverse`)
 export const orderToStockout = (id) => api.post(`/sales-orders/${id}/stockout`)
+export const quickConfirmSalesOrder = (id) => api.post(`/sales-orders/${id}/quick-confirm`)
 
 // 销售出库
 export const getSalesStockouts = (params) => api.get('/sales-stockouts', { params })
@@ -173,6 +170,7 @@ export const getSalesReturn = (id) => api.get(`/sales-returns/${id}`)
 export const updateSalesReturn = (id, data) => api.put(`/sales-returns/${id}`, data)
 export const deleteSalesReturn = (id) => api.delete(`/sales-returns/${id}`)
 export const confirmSalesReturn = (id) => api.post(`/sales-returns/${id}/confirm`)
+export const fulfillSalesReturn = (id) => api.post(`/sales-returns/${id}/fulfill`)
 
 // 库存
 export const getInventory = (params) => api.get('/inventory', { params })
@@ -182,9 +180,11 @@ export const getReorderSuggestions = () => api.get('/inventory/reorder-suggestio
 // 调拨
 export const getTransfers = (params) => api.get('/inventory/transfers', { params })
 export const createTransfer = (data) => api.post('/inventory/transfers', data)
+export const updateTransfer = (id, data) => api.put(`/inventory/transfers/${id}`, data)
 export const getTransfer = (id) => api.get(`/inventory/transfers/${id}`)
 export const confirmTransfer = (id) => api.post(`/inventory/transfers/${id}/confirm`)
 export const cancelTransfer = (id) => api.delete(`/inventory/transfers/${id}`)
+export const reverseTransfer = (id, data) => api.post(`/inventory/transfers/${id}/reverse`, data)
 
 // 财务
 export const getReceipts = (params) => api.get('/finance/receipts', { params })
@@ -209,6 +209,7 @@ export const getProfitReport = (params) => api.get('/reports/profit', { params }
 export const exportSalesReport = (params) => api.get('/reports/export/sales', { params, responseType: 'blob' })
 export const exportInventoryReport = () => api.get('/reports/export/inventory', { responseType: 'blob' })
 export const exportFinanceReport = (params) => api.get('/reports/export/finance', { params, responseType: 'blob' })
+export const exportDocuments = (params) => api.get('/reports/export/documents', { params, responseType: 'blob' })
 export const getTrendReport = (params) => api.get('/reports/trend', { params })
 
 // 促销
@@ -311,13 +312,15 @@ export const deductBatchStock = (params) => api.post('/batches/deduct', null, { 
 // Phase A: 销售单（v3.0新增）
 export const getSalesDeliveries = (params) => api.get('/sales-deliveries', { params })
 export const createSalesDelivery = (data) => api.post('/sales-deliveries', data)
+export const updateSalesDelivery = (id, data) => api.put(`/sales-deliveries/${id}`, data)
 export const getSalesDelivery = (id) => api.get(`/sales-deliveries/${id}`)
 export const voidSalesDelivery = (id, data) => api.post(`/sales-deliveries/${id}/void`, data)
-export const reverseSalesDelivery = (id) => api.post(`/sales-deliveries/${id}/reverse`)
+export const auditSalesDelivery = (id) => api.post(`/sales-deliveries/${id}/audit`)
 
 // Phase A: 采购入库单（v3.0新增）
 export const getPurchaseReceipts = (params) => api.get('/purchase-receipts', { params })
 export const createPurchaseReceipt = (data) => api.post('/purchase-receipts', data)
+export const updatePurchaseReceipt = (id, data) => api.put(`/purchase-receipts/${id}`, data)
 export const getPurchaseReceipt = (id) => api.get(`/purchase-receipts/${id}`)
 export const confirmPurchaseReceipt = (id) => api.post(`/purchase-receipts/${id}/confirm`)
 
@@ -335,6 +338,7 @@ export const rejectExpense = (id) => api.post(`/expenses/${id}/reject`)
 export const getStocktaking = (params) => api.get('/stocktaking', { params })
 export const getStocktakingDetail = (id) => api.get(`/stocktaking/${id}`)
 export const createStocktaking = (data) => api.post('/stocktaking', data)
+export const updateStocktaking = (id, data) => api.put(`/stocktaking/${id}`, data)
 export const auditStocktaking = (id) => api.post(`/stocktaking/${id}/audit`)
 export const adjustStocktaking = (id) => api.post(`/stocktaking/${id}/adjust`)
 export const voidStocktaking = (id) => api.post(`/stocktaking/${id}/void`)
@@ -342,6 +346,7 @@ export const voidStocktaking = (id) => api.post(`/stocktaking/${id}/void`)
 // Phase A: 退货单（v3.0新增）
 export const getReturnDeliveries = (params) => api.get('/return-deliveries', { params })
 export const createReturnDelivery = (data) => api.post('/return-deliveries', data)
+export const updateReturnDelivery = (id, data) => api.put(`/return-deliveries/${id}`, data)
 export const getReturnDelivery = (id) => api.get(`/return-deliveries/${id}`)
 export const warehouseConfirmReturn = (id) => api.post(`/return-deliveries/${id}/warehouse-confirm`)
 export const financeConfirmReturn = (id) => api.post(`/return-deliveries/${id}/finance-confirm`)
@@ -358,6 +363,7 @@ export const getPayableDetail = (supplierId) => api.get(`/account-ledger/payable
 // Phase B: 装车单（v3.0新增）
 export const getVehicleLoads = (params) => api.get('/vehicle-loads', { params })
 export const createVehicleLoad = (data) => api.post('/vehicle-loads', data)
+export const updateVehicleLoad = (id, data) => api.put(`/vehicle-loads/${id}`, data)
 export const getVehicleLoad = (id) => api.get(`/vehicle-loads/${id}`)
 export const confirmVehicleLoad = (id) => api.post(`/vehicle-loads/${id}/confirm`)
 export const returnVehicleLoad = (id) => api.post(`/vehicle-loads/${id}/return`)
@@ -377,6 +383,7 @@ export const confirmAdvancePayment = (id) => api.post(`/advance-payments/${id}/c
 // Phase C: 报损单（v3.0新增）
 export const getDamageReports = (params) => api.get('/damage-reports', { params })
 export const createDamageReport = (data) => api.post('/damage-reports', data)
+export const updateDamageReport = (id, data) => api.put(`/damage-reports/${id}`, data)
 export const getDamageReport = (id) => api.get(`/damage-reports/${id}`)
 export const auditDamageReport = (id) => api.post(`/damage-reports/${id}/audit`)
 
@@ -397,3 +404,15 @@ export const getAnomalies = (params) => api.get('/monitor/anomalies', { params }
 export const getReconciliations = (params) => api.get('/reconciliations', { params })
 export const createReconciliation = (data) => api.post('/reconciliations', data)
 export const confirmReconciliation = (id) => api.post(`/reconciliations/${id}/confirm`)
+
+// 冲红（v3.1新增）
+export const reverseSalesOrder = (id, data) => api.post(`/sales-orders/${id}/reverse`, data)
+export const reverseSalesStockout = (id, data) => api.post(`/sales-stockouts/${id}/reverse`, data)
+export const reverseSalesReturn = (id, data) => api.post(`/sales-returns/${id}/reverse`, data)
+export const reversePurchaseOrder = (id, data) => api.post(`/purchase-orders/${id}/reverse`, data)
+export const reversePurchaseStockin = (id, data) => api.post(`/purchase-stockins/${id}/reverse`, data)
+export const reversePurchaseReturn = (id, data) => api.post(`/purchase-returns/${id}/reverse`, data)
+export const reversePurchaseReceipt = (id, data) => api.post(`/purchase-receipts/${id}/reverse`, data)
+export const reverseSalesDelivery = (id, data) => api.post(`/sales-deliveries/${id}/reverse`, data)
+export const reversePurchaseReturnDlv = (id, data) => api.post(`/purchase-return-deliveries/${id}/reverse`, data)
+export const reverseReturnDelivery = (id, data) => api.post(`/return-deliveries/${id}/reverse`, data)

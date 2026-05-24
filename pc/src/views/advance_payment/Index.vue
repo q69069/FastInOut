@@ -45,7 +45,7 @@
             <el-tag :type="row.status==='confirmed'?'success':'info'" size="small">{{ row.status==='confirmed'?'已确认':'待确认' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" width="160" />
+        <el-table-column prop="created_at" label="创建时间" width="160" :formatter="fmtDate" />
         <el-table-column label="操作" width="160" align="center">
           <template #default="{ row }">
             <el-button size="small" @click="showDetail(row)">详情</el-button>
@@ -70,7 +70,7 @@
         <el-descriptions-item label="状态">
           <el-tag :type="detail.status === 'confirmed' ? 'success' : 'info'" size="small">{{ detail.status === 'confirmed' ? '已确认' : '待确认' }}</el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ detail.created_at }}</el-descriptions-item>
+        <el-descriptions-item label="创建时间">{{ fmtDateVal(detail.created_at) }}</el-descriptions-item>
       </el-descriptions>
     </el-dialog>
   </div>
@@ -82,6 +82,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { getAdvancePayments, confirmAdvancePayment } from '../../api'
 import { useAuthStore } from '../../stores/auth'
 
+const fmtDateVal = (v) => v ? String(v).replace("T", " ").slice(0, 16) : ""
 const authStore = useAuthStore()
 const now = new Date().toLocaleString('zh-CN')
 

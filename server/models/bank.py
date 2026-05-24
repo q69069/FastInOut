@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, Date, DateTime, func
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, Float, Boolean, Date, DateTime, func
 from database import Base
 
 
@@ -15,4 +16,4 @@ class BankStatement(Base):
     matched_id = Column(Integer)  # 匹配的收付款ID
     matched_type = Column(String(20))  # receipt/payment
     remark = Column(String(500))
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)

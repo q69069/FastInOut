@@ -22,7 +22,7 @@
         <el-table-column prop="product_name" label="商品名称" />
         <el-table-column prop="price" label="专属价格" width="120" />
         <el-table-column prop="remark" label="备注" />
-        <el-table-column prop="created_at" label="创建时间" width="170" />
+        <el-table-column prop="created_at" label="创建时间" width="170" :formatter="fmtDate" />
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="showDialog(row)">编辑</el-button>
@@ -74,6 +74,7 @@ import {
   getCustomers, getProducts
 } from '../../api'
 
+const fmtDate = (_r, _c, v) => v ? String(v).replace("T", " ").slice(0, 16) : ""
 const list = ref([])
 const total = ref(0)
 const query = ref({ page: 1, page_size: 20, customer_id: null })
@@ -91,7 +92,7 @@ const loadCustomers = async () => {
 
 const loadProducts = async () => {
   try {
-    const res = await getProducts({ page: 1, page_size: 100 })
+    const res = await getProducts({ page: 1, page_size: 100, status: 1 })
     productList.value = res.data || []
   } catch (e) { console.error('[PriceLevel] loadProducts error:', e) }
 }

@@ -12,28 +12,15 @@ from models.product import Product
 from models.warehouse import Warehouse
 from models.system import Message
 from models.employee import Employee
-from schemas.common import ResponseModel, PaginatedResponse
+from schemas.common import ResponseModel, PaginatedResponse, ReverseRequest
 from utils.data_filter import DataFilter
-from utils.auth import decode_access_token
+from utils.unit_convert import resolve_unit_conversion, resolve_by_unit_level
+from deps import require_inventory_module
 from datetime import datetime
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
 router = APIRouter(prefix="/api/inventory", tags=["仓库管理"])
-
-
-def get_current_user(authorization: str = None, db: Session = Depends(get_db)) -> Employee:
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="未登录")
-    token = authorization.replace("Bearer ", "")
-    payload = decode_access_token(token)
-    if not payload:
-        raise HTTPException(status_code=401, detail="token无效")
-    user = db.query(Employee).get(payload.get("user_id"))
-    if not user:
-        raise HTTPException(status_code=401, detail="用户不存在")
-    return user
-
 
 # ========== Schemas ==========
 class CheckItemCreate(BaseModel):
@@ -50,6 +37,10 @@ class CheckCreate(BaseModel):
 class TransferItemCreate(BaseModel):
     product_id: int
     quantity: float = Field(gt=0, description="调拨数量必须大于0")
+    unit_id: Optional[int] = None
+    unit_level: Optional[str] = None
+    unit_conv_rate: Optional[float] = None
+    unit_quantity: Optional[float] = None
 
 
 class TransferCreate(BaseModel):
@@ -100,10 +91,11 @@ def list_inventory(
     warehouse_id: int = Query(None),
     product_id: int = Query(None),
     keyword: str = Query(None),
-    authorization: str = Header(None),
+    brand_id: int = Query(None),
+    category_id: int = Query(None),
+    user: Employee = Depends(require_inventory_module),
     db: Session = Depends(get_db)
 ):
-    user = get_current_user(authorization, db)
     q = db.query(Inventory)
     # 应用数据权限过滤 - 库存按仓库权限过滤
     q = DataFilter.apply_scope(q, Inventory, user, db, scope_field="warehouse_id", module_key="inventory")
@@ -116,12 +108,36 @@ def list_inventory(
             Product.name.contains(keyword) | Product.code.contains(keyword) | Product.barcode.contains(keyword)
         ).all()]
         q = q.filter(Inventory.product_id.in_(product_ids))
+    if brand_id:
+        brand_product_ids = [p.id for p in db.query(Product).filter(Product.brand_id == brand_id).all()]
+        q = q.filter(Inventory.product_id.in_(brand_product_ids))
+    if category_id:
+        cat_product_ids = [p.id for p in db.query(Product).filter(Product.category_id == category_id).all()]
+        q = q.filter(Inventory.product_id.in_(cat_product_ids))
     total = q.count()
     items = q.order_by(Inventory.warehouse_id, Inventory.product_id).offset((page - 1) * page_size).limit(page_size).all()
     result = []
     for inv in items:
         product = db.query(Product).get(inv.product_id)
         warehouse = db.query(Warehouse).get(inv.warehouse_id)
+        # 按默认单位换算显示数量和价格
+        display_qty = inv.quantity
+        display_unit = product.unit if product else ""
+        conv = 1.0
+        if product:
+            level = product.default_unit_level or 'small'
+            if level == 'medium' and product.medium_conv_rate and product.medium_conv_rate > 0:
+                conv = product.medium_conv_rate
+                display_qty = inv.quantity / conv
+                display_unit = product.medium_unit_name or product.unit or ""
+            elif level == 'large' and product.large_conv_rate and product.large_conv_rate > 0:
+                conv = product.large_conv_rate
+                display_qty = inv.quantity / conv
+                display_unit = product.large_unit_name or product.unit or ""
+            elif not display_unit:
+                display_unit = product.small_unit_name or ""
+        base_purchase = product.purchase_price if product else 0
+        base_retail = product.retail_price if product else 0
         result.append({
             "id": inv.id,
             "warehouse_id": inv.warehouse_id,
@@ -130,10 +146,21 @@ def list_inventory(
             "product_code": product.code if product else "",
             "product_name": product.name if product else "",
             "product_spec": product.spec if product else "",
-            "product_unit": product.unit if product else "",
-            "quantity": inv.quantity,
-            "cost_price": inv.cost_price,
-            "total_value": inv.quantity * inv.cost_price,
+            "product_unit": display_unit,
+            "quantity": display_qty,
+            "base_quantity": inv.quantity,
+            "purchase_price": base_purchase * conv,
+            "retail_price": base_retail * conv,
+            "purchase_total": round(inv.quantity * base_purchase, 2),
+            "retail_total": round(inv.quantity * base_retail, 2),
+            "small_purchase_price": base_purchase,
+            "small_retail_price": base_retail,
+            "conv_rate": conv,
+            "small_unit_name": product.small_unit_name if product else "",
+            "medium_unit_name": product.medium_unit_name if product else "",
+            "medium_conv_rate": product.medium_conv_rate if product else None,
+            "large_unit_name": product.large_unit_name if product else "",
+            "large_conv_rate": product.large_conv_rate if product else None,
         })
     return PaginatedResponse(data=result, total=total, page=page, page_size=page_size)
 
@@ -148,6 +175,7 @@ def inventory_flow(
     flow_type: str = Query(None),  # purchase_in/purchase_return/sales_out/sales_return/transfer/other_in/other_out
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    user: Employee = Depends(require_inventory_module),
     db: Session = Depends(get_db)
 ):
     from models.purchase import PurchaseStockin, PurchaseStockinItem, PurchaseReturn, PurchaseReturnItem
@@ -334,6 +362,7 @@ def list_alerts(
     alert_type: str = Query(None),
     warehouse_id: int = Query(None),
     is_handled: int = Query(None),
+    user: Employee = Depends(require_inventory_module),
     db: Session = Depends(get_db)
 ):
     q = db.query(InventoryAlert)
@@ -363,6 +392,7 @@ def list_checks(
     page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
     warehouse_id: int = Query(None), status: int = Query(None),
     start_date: str = Query(None), end_date: str = Query(None),
+    user: Employee = Depends(require_inventory_module),
     db: Session = Depends(get_db)
 ):
     q = db.query(InventoryCheck)
@@ -389,7 +419,7 @@ def list_checks(
 
 
 @router.post("/checks", response_model=ResponseModel)
-def create_check(req: CheckCreate, db: Session = Depends(get_db)):
+def create_check(req: CheckCreate, user: Employee = Depends(require_inventory_module), db: Session = Depends(get_db)):
     today = datetime.now().strftime("%Y%m%d")
     count = db.query(InventoryCheck).filter(InventoryCheck.code.like(f"PD{today}-%")).count()
     code = f"PD{today}-{count + 1:03d}"
@@ -400,7 +430,11 @@ def create_check(req: CheckCreate, db: Session = Depends(get_db)):
         for item in req.items:
             inv = db.query(Inventory).filter(Inventory.warehouse_id == req.warehouse_id, Inventory.product_id == item.product_id).first()
             system_qty = inv.quantity if inv else 0
-            ci = InventoryCheckItem(check_id=check.id, product_id=item.product_id, system_qty=system_qty, actual_qty=item.count_num, diff_qty=item.count_num - system_qty)
+            if getattr(item, 'unit_level', None):
+                base_qty, conv_rate = resolve_by_unit_level(item.product_id, item.unit_level, item.unit_quantity or item.actual_qty, item.unit_conv_rate, db)
+            else:
+                base_qty, conv_rate = resolve_unit_conversion(item.product_id, item.unit_id, item.unit_quantity or item.actual_qty, db)
+            ci = InventoryCheckItem(check_id=check.id, product_id=item.product_id, system_qty=system_qty, actual_qty=base_qty, unit_id=item.unit_id, unit_quantity=item.unit_quantity or item.actual_qty, unit_conv_rate=conv_rate, diff_qty=base_qty - system_qty)
             db.add(ci)
     else:
         invs = db.query(Inventory).filter(Inventory.warehouse_id == req.warehouse_id).all()
@@ -413,7 +447,7 @@ def create_check(req: CheckCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/checks/{check_id}", response_model=ResponseModel)
-def get_check(check_id: int, db: Session = Depends(get_db)):
+def get_check(check_id: int, user: Employee = Depends(require_inventory_module), db: Session = Depends(get_db)):
     check = db.query(InventoryCheck).get(check_id)
     if not check:
         raise HTTPException(status_code=404, detail="盘点单不存在")
@@ -432,7 +466,7 @@ def get_check(check_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/checks/{check_id}", response_model=ResponseModel)
-def update_check(check_id: int, items: List[CheckItemCreate], db: Session = Depends(get_db)):
+def update_check(check_id: int, items: List[CheckItemCreate], user: Employee = Depends(require_inventory_module), db: Session = Depends(get_db)):
     check = db.query(InventoryCheck).get(check_id)
     if not check:
         raise HTTPException(status_code=404, detail="盘点单不存在")
@@ -448,7 +482,7 @@ def update_check(check_id: int, items: List[CheckItemCreate], db: Session = Depe
 
 
 @router.post("/checks/{check_id}/confirm", response_model=ResponseModel)
-def confirm_check(check_id: int, db: Session = Depends(get_db)):
+def confirm_check(check_id: int, user: Employee = Depends(require_inventory_module), db: Session = Depends(get_db)):
     check = db.query(InventoryCheck).get(check_id)
     if not check:
         raise HTTPException(status_code=404, detail="盘点单不存在")
@@ -477,7 +511,7 @@ def confirm_check(check_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/checks/{check_id}", response_model=ResponseModel)
-def delete_check(check_id: int, db: Session = Depends(get_db)):
+def delete_check(check_id: int, user: Employee = Depends(require_inventory_module), db: Session = Depends(get_db)):
     check = db.query(InventoryCheck).get(check_id)
     if not check:
         raise HTTPException(status_code=404, detail="盘点单不存在")
@@ -494,6 +528,7 @@ def list_transfers(
     page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
     status: int = Query(None),
     start_date: str = Query(None), end_date: str = Query(None),
+    user: Employee = Depends(require_inventory_module),
     db: Session = Depends(get_db)
 ):
     q = db.query(InventoryTransfer)
@@ -520,7 +555,7 @@ def list_transfers(
 
 
 @router.post("/transfers", response_model=ResponseModel)
-def create_transfer(req: TransferCreate, db: Session = Depends(get_db)):
+def create_transfer(req: TransferCreate, user: Employee = Depends(require_inventory_module), db: Session = Depends(get_db)):
     # M5: 检查源仓库和目标仓库不能相同
     if req.from_warehouse_id == req.to_warehouse_id:
         raise HTTPException(status_code=400, detail="源仓库和目标仓库不能相同")
@@ -536,15 +571,60 @@ def create_transfer(req: TransferCreate, db: Session = Depends(get_db)):
     db.add(transfer)
     db.flush()
     for item in req.items:
-        ti = InventoryTransferItem(transfer_id=transfer.id, product_id=item.product_id, quantity=item.quantity)
+        if getattr(item, 'unit_level', None):
+            base_qty, conv_rate = resolve_by_unit_level(item.product_id, item.unit_level, item.unit_quantity or item.quantity, item.unit_conv_rate, db)
+        else:
+            base_qty, conv_rate = resolve_unit_conversion(item.product_id, item.unit_id, item.unit_quantity or item.quantity, db)
+        ti = InventoryTransferItem(transfer_id=transfer.id, product_id=item.product_id, quantity=base_qty, unit_id=item.unit_id, unit_quantity=item.unit_quantity or item.quantity, unit_conv_rate=conv_rate)
         db.add(ti)
     db.commit()
     db.refresh(transfer)
     return ResponseModel(data={"id": transfer.id, "code": code, "status": transfer.status})
 
 
+# ========== 修改调拨单（仅待处理状态） ==========
+@router.put("/transfers/{transfer_id}", response_model=ResponseModel)
+def update_transfer(transfer_id: int, req: TransferCreate, user: Employee = Depends(require_inventory_module), db: Session = Depends(get_db)):
+    transfer = db.query(InventoryTransfer).get(transfer_id)
+    if not transfer:
+        raise HTTPException(status_code=404, detail="调拨单不存在")
+    if transfer.status not in (0, 1):
+        raise HTTPException(status_code=400, detail=f"当前状态 {transfer.status} 不允许修改")
+
+    if req.from_warehouse_id == req.to_warehouse_id:
+        raise HTTPException(status_code=400, detail="源仓库和目标仓库不能相同")
+
+    # 校验库存充足
+    for item in req.items:
+        inv = db.query(Inventory).filter(Inventory.warehouse_id == req.from_warehouse_id, Inventory.product_id == item.product_id).first()
+        if not inv or inv.quantity < item.quantity:
+            product = db.query(Product).get(item.product_id)
+            raise HTTPException(status_code=400, detail=f"商品{product.name if product else item.product_id}库存不足")
+
+    # 删除旧明细
+    db.query(InventoryTransferItem).filter(InventoryTransferItem.transfer_id == transfer_id).delete()
+
+    # 更新主单
+    transfer.from_warehouse_id = req.from_warehouse_id
+    transfer.to_warehouse_id = req.to_warehouse_id
+    transfer.remark = req.remark
+
+    # 创建新明细
+    for item in req.items:
+        if getattr(item, 'unit_level', None):
+            base_qty, conv_rate = resolve_by_unit_level(item.product_id, item.unit_level, item.unit_quantity or item.quantity, item.unit_conv_rate, db)
+        else:
+            base_qty, conv_rate = resolve_unit_conversion(item.product_id, item.unit_id, item.unit_quantity or item.quantity, db)
+        ti = InventoryTransferItem(transfer_id=transfer.id, product_id=item.product_id, quantity=base_qty, unit_id=item.unit_id, unit_quantity=item.unit_quantity or item.quantity, unit_conv_rate=conv_rate)
+        db.add(ti)
+
+    db.commit()
+    db.refresh(transfer)
+    return ResponseModel(data={"id": transfer.id, "code": transfer.code, "status": transfer.status})
+
+
 @router.get("/transfers/{transfer_id}", response_model=ResponseModel)
-def get_transfer(transfer_id: int, db: Session = Depends(get_db)):
+def get_transfer(transfer_id: int, user: Employee = Depends(require_inventory_module), db: Session = Depends(get_db)):
     transfer = db.query(InventoryTransfer).get(transfer_id)
     if not transfer:
         raise HTTPException(status_code=404, detail="调拨单不存在")
@@ -557,7 +637,7 @@ def get_transfer(transfer_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/transfers/{transfer_id}/confirm", response_model=ResponseModel)
-def confirm_transfer(transfer_id: int, db: Session = Depends(get_db)):
+def confirm_transfer(transfer_id: int, user: Employee = Depends(require_inventory_module), db: Session = Depends(get_db)):
     transfer = db.query(InventoryTransfer).get(transfer_id)
     if not transfer:
         raise HTTPException(status_code=404, detail="调拨单不存在")
@@ -565,11 +645,17 @@ def confirm_transfer(transfer_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="已确认或已取消")
     items = db.query(InventoryTransferItem).filter(InventoryTransferItem.transfer_id == transfer_id).all()
     for ti in items:
-        from_inv = db.query(Inventory).filter(Inventory.warehouse_id == transfer.from_warehouse_id, Inventory.product_id == ti.product_id).first()
+        from_inv = db.query(Inventory).filter(
+            Inventory.warehouse_id == transfer.from_warehouse_id,
+            Inventory.product_id == ti.product_id
+        ).with_for_update().first()
         if not from_inv or from_inv.quantity < ti.quantity:
             raise HTTPException(status_code=400, detail=f"商品{ti.product_id}库存不足")
         from_inv.quantity -= ti.quantity
-        to_inv = db.query(Inventory).filter(Inventory.warehouse_id == transfer.to_warehouse_id, Inventory.product_id == ti.product_id).first()
+        to_inv = db.query(Inventory).filter(
+            Inventory.warehouse_id == transfer.to_warehouse_id,
+            Inventory.product_id == ti.product_id
+        ).with_for_update().first()
         if to_inv:
             to_inv.quantity += ti.quantity
         else:
@@ -578,12 +664,13 @@ def confirm_transfer(transfer_id: int, db: Session = Depends(get_db)):
         _check_alert(db, ti.product_id, transfer.from_warehouse_id, from_inv.quantity)
     transfer.status = 2
     transfer.confirmed_at = datetime.now()
+    transfer.auditor_id = user.id
     db.commit()
     return ResponseModel(message="调拨确认成功")
 
 
 @router.delete("/transfers/{transfer_id}", response_model=ResponseModel)
-def delete_transfer(transfer_id: int, db: Session = Depends(get_db)):
+def delete_transfer(transfer_id: int, user: Employee = Depends(require_inventory_module), db: Session = Depends(get_db)):
     transfer = db.query(InventoryTransfer).get(transfer_id)
     if not transfer:
         raise HTTPException(status_code=404, detail="调拨单不存在")
@@ -594,10 +681,44 @@ def delete_transfer(transfer_id: int, db: Session = Depends(get_db)):
     return ResponseModel(message="已取消")
 
 
+@router.post("/transfers/{transfer_id}/reverse", response_model=ResponseModel)
+def reverse_transfer(transfer_id: int, req: ReverseRequest, user: Employee = Depends(require_inventory_module), db: Session = Depends(get_db)):
+    transfer = db.query(InventoryTransfer).get(transfer_id)
+    if not transfer:
+        raise HTTPException(status_code=404, detail="调拨单不存在")
+    if transfer.status == 0:
+        raise HTTPException(status_code=400, detail="草稿状态不能冲红")
+    if transfer.status == 3:
+        raise HTTPException(status_code=400, detail="已冲红单据不能重复冲红")
+    # 回滚库存：把目标仓库的货退回调出仓库
+    items = db.query(InventoryTransferItem).filter(InventoryTransferItem.transfer_id == transfer_id).all()
+    for ti in items:
+        to_inv = db.query(Inventory).filter(
+            Inventory.warehouse_id == transfer.to_warehouse_id,
+            Inventory.product_id == ti.product_id
+        ).with_for_update().first()
+        if to_inv and to_inv.quantity >= ti.quantity:
+            to_inv.quantity -= ti.quantity
+        from_inv = db.query(Inventory).filter(
+            Inventory.warehouse_id == transfer.from_warehouse_id,
+            Inventory.product_id == ti.product_id
+        ).with_for_update().first()
+        if from_inv:
+            from_inv.quantity += ti.quantity
+        else:
+            db.add(Inventory(warehouse_id=transfer.from_warehouse_id, product_id=ti.product_id, quantity=ti.quantity))
+    transfer.status = 3
+    db.commit()
+    return ResponseModel(message="冲红成功，库存已回滚")
+
+
 # ========== 报损报溢 ==========
 @router.post("/other-in", response_model=ResponseModel)
-def other_in(req: OtherInOut, db: Session = Depends(get_db)):
-    inv = db.query(Inventory).filter(Inventory.warehouse_id == req.warehouse_id, Inventory.product_id == req.product_id).first()
+def other_in(req: OtherInOut, user: Employee = Depends(require_inventory_module), db: Session = Depends(get_db)):
+    inv = db.query(Inventory).filter(
+        Inventory.warehouse_id == req.warehouse_id,
+        Inventory.product_id == req.product_id
+    ).with_for_update().first()
     if inv:
         inv.quantity += req.quantity
     else:
@@ -611,8 +732,11 @@ def other_in(req: OtherInOut, db: Session = Depends(get_db)):
 
 
 @router.post("/other-out", response_model=ResponseModel)
-def other_out(req: OtherInOut, db: Session = Depends(get_db)):
-    inv = db.query(Inventory).filter(Inventory.warehouse_id == req.warehouse_id, Inventory.product_id == req.product_id).first()
+def other_out(req: OtherInOut, user: Employee = Depends(require_inventory_module), db: Session = Depends(get_db)):
+    inv = db.query(Inventory).filter(
+        Inventory.warehouse_id == req.warehouse_id,
+        Inventory.product_id == req.product_id
+    ).with_for_update().first()
     if not inv or inv.quantity < req.quantity:
         raise HTTPException(status_code=400, detail="库存不足")
     inv.quantity -= req.quantity
@@ -628,6 +752,7 @@ def list_other_log(
     page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
     type: str = Query(None), warehouse_id: int = Query(None),
     start_date: str = Query(None), end_date: str = Query(None),
+    user: Employee = Depends(require_inventory_module),
     db: Session = Depends(get_db)
 ):
     q = db.query(OtherInventoryLog)
@@ -650,7 +775,7 @@ def list_other_log(
 
 # ========== 库存统计 ==========
 @router.get("/summary", response_model=ResponseModel)
-def inventory_summary(db: Session = Depends(get_db)):
+def inventory_summary(user: Employee = Depends(require_inventory_module), db: Session = Depends(get_db)):
     invs = db.query(Inventory).all()
     total_qty = sum(i.quantity for i in invs)
     total_value = sum(i.quantity * i.cost_price for i in invs)
@@ -666,7 +791,7 @@ def inventory_summary(db: Session = Depends(get_db)):
 
 
 @router.get("/slow-moving", response_model=ResponseModel)
-def slow_moving(days: int = Query(30), db: Session = Depends(get_db)):
+def slow_moving(days: int = Query(30), user: Employee = Depends(require_inventory_module), db: Session = Depends(get_db)):
     from models.sales import SalesStockoutItem, SalesStockout
     from datetime import timedelta
     cutoff = datetime.now() - timedelta(days=days)
@@ -684,7 +809,7 @@ def slow_moving(days: int = Query(30), db: Session = Depends(get_db)):
 
 
 @router.get("/turnover", response_model=ResponseModel)
-def turnover(start_date: str = Query(None), end_date: str = Query(None), warehouse_id: int = Query(None), per_product: int = Query(0), db: Session = Depends(get_db)):
+def turnover(start_date: str = Query(None), end_date: str = Query(None), warehouse_id: int = Query(None), per_product: int = Query(0), user: Employee = Depends(require_inventory_module), db: Session = Depends(get_db)):
     from models.sales import SalesStockout, SalesStockoutItem
     q = db.query(SalesStockout).filter(SalesStockout.status == 2)
     if start_date:
@@ -742,7 +867,7 @@ def turnover(start_date: str = Query(None), end_date: str = Query(None), warehou
 
 # ========== 智能补货建议 ==========
 @router.get("/reorder-suggestions", response_model=ResponseModel)
-def get_reorder_suggestions(db: Session = Depends(get_db)):
+def get_reorder_suggestions(user: Employee = Depends(require_inventory_module), db: Session = Depends(get_db)):
     """获取需要补货的商品（当前库存 <= 最低库存）"""
     products = db.query(Product).filter(Product.stock_min > 0, Product.status == 1).all()
     suggestions = []
@@ -767,7 +892,7 @@ def get_reorder_suggestions(db: Session = Depends(get_db)):
 
 # ========== 库存详情（放在最后避免路由冲突）==========
 @router.get("/detail/{warehouse_id}/{product_id}", response_model=ResponseModel)
-def get_inventory_detail(warehouse_id: int, product_id: int, db: Session = Depends(get_db)):
+def get_inventory_detail(warehouse_id: int, product_id: int, user: Employee = Depends(require_inventory_module), db: Session = Depends(get_db)):
     inv = db.query(Inventory).filter(Inventory.warehouse_id == warehouse_id, Inventory.product_id == product_id).first()
     if not inv:
         raise HTTPException(status_code=404, detail="库存记录不存在")
@@ -780,3 +905,4 @@ def get_inventory_detail(warehouse_id: int, product_id: int, db: Session = Depen
         "cost_price": inv.cost_price,
         "total_value": inv.quantity * inv.cost_price,
     })
+

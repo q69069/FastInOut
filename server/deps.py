@@ -12,11 +12,16 @@
         ...
 """
 
+import hashlib
 from fastapi import Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from database import get_db
 from models.employee import Employee
 from utils.auth import decode_access_token, has_role, is_admin
+
+
+def _hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 def get_current_user(authorization: str = Header(None), db: Session = Depends(get_db)) -> Employee:
@@ -26,6 +31,10 @@ def get_current_user(authorization: str = Header(None), db: Session = Depends(ge
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="token格式错误")
     token = authorization.replace("Bearer ", "")
+    from models.token_blacklist import TokenBlacklist
+    token_hash = _hash_token(token)
+    if db.query(TokenBlacklist).filter(TokenBlacklist.token_hash == token_hash).first():
+        raise HTTPException(status_code=401, detail="token已失效，请重新登录")
     payload = decode_access_token(token)
     if not payload:
         raise HTTPException(status_code=401, detail="token无效或已过期")
@@ -40,6 +49,10 @@ def get_optional_user(authorization: str = Header(None), db: Session = Depends(g
     if not authorization or not authorization.startswith("Bearer "):
         return None
     token = authorization.replace("Bearer ", "")
+    from models.token_blacklist import TokenBlacklist
+    token_hash = _hash_token(token)
+    if db.query(TokenBlacklist).filter(TokenBlacklist.token_hash == token_hash).first():
+        return None
     payload = decode_access_token(token)
     if not payload:
         return None
@@ -76,6 +89,17 @@ require_warehouse_dep = _make_role_dep("warehouse", "admin")
 require_finance_dep = _make_role_dep("finance", "admin")
 require_sales_or_clerk_dep = _make_role_dep("sales", "clerk", "admin")
 require_warehouse_or_clerk_dep = _make_role_dep("warehouse", "clerk", "admin")
+
+# 预定义模块权限依赖
+require_products_module = _make_module_dep("products")
+require_warehouses_module = _make_module_dep("warehouses")
+require_customers_module = _make_module_dep("customers")
+require_suppliers_module = _make_module_dep("suppliers")
+require_purchases_module = _make_module_dep("purchases")
+require_sales_module = _make_module_dep("sales")
+require_inventory_module = _make_module_dep("inventory")
+require_finance_module = _make_module_dep("finance")
+require_reports_module = _make_module_dep("reports")
 
 
 def require_role(user: Employee, db: Session, *role_keys: str, message: str = ""):

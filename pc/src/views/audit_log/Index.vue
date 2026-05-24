@@ -25,7 +25,7 @@
         </el-form-item>
       </el-form>
       <el-table :data="list" border stripe>
-        <el-table-column prop="created_at" label="时间" width="170" />
+        <el-table-column prop="created_at" label="时间" width="170" :formatter="fmtDate" />
         <el-table-column prop="username" label="操作人" width="100" />
         <el-table-column prop="method" label="方法" width="80" align="center">
           <template #default="{ row }">
@@ -46,6 +46,7 @@
 import { ref, onMounted } from 'vue'
 import { getHttpAuditLogs } from '../../api'
 
+const fmtDate = (_r, _c, v) => v ? String(v).replace("T", " ").slice(0, 16) : ""
 const list = ref([])
 const total = ref(0)
 const query = ref({ page: 1, page_size: 20, method: '', entity_type: '', date_range: [] })

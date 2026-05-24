@@ -63,7 +63,7 @@
       <div class="content-area">
         <router-view v-slot="{ Component }">
           <keep-alive :include="keepAliveRoutes">
-            <component :is="Component" :key="route.path" />
+            <component :is="Component" :key="route.fullPath" />
           </keep-alive>
         </router-view>
       </div>
@@ -85,7 +85,7 @@
             :key="sub.path"
             class="submenu-item"
             :class="{ highlight: isHighlight(sub.path) }"
-            @click="openTab(sub.path, sub.label)"
+            @click="openTab(sub.isNew ? `${sub.path}?new=${Date.now()}` : sub.path, sub.label)"
           >
             {{ sub.label }}
           </div>
@@ -110,7 +110,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick, provide } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowRight, SwitchButton } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores'
@@ -135,34 +135,34 @@ const mainModules = [
   // 采购
   { key: 'purchase', label: '采购', icon: 'ShoppingCart', subs: [
     { path: '/purchases/all', label: '查看采购单据', module: 'purchases' },
-    { path: '/purchases', label: '采购订单', module: 'purchases' },
-    { path: '/purchase-receipts', label: '采购单', module: 'purchases' },
-    { path: '/purchase-returns', label: '采购退货订单', module: 'purchases' },
-    { path: '/purchase-return-deliveries', label: '采购退货', module: 'purchases' },
+    { path: '/purchases', label: '采购订单', module: 'purchases', isNew: true },
+    { path: '/purchase-receipts', label: '采购单', module: 'purchases', isNew: true },
+    { path: '/purchase-returns', label: '采购退货订单', module: 'purchases', isNew: true },
+    { path: '/purchase-return-deliveries', label: '采购退货', module: 'purchases', isNew: true },
   ]},
   // 销售
   { key: 'sales', label: '销售', icon: 'Sell', subs: [
     { path: '/sales/all', label: '查看销售单', module: 'sales' },
-    { path: '/sales', label: '销售订单', module: 'sales' },
-    { path: '/sales-deliveries', label: '销售单', module: 'sales' },
-    { path: '/sales-returns', label: '退货订单', module: 'sales' },
-    { path: '/return-deliveries', label: '退货单', module: 'sales' },
+    { path: '/sales', label: '销售订单', module: 'sales', isNew: true },
+    { path: '/sales-deliveries', label: '销售单', module: 'sales', isNew: true },
+    { path: '/sales-returns', label: '退货订单', module: 'sales', isNew: true },
+    { path: '/return-deliveries', label: '退货单', module: 'sales', isNew: true },
     { path: '/salesmen', label: '业务员管理', module: 'sales' },
   ]},
   // 仓库
   { key: 'warehouse', label: '仓库', icon: 'Box', subs: [
     { path: '/inventory/all', label: '查看库存单据', module: 'inventory' },
     { path: '/inventory', label: '库存查询', module: 'inventory' },
-    { path: '/transfers', label: '库存调拨', module: 'inventory' },
-    { path: '/stocktaking', label: '盘点管理', module: 'inventory' },
-    { path: '/vehicle-loads', label: '装车调度', module: 'inventory' },
-    { path: '/damage-reports', label: '报损单', module: 'inventory' },
+    { path: '/transfers', label: '库存调拨', module: 'inventory', isNew: true },
+    { path: '/stocktaking', label: '盘点管理', module: 'inventory', isNew: true },
+    { path: '/vehicle-loads', label: '装车调度', module: 'inventory', isNew: true },
+    { path: '/damage-reports', label: '报损单', module: 'inventory', isNew: true },
   ]},
   // 财务
   { key: 'finance', label: '财务', icon: 'Money', subs: [
     { path: '/finance/all', label: '查看财务单据', module: 'finance' },
-    { path: '/finance', label: '收支管理', module: 'finance' },
-    { path: '/expenses', label: '费用管理', module: 'finance' },
+    { path: '/finance', label: '收支管理', module: 'finance', isNew: true },
+    { path: '/expenses', label: '费用管理', module: 'finance', isNew: true },
     { path: '/account-ledger', label: '往来账', module: 'finance' },
     { path: '/advance-payments', label: '预收付款', module: 'finance' },
     { path: '/reconciliations', label: '客户对账', module: 'finance' },
@@ -172,7 +172,7 @@ const mainModules = [
   // 交账
   { key: 'settlement', label: '交账', icon: 'Tickets', subs: [
     { path: '/settlements/all', label: '查看交账单据', module: 'sales' },
-    { path: '/settlements', label: '交账管理', module: 'sales' },
+    { path: '/settlements', label: '交账管理', module: 'sales', isNew: true },
     { path: '/monitor', label: '异常监控', module: 'sales' },
   ]},
   // 报表
@@ -271,25 +271,92 @@ const dropdownStyle = computed(() => {
 const isHighlight = (path) => route.path === path
 
 // ========== 标签页 ==========
-const tabs = ref([{ path: '/dashboard', title: '首页', pinned: true }])
-const currentTab = computed(() => tabs.value.find(t => t.path === route.path) || tabs.value[0])
-const keepAliveRoutes = computed(() => tabs.value.map(t => t.path.replace('/', '')))
+const tabs = ref([{ path: '/dashboard', title: '首页', pinned: true, name: 'Dashboard' }])
+
+// 从localStorage恢复标签页数据
+const loadTabs = () => {
+  try {
+    const saved = localStorage.getItem('fi_tabs')
+    if (saved) {
+      const arr = JSON.parse(saved)
+      // 确保首页在且置顶
+      if (arr.find(t => t.path === '/dashboard')) {
+        tabs.value = arr
+      } else {
+        tabs.value = [{ path: '/dashboard', title: '首页', pinned: true, name: 'Dashboard' }, ...arr.filter(t => t.path !== '/dashboard')]
+      }
+    }
+  } catch (e) {
+    console.error('恢复标签页失败:', e)
+    tabs.value = [{ path: '/dashboard', title: '首页', pinned: true, name: 'Dashboard' }]
+  }
+}
+const saveTabs = () => {
+  try {
+    localStorage.setItem('fi_tabs', JSON.stringify(tabs.value))
+  } catch (e) {
+    console.error('保存标签页失败:', e)
+  }
+}
+
+// 初始化加载
+loadTabs()
+
+// 监听标签页变化自动保存
+watch(tabs, saveTabs, { deep: true })
+
+// 用完整路径（含query）作为标签唯一标识
+const fullPath = computed(() => {
+  const qs = new URLSearchParams(route.query).toString()
+  return qs ? `${route.path}?${qs}` : route.path
+})
+const currentTab = computed(() => tabs.value.find(t => t.path === fullPath.value) || tabs.value[0])
+const keepAliveRoutes = computed(() => tabs.value.map(t => t.name).filter(Boolean))
 const HIGHEST_TABS = 12
 
 const openTab = (path, title) => {
   activeModule.value = null
   const exist = tabs.value.find(t => t.path === path)
   if (exist) { router.push(path); return }
-  if (tabs.value.length < HIGHEST_TABS) tabs.value.push({ path, title, pinned: false })
+  const resolved = router.resolve(path)
+  const name = resolved?.name || ''
+  if (tabs.value.length < HIGHEST_TABS) tabs.value.push({ path, title, pinned: false, name })
   router.push(path)
 }
+
+// 供子组件调用：保存后更新当前标签路径和标题
+const updateCurrentTabPath = (newPath, newTitle) => {
+  const tab = tabs.value.find(t => t.path === fullPath.value)
+  if (tab) {
+    tab.path = newPath
+    if (newTitle) tab.title = newTitle
+    if (!tab.name) {
+      const resolved = router.resolve(newPath)
+      tab.name = resolved?.name || ''
+    }
+  }
+  // 更新当前路由，使 currentTab 重新计算
+  router.replace(newPath)
+}
+provide('updateCurrentTabPath', updateCurrentTabPath)
+
+// 供子组件调用：关闭当前标签页
+const closeCurrentTab = () => {
+  const tab = currentTab.value
+  if (tab && !tab.pinned) {
+    const idx = tabs.value.findIndex(t => t.path === tab.path)
+    tabs.value.splice(idx, 1)
+    const target = currentTab.value
+    if (target) router.replace(target.path)
+  }
+}
+provide('closeCurrentTab', closeCurrentTab)
 
 const switchTab = (tab) => router.push(tab.path)
 const closeTab = (tab) => {
   if (tab.pinned) return
   const idx = tabs.value.findIndex(t => t.path === tab.path)
   tabs.value.splice(idx, 1)
-  // 无论关闭的是不是当前标签，都强制跳到当前激活的标签
   const target = currentTab.value
   if (target) router.replace(target.path)
 }
@@ -312,8 +379,8 @@ const ctxCloseOthers = () => { tabs.value = tabs.value.filter(t => t.pinned || t
 const ctxRefresh = () => { router.go(0); hideCtx() }
 
 // ========== 路由监听 ==========
-watch(() => route.path, (p) => {
-  if (p === '/login') return
+watch(fullPath, (p) => {
+  if (p.startsWith('/login')) return
   const exist = tabs.value.find(t => t.path === p)
   const title = route.meta?.title || '未命名'
   if (!exist && tabs.value.length < HIGHEST_TABS) tabs.value.push({ path: p, title, pinned: false })

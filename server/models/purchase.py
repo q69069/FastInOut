@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text, func
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, Float, ForeignKey, DateTime, Text, func
 from database import Base
 
 
@@ -18,8 +19,11 @@ class PurchaseOrder(Base):
     audit_time = Column(DateTime, comment="审核时间")
     audit_comment = Column(Text, comment="审核意见")
     remark = Column(Text)
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
     confirmed_at = Column(DateTime)
+    reverse_reason = Column(String(200))
+    reversed_by = Column(Integer, ForeignKey("employees.id"))
+    reversed_at = Column(DateTime)
 
 
 class PurchaseOrderItem(Base):
@@ -32,6 +36,9 @@ class PurchaseOrderItem(Base):
     price = Column(Float, default=0)  # 单价
     amount = Column(Float, default=0)  # 金额
     received_qty = Column(Float, default=0)  # 已入库数量
+    unit_id = Column(Integer, ForeignKey("units.id"), nullable=True)
+    unit_quantity = Column(Float, default=1)
+    unit_conv_rate = Column(Float, default=1)
 
 
 class PurchaseStockin(Base):
@@ -50,7 +57,10 @@ class PurchaseStockin(Base):
     audit_time = Column(DateTime, comment="审核时间")
     audit_comment = Column(Text, comment="审核意见")
     remark = Column(Text)
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
+    reverse_reason = Column(String(200))
+    reversed_by = Column(Integer, ForeignKey("employees.id"))
+    reversed_at = Column(DateTime)
 
 
 class PurchaseStockinItem(Base):
@@ -62,6 +72,9 @@ class PurchaseStockinItem(Base):
     quantity = Column(Float, default=0)
     price = Column(Float, default=0)
     amount = Column(Float, default=0)
+    unit_id = Column(Integer, ForeignKey("units.id"), nullable=True)
+    unit_quantity = Column(Float, default=1)
+    unit_conv_rate = Column(Float, default=1)
 
 
 class PurchaseReturn(Base):
@@ -80,8 +93,11 @@ class PurchaseReturn(Base):
     audit_time = Column(DateTime, comment="审核时间")
     audit_comment = Column(Text, comment="审核意见")
     remark = Column(Text)
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
     confirmed_at = Column(DateTime)
+    reverse_reason = Column(String(200))
+    reversed_by = Column(Integer, ForeignKey("employees.id"))
+    reversed_at = Column(DateTime)
 
 
 class PurchaseReturnItem(Base):
@@ -93,3 +109,6 @@ class PurchaseReturnItem(Base):
     quantity = Column(Float, default=0)
     price = Column(Float, default=0)
     amount = Column(Float, default=0)
+    unit_id = Column(Integer, ForeignKey("units.id"), nullable=True)
+    unit_quantity = Column(Float, default=1)
+    unit_conv_rate = Column(Float, default=1)

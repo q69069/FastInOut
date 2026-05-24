@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, func
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, Float, ForeignKey, DateTime, func
 from database import Base
 
 
@@ -15,6 +16,7 @@ class Customer(Base):
     level = Column(String(20))  # 等级
     credit_limit = Column(Float, default=0)  # 信用额度
     receivable_balance = Column(Float, default=0)  # 应收余额
+    prepaid_balance = Column(Float, default=0)  # 预收余额（客户多付的钱）
     bank_name = Column(String(200))  # 开户行
     bank_account = Column(String(100))  # 银行账号
     tax_number = Column(String(50))  # 税号
@@ -25,5 +27,5 @@ class Customer(Base):
     channel = Column(String(50), comment="渠道")
     customer_level = Column(String(20), comment="客户等级(A/B/C)")
     status = Column(Integer, default=1)
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)

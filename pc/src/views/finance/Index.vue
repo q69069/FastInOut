@@ -71,7 +71,7 @@
         </el-table-column>
         <el-table-column prop="payment_method" label="方式" width="100" />
         <el-table-column prop="status" label="状态" width="80" />
-        <el-table-column prop="created_at" label="时间" width="170" />
+        <el-table-column prop="created_at" label="时间" width="170" :formatter="fmtDate" />
       </el-table>
     </el-dialog>
 
@@ -91,7 +91,7 @@
         </el-table-column>
         <el-table-column prop="payment_method" label="方式" width="100" />
         <el-table-column prop="status" label="状态" width="80" />
-        <el-table-column prop="created_at" label="时间" width="170" />
+        <el-table-column prop="created_at" label="时间" width="170" :formatter="fmtDate" />
       </el-table>
     </el-dialog>
   </div>
@@ -101,6 +101,7 @@
 import { ref, onMounted } from 'vue'
 import { getReceivablesSummary, getReceivableDetail, getPayablesSummary, getPayableDetail } from '../../api'
 
+const fmtDate = (_r, _c, v) => v ? String(v).replace("T", " ").slice(0, 16) : ""
 const now = new Date().toLocaleString('zh-CN')
 const receivables = ref({})
 const payables = ref({})

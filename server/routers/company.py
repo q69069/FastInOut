@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from database import get_db
+from deps import get_current_user, require_admin_dep
+from models.employee import Employee
 from models.company import Company
 from schemas.company import CompanyUpdate, CompanyOut
 from schemas.common import ResponseModel
@@ -9,14 +11,14 @@ router = APIRouter(prefix="/api/company", tags=["公司信息"])
 
 
 @router.get("", response_model=ResponseModel)
-def get_company(db: Session = Depends(get_db)):
+def get_company(db: Session = Depends(get_db), user: Employee = Depends(get_current_user)):
     """获取公司信息"""
     company = db.query(Company).first()
     return ResponseModel(data=CompanyOut.model_validate(company) if company else None)
 
 
 @router.put("", response_model=ResponseModel)
-def update_company(req: CompanyUpdate, db: Session = Depends(get_db)):
+def update_company(req: CompanyUpdate, db: Session = Depends(get_db), _=Depends(require_admin_dep)):
     """更新公司信息"""
     company = db.query(Company).first()
     if not company:

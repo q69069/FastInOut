@@ -1,6 +1,7 @@
+from datetime import datetime
 """费用管理模型 — Phase A Day 5-6"""
 
-from sqlalchemy import Column, Integer, String, Float, Boolean, Text, DateTime, ForeignKey
+from sqlalchemy import text, Column, Integer, String, Float, Boolean, Text, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from database import Base
 
@@ -13,7 +14,7 @@ class ExpenseCategory(Base):
     type = Column(String(20), default="expense")  # expense/income
     sort_order = Column(Integer, default=0)
     status = Column(Integer, default=1)
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
 
 
 class Expense(Base):
@@ -31,5 +32,5 @@ class Expense(Base):
     created_by = Column(Integer, ForeignKey("employees.id"), nullable=False)
     approver_id = Column(Integer, ForeignKey("employees.id"))
     approved_at = Column(DateTime)
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
     remark = Column(Text)

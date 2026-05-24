@@ -331,6 +331,59 @@ def auto_migrate():
                 role_id INTEGER NOT NULL,
                 UNIQUE(employee_id, role_id)
             )'''))
+        # ========== 添加索引 ==========
+        # 为高频查询字段添加索引
+        try:
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_sales_orders_customer_id ON sales_orders(customer_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_sales_orders_status ON sales_orders(status)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_sales_orders_created_at ON sales_orders(created_at)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_sales_order_items_order_id ON sales_order_items(order_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_sales_order_items_product_id ON sales_order_items(product_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_sales_stockouts_customer_id ON sales_stockouts(customer_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_sales_stockouts_warehouse_id ON sales_stockouts(warehouse_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_sales_stockouts_status ON sales_stockouts(status)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_sales_stockout_items_stockout_id ON sales_stockout_items(stockout_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_sales_returns_stockout_id ON sales_returns(stockout_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_sales_returns_customer_id ON sales_returns(customer_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_purchase_orders_supplier_id ON purchase_orders(supplier_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_purchase_orders_status ON purchase_orders(status)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_purchase_order_items_order_id ON purchase_order_items(order_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_purchase_stockins_supplier_id ON purchase_stockins(supplier_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_purchase_stockins_warehouse_id ON purchase_stockins(warehouse_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_purchase_stockins_status ON purchase_stockins(status)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_purchase_returns_supplier_id ON purchase_returns(supplier_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_inventory_warehouse_id ON inventory(warehouse_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_inventory_product_id ON inventory(product_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_inventory_check_items_check_id ON inventory_check_items(check_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_inventory_transfer_items_transfer_id ON inventory_transfer_items(transfer_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_receipts_customer_id ON receipts(customer_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_receipts_status ON receipts(status)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_payments_supplier_id ON payments(supplier_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_customers_status ON customers(status)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_customers_category_id ON customers(category_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_suppliers_status ON suppliers(status)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_products_category_id ON products(category_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_products_status ON products(status)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_employees_status ON employees(status)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_expenses_category_id ON expenses(category_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_expenses_status ON expenses(status)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_sales_deliveries_customer_id ON sales_deliveries(customer_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_sales_deliveries_status ON sales_deliveries(status)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_settlements_employee_id ON settlements(employee_id)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS idx_settlements_status ON settlements(status)'))
+        except Exception as e:
+            print(f"索引创建警告: {e}")
+
+        # unit_level 字段（所有订单明细表）
+        for tbl in ('purchase_receipt_items', 'purchase_return_dlv_items', 'purchase_order_items', 'purchase_stockin_items', 'purchase_return_items', 'sales_order_items', 'sales_stockout_items', 'sales_return_items', 'sales_delivery_items', 'vehicle_load_items', 'damage_report_items', 'inventory_check_items', 'inventory_transfer_items'):
+            try:
+                tbl_cols = [c['name'] for c in inspector.get_columns(tbl)]
+                if 'unit_level' not in tbl_cols:
+                    conn.execute(text(f'ALTER TABLE {tbl} ADD COLUMN unit_level VARCHAR(10)'))
+            except Exception:
+                pass
+
         conn.commit()
 
 auto_migrate()
@@ -354,9 +407,10 @@ app = FastAPI(
 )
 
 # CORS
+_cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:5174").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174"],
+    allow_origins=[o.strip() for o in _cors_origins],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -432,4 +486,4 @@ def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8005, reload=True)

@@ -1,3 +1,4 @@
+<!-- DEPRECATED: 功能已合并到 sales/All.vue，此文件未被路由引用，可安全删除 -->
 <template>
   <div>
     <el-card>
@@ -108,7 +109,7 @@
         <el-descriptions-item label="客户">{{ detail.customer_name }}</el-descriptions-item>
         <el-descriptions-item label="仓库">{{ detail.warehouse_name }}</el-descriptions-item>
         <el-descriptions-item label="总金额">¥{{ Number(detail.total_amount||0).toFixed(2) }}</el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ detail.created_at }}</el-descriptions-item>
+        <el-descriptions-item label="创建时间">{{ fmtDateVal(detail.created_at) }}</el-descriptions-item>
         <el-descriptions-item label="备注" :span="2">{{ detail.remark || '-' }}</el-descriptions-item>
       </el-descriptions>
       <el-table :data="detail.items || []" border size="small" style="margin-top:16px">
@@ -128,6 +129,7 @@ import { getCustomers } from '../../api'
 import { getWarehouses } from '../../api'
 import { ElMessage } from 'element-plus'
 
+const fmtDateVal = (v) => v ? String(v).replace("T", " ").slice(0, 16) : ""
 const list = ref([])
 const customers = ref([])
 const warehouses = ref([])
@@ -140,7 +142,7 @@ const query = ref({ page: 1, page_size: 20, date_range: [] })
 
 const statusMap = {
   pending: { label: '待处理', type: 'warning' },
-  settling: { label: '交账中', type: '' },
+  settling: { label: '交账中', type: 'primary' },
   settled: { label: '已交账', type: 'success' },
   voided: { label: '已作废', type: 'info' },
   locked: { label: '已锁定', type: 'warning' },
@@ -162,7 +164,7 @@ const loadData = async () => {
     const res = await getSalesDeliveries(params)
     list.value = res.data.list || []
     total.value = res.data.total || 0
-  } catch {}
+  } catch (e) { console.error('操作失败:', e) }
 }
 
 const clearFilter = () => {
@@ -193,13 +195,13 @@ const loadCustomers = async () => {
   try {
     const res = await getCustomers({ page: 1, page_size: 1000 })
     customers.value = res.data.list || []
-  } catch {}
+  } catch (e) { console.error('操作失败:', e) }
 }
 const loadWarehouses = async () => {
   try {
     const res = await getWarehouses({ page: 1, page_size: 1000 })
     warehouses.value = res.data.list || []
-  } catch {}
+  } catch (e) { console.error('操作失败:', e) }
 }
 
 onMounted(() => {

@@ -25,7 +25,6 @@ class VehicleSalesOut(Base):
     auditor_id = Column(Integer, ForeignKey("employees.id"), comment="审核人ID")
     audit_time = Column(DateTime, comment="审核时间")
     audit_comment = Column(Text, comment="审核意见")
-    remark = Column(Text, comment="备注")
 
     created_at = Column(DateTime, default=datetime.now, comment="创建时间")
     confirmed_at = Column(DateTime, comment="确认时间")

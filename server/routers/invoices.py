@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.orm import Session
 from database import get_db
 from models.invoice import Invoice
 from models.customer import Customer
 from models.supplier import Supplier
+from models.employee import Employee
 from schemas.invoice import InvoiceCreate, InvoiceUpdate, InvoiceOut
 from schemas.common import ResponseModel, PaginatedResponse
+from deps import get_current_user
 
 router = APIRouter(prefix="/api/invoices", tags=["发票管理"])
 
@@ -19,6 +21,7 @@ def list_invoices(
     invoice_type: str = Query(None),
     status: int = Query(None),
     keyword: str = Query(None),
+    user: Employee = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     q = db.query(Invoice)
@@ -51,6 +54,7 @@ def list_invoices(
 @router.get("/stats", response_model=ResponseModel)
 def invoice_stats(
     invoice_type: str = Query(None),
+    user: Employee = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     q = db.query(Invoice)
@@ -68,7 +72,7 @@ def invoice_stats(
 
 
 @router.get("/{invoice_id}", response_model=ResponseModel)
-def get_invoice(invoice_id: int, db: Session = Depends(get_db)):
+def get_invoice(invoice_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     inv = db.query(Invoice).get(invoice_id)
     if not inv:
         raise HTTPException(status_code=404, detail="发票不存在")
@@ -83,7 +87,7 @@ def get_invoice(invoice_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=ResponseModel)
-def create_invoice(req: InvoiceCreate, db: Session = Depends(get_db)):
+def create_invoice(req: InvoiceCreate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     inv = Invoice(**req.model_dump())
     db.add(inv)
     db.commit()
@@ -92,7 +96,7 @@ def create_invoice(req: InvoiceCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{invoice_id}", response_model=ResponseModel)
-def update_invoice(invoice_id: int, req: InvoiceUpdate, db: Session = Depends(get_db)):
+def update_invoice(invoice_id: int, req: InvoiceUpdate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     inv = db.query(Invoice).get(invoice_id)
     if not inv:
         raise HTTPException(status_code=404, detail="发票不存在")
@@ -104,7 +108,7 @@ def update_invoice(invoice_id: int, req: InvoiceUpdate, db: Session = Depends(ge
 
 
 @router.put("/{invoice_id}/certify", response_model=ResponseModel)
-def certify_invoice(invoice_id: int, db: Session = Depends(get_db)):
+def certify_invoice(invoice_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     inv = db.query(Invoice).get(invoice_id)
     if not inv:
         raise HTTPException(status_code=404, detail="发票不存在")
@@ -116,7 +120,7 @@ def certify_invoice(invoice_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{invoice_id}/void", response_model=ResponseModel)
-def void_invoice(invoice_id: int, db: Session = Depends(get_db)):
+def void_invoice(invoice_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     inv = db.query(Invoice).get(invoice_id)
     if not inv:
         raise HTTPException(status_code=404, detail="发票不存在")
@@ -126,10 +130,12 @@ def void_invoice(invoice_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/{invoice_id}", response_model=ResponseModel)
-def delete_invoice(invoice_id: int, db: Session = Depends(get_db)):
+def delete_invoice(invoice_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     inv = db.query(Invoice).get(invoice_id)
     if not inv:
         raise HTTPException(status_code=404, detail="发票不存在")
+    if inv.status == 2:
+        raise HTTPException(status_code=400, detail="已认证发票不能删除")
     db.delete(inv)
     db.commit()
     return ResponseModel(message="删除成功")

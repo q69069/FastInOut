@@ -16,7 +16,7 @@
         </div>
         <div class="header-actions">
           <el-button type="primary" @click="handleSave" :loading="saving">保存</el-button>
-          <el-button @click="handleAudit" v-if="form.id">审核</el-button>
+          <el-button @click="handleAudit()" v-if="form.id">审核</el-button>
           <el-button @click="handlePrint" v-if="form.id">打印</el-button>
           <el-button @click="handleCopy" v-if="form.id">复制</el-button>
           <el-button @click="resetForm">新增</el-button>
@@ -86,27 +86,29 @@
         <el-table-column label="条形码" width="120">
           <template #default="{ row }">{{ getProductBarcode(row.product_id) }}</template>
         </el-table-column>
-        <el-table-column label="单位" width="80" align="center">
-          <template #default="{ row }">{{ getUnit(row.product_id) }}</template>
-        </el-table-column>
-        <el-table-column label="单位换算" width="100" align="center">
-          <template #default="{ row }">{{ getUnitConvert(row.product_id) }}</template>
-        </el-table-column>
-        <el-table-column label="数量" width="100">
-          <template #default="{ row }">
-            <el-input-number v-model="row.quantity" :min="1" size="small" style="width:90px" @change="calcRowAmount(row)" />
+        <el-table-column label="单位" width="110" align="center">
+          <template #default="{ row, $index }">
+            <el-select v-if="row._availableUnits?.length" v-model="row._unitLevel" size="small" style="width:100px" @change="v => onUnitChange($index, v)">
+              <el-option v-for="u in row._availableUnits" :key="u.unit_level" :label="u.unit_name" :value="u.unit_level" />
+            </el-select>
+            <span v-else class="text-muted">-</span>
           </template>
         </el-table-column>
-        <el-table-column label="单价" width="100">
+        <el-table-column label="数量" width="130">
           <template #default="{ row }">
-            <el-input-number v-model="row.price" :min="0" :precision="2" size="small" style="width:90px" @change="calcRowAmount(row)" />
+            <el-input-number v-model="row.quantity" :min="1" size="small" style="width:120px" @change="calcRowAmount(row)" />
+          </template>
+        </el-table-column>
+        <el-table-column label="单价" width="130">
+          <template #default="{ row }">
+            <el-input-number v-model="row.price" :min="0" :precision="2" size="small" style="width:120px" @change="calcRowAmount(row)" />
           </template>
         </el-table-column>
         <el-table-column label="金额" width="100" align="right">
           <template #default="{ row }">¥{{ (row.amount || 0).toFixed(2) }}</template>
         </el-table-column>
         <el-table-column label="可用库存" width="90" align="right">
-          <template #default="{ row }">{{ getAvailableStock(row.product_id) }}</template>
+          <template #default="{ row }">{{ getAvailableStock(row) }}</template>
         </el-table-column>
         <el-table-column label="备注" width="100">
           <template #default="{ row }">
@@ -187,7 +189,7 @@
             <el-tag :type="row.status === 2 ? 'success' : 'warning'">{{ statusMap[row.status] }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="时间" width="150" />
+        <el-table-column prop="created_at" label="时间" width="150" :formatter="fmtDate" />
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="showDetail(row)">详情</el-button>
@@ -199,55 +201,36 @@
         layout="total, prev, pager, next" style="margin-top:16px;justify-content:flex-end" @current-change="loadData" />
     </el-card>
 
-    <!-- 详情弹窗 -->
-    <el-dialog v-model="detailVisible" title="入库单详情" width="600px">
-      <el-descriptions :column="2" border>
-        <el-descriptions-item label="单号">{{ detail.code }}</el-descriptions-item>
-        <el-descriptions-item label="供应商">{{ detail.supplier_name }}</el-descriptions-item>
-        <el-descriptions-item label="仓库">{{ detail.warehouse_name }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag :type="detail.status === 2 ? 'success' : 'warning'">{{ statusMap[detail.status] }}</el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ detail.created_at }}</el-descriptions-item>
-        <el-descriptions-item label="备注" :span="2">{{ detail.remark || '-' }}</el-descriptions-item>
-      </el-descriptions>
-      <el-table v-if="detail.items?.length" :data="detail.items" border size="small" style="margin-top:16px">
-        <el-table-column prop="product_name" label="商品" />
-        <el-table-column prop="quantity" label="数量" width="80" align="right" />
-        <el-table-column prop="price" label="单价" width="80" align="right">
-          <template #default="{ row }">¥{{ Number(row.price || 0).toFixed(2) }}</template>
-        </el-table-column>
-        <el-table-column prop="amount" label="金额" width="100" align="right">
-          <template #default="{ row }">¥{{ Number(row.amount || 0).toFixed(2) }}</template>
-        </el-table-column>
-      </el-table>
-    </el-dialog>
+    <DocumentDetail v-model="detailVisible" title="入库单详情"
+      :fields="detailFields" :items="detail.items || []" :item-columns="detailItemColumns" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getPurchaseStockins, createPurchaseStockin, getPurchaseStockin, confirmPurchaseStockin, getProducts, getSuppliers, getWarehouses, getEmployees } from '../../api'
+import { getPurchaseStockins, createPurchaseStockin, getPurchaseStockin, confirmPurchaseStockin, getSuppliers, getWarehouses, getEmployees } from '../../api'
 import { useAuthStore } from '../../stores/auth'
+import DocumentDetail from '../../components/DocumentDetail.vue'
+import { useWarehouseProducts } from '../../utils/useWarehouseProducts'
 
+const fmtDateVal = (v) => v ? String(v).replace("T", " ").slice(0, 16) : ""
+const buildAvailableUnits = (p) => {
+  if (!p) return []
+  const baseId = p.base_unit_id || p.id
+  const units = [{ unit_id: baseId, unit_level: 'small', unit_name: p.small_unit_name || p.unit || '基本单位', conv_rate: 1 }]
+  if (p.medium_unit_name) units.push({ unit_id: baseId, unit_level: 'medium', unit_name: p.medium_unit_name, conv_rate: p.medium_conv_rate || 1 })
+  if (p.large_unit_name) units.push({ unit_id: baseId, unit_level: 'large', unit_name: p.large_unit_name, conv_rate: p.large_conv_rate || 1 })
+  return units
+}
 const authStore = useAuthStore()
 const now = new Date().toLocaleString('zh-CN')
-const statusMap = { 0: '草稿', 1: '已确认', 2: '已入库', 3: '已关闭' }
+const statusMap = { 0: '草稿', 1: '已入库', 2: '已入库', 3: '已冲红' }
 
 const mode = ref('create')
 const saving = ref(false)
 const suppliers = ref([])
 const warehouses = ref([])
-const products = ref([])
-const employees = ref([])
-const list = ref([])
-const total = ref(0)
-const detailVisible = ref(false)
-const detail = ref({})
-
-const query = ref({ page: 1, page_size: 20, keyword: '', status: null })
-
 const form = ref({
   code: '',
   supplier_id: null,
@@ -257,13 +240,41 @@ const form = ref({
   remark: '',
   discount_amount: 0,
   items: [
-    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '' },
-    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '' },
-    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '' },
-    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '' },
-    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '' }
+    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '', unit_id: null, _availableUnits: [], _basePrice: 0 },
+    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '', unit_id: null, _availableUnits: [], _basePrice: 0 },
+    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '', unit_id: null, _availableUnits: [], _basePrice: 0 },
+    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '', unit_id: null, _availableUnits: [], _basePrice: 0 },
+    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '', unit_id: null, _availableUnits: [], _basePrice: 0 }
   ]
 })
+const { products, loadProducts } = useWarehouseProducts(() => form.value.warehouse_id)
+const employees = ref([])
+const list = ref([])
+const total = ref(0)
+const detailVisible = ref(false)
+const detail = ref({})
+
+const detailFields = computed(() => {
+  const d = detail.value
+  if (!d.code) return []
+  return [
+    { label: '单号', value: d.code },
+    { label: '供应商', value: d.supplier_name },
+    { label: '仓库', value: d.warehouse_name },
+    { label: '状态', value: statusMap[d.status] || '-', type: 'tag', tagType: d.status === 2 ? 'success' : 'warning' },
+    { label: '创建时间', value: fmtDateVal(d.created_at) },
+    { label: '备注', value: d.remark, span: 2 }
+  ]
+})
+
+const detailItemColumns = [
+  { prop: 'product_name', label: '商品', minWidth: 150 },
+  { prop: 'quantity', label: '数量', width: 80, align: 'right' },
+  { prop: 'price', label: '单价', width: 80, align: 'right', type: 'money' },
+  { prop: 'amount', label: '金额', width: 100, align: 'right', type: 'money' }
+]
+
+const query = ref({ page: 1, page_size: 20, keyword: '', status: null })
 
 const totalAmount = computed(() => {
   return form.value.items.reduce((s, item) => s + (item.quantity || 0) * (item.price || 0), 0)
@@ -289,28 +300,41 @@ const getProductBarcode = (productId) => {
   return p?.barcode || '-'
 }
 
-const getUnit = (productId) => {
-  const p = products.value.find(x => x.id === productId)
-  return p?.unit || '-'
-}
-
-const getUnitConvert = (productId) => {
-  const p = products.value.find(x => x.id === productId)
-  return p?.unit_convert || '-'
-}
-
-const getAvailableStock = (productId) => {
-  const p = products.value.find(x => x.id === productId)
-  return (p?.available_stock || p?.stock || 0).toFixed(2)
+const getAvailableStock = (row) => {
+  const p = products.value.find(x => x.id === row.product_id)
+  const stock = p?.available_stock || p?.stock || 0
+  const rate = row._unitConvRate || 1
+  return rate > 1 ? (stock / rate).toFixed(2) : stock.toFixed(2)
 }
 
 const onProductChange = (index) => {
-  const p = products.value.find(x => x.id === form.value.items[index].product_id)
+  const row = form.value.items[index]
+  const p = products.value.find(x => x.id === row.product_id)
   if (p) {
-    form.value.items[index].price = p.cost_price || p.retail_price || 0
-    form.value.items[index].unit = p.unit || ''
-    calcRowAmount(form.value.items[index])
+    row.price = p.cost_price || p.retail_price || 0
+    row._basePrice = row.price
+    row._availableUnits = buildAvailableUnits(p)
+    if (row._availableUnits.length > 0) {
+      const defaultUnit = row._availableUnits.find(u => u.unit_level === p.default_unit_level) || row._availableUnits[0]
+      row.unit_id = defaultUnit.unit_id
+      row._unitLevel = defaultUnit.unit_level
+      row._unitConvRate = defaultUnit.conv_rate
+      row.price = parseFloat((row._basePrice * defaultUnit.conv_rate).toFixed(2))
+    }
+    calcRowAmount(row)
   }
+}
+
+const onUnitChange = (index, unitLevel) => {
+  const row = form.value.items[index]
+  const unit = row._availableUnits?.find(u => u.unit_level === unitLevel)
+  if (unit && row._basePrice) {
+    row._unitLevel = unit.unit_level
+    row._unitConvRate = unit.conv_rate
+    row.price = parseFloat((row._basePrice * unit.conv_rate).toFixed(2))
+    row.price = parseFloat((row._basePrice * unit.conv_rate).toFixed(2))
+  }
+  calcRowAmount(row)
 }
 
 const calcRowAmount = (row) => {
@@ -320,7 +344,7 @@ const calcRowAmount = (row) => {
 const calcNetAmount = () => {}
 
 const addItem = () => {
-  form.value.items.push({ product_id: null, quantity: 1, price: 0, amount: 0, remark: '' })
+  form.value.items.push({ product_id: null, quantity: 1, price: 0, amount: 0, remark: '', unit_id: null, _availableUnits: [], _basePrice: 0 })
 }
 
 const copyRow = (index) => {
@@ -338,11 +362,11 @@ const resetForm = () => {
     remark: '',
     discount_amount: 0,
     items: [
-    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '' },
-    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '' },
-    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '' },
-    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '' },
-    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '' }
+    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '', unit_id: null, _availableUnits: [], _basePrice: 0 },
+    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '', unit_id: null, _availableUnits: [], _basePrice: 0 },
+    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '', unit_id: null, _availableUnits: [], _basePrice: 0 },
+    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '', unit_id: null, _availableUnits: [], _basePrice: 0 },
+    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '', unit_id: null, _availableUnits: [], _basePrice: 0 }
   ]
   }
   mode.value = 'create'
@@ -358,13 +382,19 @@ const handleSave = async () => {
   try {
     const data = {
       ...form.value,
-      items: validItems.map(i => ({
-        product_id: i.product_id,
-        quantity: i.quantity,
-        price: i.price,
-        amount: (i.quantity || 0) * (i.price || 0),
-        remark: i.remark
-      }))
+      items: validItems.map(i => {
+        return {
+          product_id: i.product_id,
+          quantity: i.quantity,
+          price: i.price,
+          amount: (i.quantity || 0) * (i.price || 0),
+          remark: i.remark,
+          unit_id: i.unit_id || null,
+          unit_level: i._unitLevel || 'small',
+          unit_conv_rate: i._unitConvRate || 1,
+          unit_quantity: i.quantity
+        }
+      })
     }
     await createPurchaseStockin(data)
     ElMessage.success('保存成功')
@@ -378,15 +408,12 @@ const handleSave = async () => {
 }
 
 const handleAudit = async (row) => {
-  if (row) {
-    await ElMessageBox.confirm('确认审核该入库单？', '审核确认', { type: 'warning' })
-    await confirmPurchaseStockin(row.id)
-    ElMessage.success('审核成功')
-    loadData()
-    return
-  }
+  const id = row?.id || form.value?.id
+  if (!id) return ElMessage.warning('请先保存单据')
   await ElMessageBox.confirm('确认审核该入库单？', '审核确认', { type: 'warning' })
-  ElMessage.success('审核成功')
+  await confirmPurchaseStockin(id)
+  ElMessage.success({ message: '审核成功', duration: 1500 })
+  loadData()
 }
 
 const handlePrint = () => {
@@ -423,16 +450,15 @@ const showDetail = async (row) => {
 }
 
 onMounted(async () => {
-  const [s, w, p, e] = await Promise.all([
+  const [s, w, e] = await Promise.all([
     getSuppliers({ page_size: 1000 }),
     getWarehouses({ page_size: 100 }),
-    getProducts({ page_size: 5000 }),
     getEmployees({ page_size: 100 })
   ])
   suppliers.value = s.data?.list || s.data || []
   warehouses.value = w.data?.list || w.data || []
-  products.value = p.data?.list || p.data || []
   employees.value = e.data?.list || e.data || []
+  await loadProducts()
   loadData()
 })
 </script>

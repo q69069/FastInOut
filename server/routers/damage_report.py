@@ -10,24 +10,10 @@ from models.inventory import Inventory
 from models.employee import Employee
 from schemas.common import ResponseModel, PaginatedResponse
 from utils.role_check import require_role
+from utils.unit_convert import resolve_unit_conversion, resolve_by_unit_level
+from deps import get_current_user
 
 router = APIRouter(prefix="/api", tags=["报损单"])
-
-
-def get_current_user(authorization: str = None, db: Session = Depends(get_db)) -> Employee:
-    if not authorization:
-        raise HTTPException(status_code=401, detail="未登录")
-    from utils.auth import decode_access_token
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="token格式错误")
-    payload = decode_access_token(authorization.replace("Bearer ", ""))
-    if not payload:
-        raise HTTPException(status_code=401, detail="token无效")
-    user = db.query(Employee).get(payload.get("user_id"))
-    if not user:
-        raise HTTPException(status_code=401, detail="用户不存在")
-    return user
-
 
 def _gen_code(db):
     today = datetime.now().strftime("%Y%m%d")
@@ -79,14 +65,61 @@ def create_damage_report(data: dict, authorization: str = Header(None), db: Sess
     for item in data["items"]:
         amount = item.get("amount", 0) or (item["quantity"] * item.get("unit_cost", 0))
         total += amount
+        if item.get("unit_level"):
+            base_qty, conv_rate = resolve_by_unit_level(item["product_id"], item["unit_level"], item.get("unit_quantity") or item["quantity"], item.get("unit_conv_rate", 1), db)
+        else:
+            base_qty, conv_rate = resolve_unit_conversion(item["product_id"], item.get("unit_id"), item.get("unit_quantity") or item["quantity"], db)
         db.add(DamageReportItem(
             report_id=dr.id, product_id=item["product_id"],
-            quantity=item["quantity"], unit_cost=item.get("unit_cost", 0),
+            quantity=base_qty, unit_id=item.get("unit_id"), unit_quantity=item.get("unit_quantity") or item["quantity"], unit_conv_rate=conv_rate,
+            unit_cost=item.get("unit_cost", 0),
             amount=amount, reason=item.get("reason")
         ))
     dr.total_amount = total
     db.commit()
     return ResponseModel(message="报损单创建成功", data={"id": dr.id, "code": dr.code})
+
+
+# ========== 修改报损单（仅pending状态） ==========
+@router.put("/damage-reports/{report_id}", response_model=ResponseModel)
+def update_damage_report(report_id: int, data: dict, authorization: str = Header(None), db: Session = Depends(get_db)):
+    user = get_current_user(authorization, db)
+    dr = db.query(DamageReport).get(report_id)
+    if not dr:
+        raise HTTPException(404, "报损单不存在")
+    if dr.status != "pending":
+        raise HTTPException(400, f"当前状态 {dr.status} 不允许修改")
+
+    if not data.get("items"):
+        raise HTTPException(400, "请添加报损明细")
+
+    # 删除旧明细
+    db.query(DamageReportItem).filter(DamageReportItem.report_id == report_id).delete()
+
+    # 更新主单
+    dr.warehouse_id = data.get("warehouse_id", dr.warehouse_id)
+    dr.report_type = data.get("report_type", dr.report_type)
+    dr.remark = data.get("remark")
+
+    # 创建新明细
+    total = 0
+    for item in data["items"]:
+        amount = item.get("amount", 0) or (item["quantity"] * item.get("unit_cost", 0))
+        total += amount
+        if item.get("unit_level"):
+            base_qty, conv_rate = resolve_by_unit_level(item["product_id"], item["unit_level"], item.get("unit_quantity") or item["quantity"], item.get("unit_conv_rate", 1), db)
+        else:
+            base_qty, conv_rate = resolve_unit_conversion(item["product_id"], item.get("unit_id"), item.get("unit_quantity") or item["quantity"], db)
+        db.add(DamageReportItem(
+            report_id=dr.id, product_id=item["product_id"],
+            quantity=base_qty, unit_id=item.get("unit_id"), unit_quantity=item.get("unit_quantity") or item["quantity"], unit_conv_rate=conv_rate,
+            unit_cost=item.get("unit_cost", 0),
+            amount=amount, reason=item.get("reason")
+        ))
+    dr.total_amount = total
+
+    db.commit()
+    return ResponseModel(message="报损单修改成功", data={"id": dr.id, "code": dr.code})
 
 
 @router.get("/damage-reports/{report_id}", response_model=ResponseModel)
@@ -136,5 +169,6 @@ def audit_damage_report(report_id: int, authorization: str = Header(None), db: S
             inv.quantity = max(0, inv.quantity - di.quantity)
     dr.status = "adjusted"
     dr.audited_at = datetime.now()
+    dr.auditor_id = user.id
     db.commit()
     return ResponseModel(message="报损审核通过，库存已扣减")

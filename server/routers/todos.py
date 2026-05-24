@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from database import get_db
 from utils.data_filter import DataFilter
-from routers.auth import get_current_user
+from deps import get_current_user
 from models.sales import SalesOrder
 from models.purchase import PurchaseOrder
 

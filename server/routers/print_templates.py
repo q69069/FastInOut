@@ -2,6 +2,7 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from database import get_db
+from deps import get_current_user
 from models.print_template import PrintTemplate
 from models.sales import SalesOrder, SalesOrderItem, SalesStockout, SalesStockoutItem
 from models.purchase import PurchaseOrder, PurchaseOrderItem, PurchaseStockin, PurchaseStockinItem
@@ -323,7 +324,8 @@ def list_templates(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     template_type: str = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _=Depends(get_current_user)
 ):
     q = db.query(PrintTemplate)
     if template_type:
@@ -337,12 +339,12 @@ def list_templates(
 
 
 @router.get("/types", response_model=ResponseModel)
-def get_template_types():
+def get_template_types(_=Depends(get_current_user)):
     return ResponseModel(data=[{"value": k, "label": v} for k, v in TEMPLATE_TYPES.items()])
 
 
 @router.get("/{template_id}", response_model=ResponseModel)
-def get_template(template_id: int, db: Session = Depends(get_db)):
+def get_template(template_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
     t = db.query(PrintTemplate).get(template_id)
     if not t:
         raise HTTPException(status_code=404, detail="模板不存在")
@@ -350,7 +352,7 @@ def get_template(template_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=ResponseModel)
-def create_template(req: PrintTemplateCreate, db: Session = Depends(get_db)):
+def create_template(req: PrintTemplateCreate, db: Session = Depends(get_db), _=Depends(get_current_user)):
     if req.template_type not in TEMPLATE_TYPES:
         raise HTTPException(status_code=400, detail=f"无效模板类型: {req.template_type}")
     if req.is_default:
@@ -365,7 +367,7 @@ def create_template(req: PrintTemplateCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{template_id}", response_model=ResponseModel)
-def update_template(template_id: int, req: PrintTemplateUpdate, db: Session = Depends(get_db)):
+def update_template(template_id: int, req: PrintTemplateUpdate, db: Session = Depends(get_db), _=Depends(get_current_user)):
     t = db.query(PrintTemplate).get(template_id)
     if not t:
         raise HTTPException(status_code=404, detail="模板不存在")
@@ -383,7 +385,7 @@ def update_template(template_id: int, req: PrintTemplateUpdate, db: Session = De
 
 
 @router.delete("/{template_id}", response_model=ResponseModel)
-def delete_template(template_id: int, db: Session = Depends(get_db)):
+def delete_template(template_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
     t = db.query(PrintTemplate).get(template_id)
     if not t:
         raise HTTPException(status_code=404, detail="模板不存在")
@@ -393,7 +395,7 @@ def delete_template(template_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{template_id}/preview/{doc_type}/{doc_id}", response_model=ResponseModel)
-def preview_print(template_id: int, doc_type: str, doc_id: int, db: Session = Depends(get_db)):
+def preview_print(template_id: int, doc_type: str, doc_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
     """用指定模板渲染打印预览数据"""
     t = db.query(PrintTemplate).get(template_id)
     if not t:

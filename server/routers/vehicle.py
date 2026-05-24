@@ -11,25 +11,10 @@ from models.employee import Employee
 from schemas.vehicle import VehicleSalesOutResponse, VehicleReturnResponse, VehicleLossResponse
 from schemas.common import ResponseModel, PaginatedResponse
 from utils.data_filter import DataFilter
-from utils.auth import decode_access_token
 from utils.role_check import require_role, is_admin, is_owner_or_admin
+from deps import get_current_user
 
 router = APIRouter(prefix="/api/vehicle", tags=["车销"])
-
-
-def get_current_user(authorization: str = Header(None), db: Session = Depends(get_db)) -> Employee:
-    """从请求头解析当前用户"""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="未登录")
-    token = authorization.replace("Bearer ", "")
-    payload = decode_access_token(token)
-    if not payload:
-        raise HTTPException(status_code=401, detail="token无效或已过期")
-    user = db.query(Employee).get(payload.get("user_id"))
-    if not user or user.status != 1:
-        raise HTTPException(status_code=401, detail="用户不存在或已禁用")
-    return user
-
 
 def _gen_code(prefix: str, db: Session, model) -> str:
     """生成单号"""

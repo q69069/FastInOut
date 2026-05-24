@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text, func
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, Float, ForeignKey, DateTime, Text, func
 from database import Base
 
 
@@ -10,7 +11,7 @@ class Inventory(Base):
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     quantity = Column(Float, default=0)
     cost_price = Column(Float, default=0)  # 成本价
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 
 class InventoryCheck(Base):
@@ -23,7 +24,7 @@ class InventoryCheck(Base):
     checker_id = Column(Integer, ForeignKey("employees.id"))  # 复核人（轮岗盘点）
     status = Column(Integer, default=1)  # 1=盘点中 2=已确认 3=已作废
     remark = Column(String(500))
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
     confirmed_at = Column(DateTime)
 
 
@@ -36,6 +37,9 @@ class InventoryCheckItem(Base):
     system_qty = Column(Float, default=0)  # 系统库存
     actual_qty = Column(Float, default=0)  # 实际库存
     diff_qty = Column(Float, default=0)  # 差异
+    unit_id = Column(Integer, ForeignKey("units.id"), nullable=True)
+    unit_quantity = Column(Float, default=1)
+    unit_conv_rate = Column(Float, default=1)
 
 
 class InventoryTransfer(Base):
@@ -52,7 +56,7 @@ class InventoryTransfer(Base):
     audit_time = Column(DateTime, comment="审核时间")
     audit_comment = Column(Text, comment="审核意见")
     remark = Column(String(500))
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
     confirmed_at = Column(DateTime)
 
 
@@ -63,6 +67,9 @@ class InventoryTransferItem(Base):
     transfer_id = Column(Integer, ForeignKey("inventory_transfers.id"))
     product_id = Column(Integer, ForeignKey("products.id"))
     quantity = Column(Float, default=0)
+    unit_id = Column(Integer, ForeignKey("units.id"), nullable=True)
+    unit_quantity = Column(Float, default=1)
+    unit_conv_rate = Column(Float, default=1)
 
 
 class InventoryAlert(Base):
@@ -76,7 +83,7 @@ class InventoryAlert(Base):
     max_qty = Column(Float, default=0)
     alert_type = Column(String(20))  # "low" or "high"
     is_handled = Column(Integer, default=0)
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
 
 
 class OtherInventoryLog(Base):
@@ -90,4 +97,4 @@ class OtherInventoryLog(Base):
     reason = Column(String(50))
     remark = Column(String(200))
     created_by = Column(Integer, ForeignKey("employees.id"))
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)

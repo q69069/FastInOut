@@ -48,15 +48,20 @@
             </el-select>
           </template>
         </el-table-column>
-        <el-table-column label="单位" width="80" align="center">
-          <template #default="{ row }">{{ getUnit(row.product_id) }}</template>
+        <el-table-column label="单位" width="110" align="center">
+          <template #default="{ row, $index }">
+            <el-select v-if="row._availableUnits?.length" v-model="row._unitLevel" size="small" style="width:100px" @change="v => onUnitChange($index, v)">
+              <el-option v-for="u in row._availableUnits" :key="u.unit_level" :label="u.unit_name" :value="u.unit_level" />
+            </el-select>
+            <span v-else class="text-muted">-</span>
+          </template>
         </el-table-column>
-        <el-table-column label="数量" width="120">
+        <el-table-column label="数量" width="130">
           <template #default="{ row }">
             <el-input-number v-model="row.quantity" :min="1" size="small" style="width:100%" />
           </template>
         </el-table-column>
-        <el-table-column label="单价" width="120">
+        <el-table-column label="单价" width="130">
           <template #default="{ row }">
             <el-input-number v-model="row.price" :min="0" :precision="2" size="small" style="width:100%" />
           </template>
@@ -90,8 +95,9 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
-import { getCustomers, getWarehouses, getProducts, createSalesReturn } from '../../api'
+import { getCustomers, getWarehouses, createSalesReturn } from '../../api'
 import { useAuthStore } from '../../stores/auth'
+import { useWarehouseProducts } from '../../utils/useWarehouseProducts'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -100,27 +106,52 @@ const now = new Date().toLocaleString('zh-CN')
 const saving = ref(false)
 const customers = ref([])
 const warehouses = ref([])
-const products = ref([])
-
 const form = ref({
   customer_id: null,
   warehouse_id: null,
   remark: '',
   items: [{ product_id: null, quantity: 1, price: 0 }]
 })
+const { products, loadProducts } = useWarehouseProducts(() => form.value.warehouse_id)
 
 const totalAmount = computed(() => {
   return form.value.items.reduce((s, item) => s + (item.quantity || 0) * (item.price || 0), 0)
 })
 
-const getUnit = (productId) => {
-  const p = products.value.find(x => x.id === productId)
-  return p?.unit || '-'
+const buildAvailableUnits = (p) => {
+  if (!p) return []
+  const baseId = p.base_unit_id || p.id
+  const units = [{ unit_id: baseId, unit_level: 'small', unit_name: p.small_unit_name || p.unit || '基本单位', conv_rate: 1 }]
+  if (p.medium_unit_name) units.push({ unit_id: baseId, unit_level: 'medium', unit_name: p.medium_unit_name, conv_rate: p.medium_conv_rate || 1 })
+  if (p.large_unit_name) units.push({ unit_id: baseId, unit_level: 'large', unit_name: p.large_unit_name, conv_rate: p.large_conv_rate || 1 })
+  return units
 }
 
 const onProductChange = (index) => {
-  const p = products.value.find(x => x.id === form.value.items[index].product_id)
-  if (p) form.value.items[index].price = p.retail_price || 0
+  const row = form.value.items[index]
+  const p = products.value.find(x => x.id === row.product_id)
+  if (p) {
+    row._basePrice = p.retail_price || 0
+    row.price = row._basePrice
+    row._availableUnits = buildAvailableUnits(p)
+    if (row._availableUnits.length > 0) {
+      const defaultUnit = row._availableUnits.find(u => u.unit_level === p.default_unit_level) || row._availableUnits[0]
+      row.unit_id = defaultUnit.unit_id
+      row._unitLevel = defaultUnit.unit_level
+      row._unitConvRate = defaultUnit.conv_rate
+      row.price = parseFloat((row._basePrice * defaultUnit.conv_rate).toFixed(2))
+    }
+  }
+}
+
+const onUnitChange = (index, unitLevel) => {
+  const row = form.value.items[index]
+  const unit = row._availableUnits?.find(u => u.unit_level === unitLevel)
+  if (unit && row._basePrice) {
+    row._unitLevel = unit.unit_level
+    row._unitConvRate = unit.conv_rate
+    row.price = parseFloat((row._basePrice * unit.conv_rate).toFixed(2))
+  }
 }
 
 const handleSave = async () => {
@@ -138,7 +169,11 @@ const handleSave = async () => {
         product_id: i.product_id,
         quantity: i.quantity,
         price: i.price,
-        amount: (i.quantity || 0) * (i.price || 0)
+        amount: (i.quantity || 0) * (i.price || 0),
+        unit_id: i.unit_id,
+        unit_level: i._unitLevel || 'small',
+        unit_conv_rate: i._unitConvRate || 1,
+        unit_quantity: i.quantity
       }))
     }
     await createReturnDelivery(data)
@@ -152,14 +187,13 @@ const handleSave = async () => {
 }
 
 onMounted(async () => {
-  const [c, w, p] = await Promise.all([
+  const [c, w] = await Promise.all([
     getCustomers({ page_size: 1000 }),
-    getWarehouses({ page_size: 100 }),
-    getProducts({ page_size: 1000 })
+    getWarehouses({ page_size: 100 })
   ])
   customers.value = c.data?.list || c.data || []
   warehouses.value = w.data?.list || w.data || []
-  products.value = p.data?.list || p.data || []
+  await loadProducts()
 })
 </script>
 

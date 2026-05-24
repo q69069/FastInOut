@@ -7,6 +7,10 @@ from datetime import datetime
 class VehicleLoadItemCreate(BaseModel):
     product_id: int
     quantity: float
+    unit_id: Optional[int] = None
+    unit_level: Optional[str] = None  # small/medium/large
+    unit_quantity: Optional[float] = 1.0
+    unit_conv_rate: Optional[float] = 1.0
 
 
 class VehicleLoadItemOut(BaseModel):
@@ -15,6 +19,10 @@ class VehicleLoadItemOut(BaseModel):
     product_name: str = ""
     quantity: float
     returned_quantity: float = 0
+    unit_id: Optional[int] = None
+    unit_quantity: Optional[float] = 1.0
+    unit_conv_rate: Optional[float] = 1.0
+    unit_name: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 

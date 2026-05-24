@@ -2,6 +2,7 @@ import io
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy.orm import Session
 from database import get_db
+from deps import require_admin_dep
 from models.product import Product
 from models.customer import Customer
 from models.supplier import Supplier
@@ -35,13 +36,13 @@ def parse_excel(file_bytes: bytes):
 
 
 @router.get("/types", response_model=ResponseModel)
-def get_import_types():
+def get_import_types(_=Depends(require_admin_dep)):
     data = [{"value": k, "label": v["label"], "fields": v["fields"]} for k, v in IMPORT_TYPES.items()]
     return ResponseModel(data=data)
 
 
 @router.get("/template/{import_type}")
-def download_template(import_type: str):
+def download_template(import_type: str, _=Depends(require_admin_dep)):
     if import_type not in IMPORT_TYPES:
         raise HTTPException(status_code=400, detail="无效导入类型")
     from fastapi.responses import StreamingResponse
@@ -72,7 +73,7 @@ def download_template(import_type: str):
 
 
 @router.post("/preview/{import_type}", response_model=ResponseModel)
-async def preview_import(import_type: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def preview_import(import_type: str, file: UploadFile = File(...), db: Session = Depends(get_db), _=Depends(require_admin_dep)):
     if import_type not in IMPORT_TYPES:
         raise HTTPException(status_code=400, detail="无效导入类型")
     content = await file.read()
@@ -106,7 +107,7 @@ async def preview_import(import_type: str, file: UploadFile = File(...), db: Ses
 
 
 @router.post("/execute/{import_type}", response_model=ResponseModel)
-async def execute_import(import_type: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def execute_import(import_type: str, file: UploadFile = File(...), db: Session = Depends(get_db), _=Depends(require_admin_dep)):
     if import_type not in IMPORT_TYPES:
         raise HTTPException(status_code=400, detail="无效导入类型")
     content = await file.read()

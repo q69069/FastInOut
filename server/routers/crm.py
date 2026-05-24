@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from database import get_db
+from deps import require_customers_module
 from models.crm import Contact, Visit
 from schemas.crm import (
     ContactCreate, ContactUpdate, ContactOut,
@@ -19,6 +20,7 @@ def list_contacts(
     page_size: int = Query(20, ge=1, le=100),
     customer_id: int = Query(None),
     db: Session = Depends(get_db),
+    _=Depends(require_customers_module),
 ):
     """联系人列表"""
     q = db.query(Contact)
@@ -35,7 +37,7 @@ def list_contacts(
 
 
 @router.post("/api/contacts", response_model=ResponseModel)
-def create_contact(req: ContactCreate, db: Session = Depends(get_db)):
+def create_contact(req: ContactCreate, db: Session = Depends(get_db), _=Depends(require_customers_module)):
     """新增联系人"""
     obj = Contact(**req.model_dump())
     db.add(obj)
@@ -45,7 +47,7 @@ def create_contact(req: ContactCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/api/contacts/{contact_id}", response_model=ResponseModel)
-def update_contact(contact_id: int, req: ContactUpdate, db: Session = Depends(get_db)):
+def update_contact(contact_id: int, req: ContactUpdate, db: Session = Depends(get_db), _=Depends(require_customers_module)):
     """更新联系人"""
     obj = db.query(Contact).get(contact_id)
     if not obj:
@@ -58,7 +60,7 @@ def update_contact(contact_id: int, req: ContactUpdate, db: Session = Depends(ge
 
 
 @router.delete("/api/contacts/{contact_id}", response_model=ResponseModel)
-def delete_contact(contact_id: int, db: Session = Depends(get_db)):
+def delete_contact(contact_id: int, db: Session = Depends(get_db), _=Depends(require_customers_module)):
     """删除联系人"""
     obj = db.query(Contact).get(contact_id)
     if not obj:
@@ -76,6 +78,7 @@ def list_visits(
     page_size: int = Query(20, ge=1, le=100),
     customer_id: int = Query(None),
     db: Session = Depends(get_db),
+    _=Depends(require_customers_module),
 ):
     """拜访记录列表"""
     q = db.query(Visit)
@@ -93,7 +96,7 @@ def list_visits(
 
 
 @router.post("/api/visits", response_model=ResponseModel)
-def create_visit(req: VisitCreate, db: Session = Depends(get_db)):
+def create_visit(req: VisitCreate, db: Session = Depends(get_db), _=Depends(require_customers_module)):
     """新增拜访记录"""
     obj = Visit(**req.model_dump())
     db.add(obj)
@@ -103,7 +106,7 @@ def create_visit(req: VisitCreate, db: Session = Depends(get_db)):
 
 
 @router.delete("/api/visits/{visit_id}", response_model=ResponseModel)
-def delete_visit(visit_id: int, db: Session = Depends(get_db)):
+def delete_visit(visit_id: int, db: Session = Depends(get_db), _=Depends(require_customers_module)):
     """删除拜访记录"""
     obj = db.query(Visit).get(visit_id)
     if not obj:

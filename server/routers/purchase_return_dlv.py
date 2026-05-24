@@ -14,32 +14,30 @@ from models.purchase_return_dlv import PurchaseReturnDelivery, PurchaseReturnDel
 from models.purchase import PurchaseReturn
 from models.supplier import Supplier
 from models.product import Product
+from models.warehouse import Warehouse
 from models.employee import Employee
 from models.inventory import Inventory
 from schemas.purchase_return_dlv import (
     PurchaseReturnDlvCreate, PurchaseReturnDlvOut, PurchaseReturnDlvItemOut
 )
-from schemas.common import ResponseModel, PaginatedResponse
+from schemas.common import ResponseModel, PaginatedResponse, ReverseRequest
 from services.inventory_service import InventoryService
 from utils.role_check import require_role, require_owner_or_admin
+from utils.unit_convert import resolve_unit_conversion, resolve_by_unit_level
+from deps import get_current_user
 
 router = APIRouter(prefix="/api", tags=["采购退货出库单"])
 
 
-def get_current_user(authorization: str = None, db: Session = Depends(get_db)) -> Employee:
-    if not authorization:
-        raise HTTPException(status_code=401, detail="未登录")
-    from utils.auth import decode_access_token
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="token格式错误")
-    payload = decode_access_token(authorization.replace("Bearer ", ""))
-    if not payload:
-        raise HTTPException(status_code=401, detail="token无效")
-    user = db.query(Employee).get(payload.get("user_id"))
-    if not user:
-        raise HTTPException(status_code=401, detail="用户不存在")
-    return user
-
+def _enrich_names(db, result):
+    if result.get("wh_confirmed_by"):
+        emp = db.query(Employee).get(result["wh_confirmed_by"])
+        if emp:
+            result["auditor_name"] = emp.name
+    if result.get("created_by"):
+        emp = db.query(Employee).get(result["created_by"])
+        if emp:
+            result["created_by_name"] = emp.name
 
 def _gen_return_dlv_no(db: Session) -> str:
     today = datetime.now().strftime("%Y%m%d")
@@ -99,10 +97,83 @@ def create_purchase_return_dlv(
 
     for item in req.items:
         amount = item.amount or (item.quantity * item.unit_price)
+        if getattr(item, 'unit_level', None):
+            base_qty, conv_rate = resolve_by_unit_level(item.product_id, item.unit_level, item.unit_quantity or item.quantity, item.unit_conv_rate, db)
+        else:
+            base_qty, conv_rate = resolve_unit_conversion(item.product_id, item.unit_id, item.unit_quantity or item.quantity, db)
         di = PurchaseReturnDeliveryItem(
             return_dlv_id=dlv.id,
             product_id=item.product_id,
-            quantity=item.quantity,
+            quantity=base_qty,
+            unit_id=item.unit_id,
+            unit_quantity=item.unit_quantity or item.quantity,
+            unit_conv_rate=conv_rate,
+            unit_price=item.unit_price,
+            amount=amount
+        )
+        db.add(di)
+
+    db.commit()
+    db.refresh(dlv)
+    return ResponseModel(data=PurchaseReturnDlvOut.model_validate(dlv))
+
+
+# ========== 修改采购退货出库单（仅pending状态） ==========
+@router.put("/purchase-return-deliveries/{dlv_id}", response_model=ResponseModel)
+def update_purchase_return_dlv(
+    dlv_id: int,
+    req: PurchaseReturnDlvCreate,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    user = get_current_user(authorization, db)
+    dlv = db.query(PurchaseReturnDelivery).get(dlv_id)
+    if not dlv:
+        raise HTTPException(404, "退货出库单不存在")
+    if dlv.status != "pending":
+        raise HTTPException(400, f"当前状态「{STATUS_TEXT.get(dlv.status, dlv.status)}」不允许修改")
+
+    if req.supplier_id:
+        supplier = db.query(Supplier).get(req.supplier_id)
+        if not supplier:
+            raise HTTPException(400, "供应商不存在")
+
+    if req.purchase_return_id:
+        ret = db.query(PurchaseReturn).get(req.purchase_return_id)
+        if not ret:
+            raise HTTPException(400, "关联退货订单不存在")
+
+    # 删除旧明细
+    db.query(PurchaseReturnDeliveryItem).filter(
+        PurchaseReturnDeliveryItem.return_dlv_id == dlv_id
+    ).delete()
+
+    # 计算新总金额
+    total = req.total_amount
+    if not total and req.items:
+        total = sum(item.amount or (item.quantity * item.unit_price) for item in req.items)
+
+    # 更新主单
+    dlv.purchase_return_id = req.purchase_return_id
+    dlv.supplier_id = req.supplier_id
+    dlv.warehouse_id = req.warehouse_id
+    dlv.total_amount = total
+    dlv.remark = req.remark
+
+    # 创建新明细
+    for item in req.items:
+        amount = item.amount or (item.quantity * item.unit_price)
+        if getattr(item, 'unit_level', None):
+            base_qty, conv_rate = resolve_by_unit_level(item.product_id, item.unit_level, item.unit_quantity or item.quantity, item.unit_conv_rate, db)
+        else:
+            base_qty, conv_rate = resolve_unit_conversion(item.product_id, item.unit_id, item.unit_quantity or item.quantity, db)
+        di = PurchaseReturnDeliveryItem(
+            return_dlv_id=dlv.id,
+            product_id=item.product_id,
+            quantity=base_qty,
+            unit_id=item.unit_id,
+            unit_quantity=item.unit_quantity or item.quantity,
+            unit_conv_rate=conv_rate,
             unit_price=item.unit_price,
             amount=amount
         )
@@ -148,7 +219,11 @@ def list_purchase_return_dlvs(
         data = PurchaseReturnDlvOut.model_validate(dlv).model_dump()
         supplier = db.query(Supplier).get(dlv.supplier_id)
         data["supplier_name"] = supplier.name if supplier else ""
+        if dlv.warehouse_id:
+            wh = db.query(Warehouse).get(dlv.warehouse_id)
+            data["warehouse_name"] = wh.name if wh else ""
         data["status_text"] = STATUS_TEXT.get(dlv.status, dlv.status)
+        _enrich_names(db, data)
         result.append(data)
 
     return PaginatedResponse(data=result, total=total, page=page, page_size=page_size)
@@ -169,6 +244,7 @@ def get_purchase_return_dlv(dlv_id: int, db: Session = Depends(get_db)):
     result = PurchaseReturnDlvOut.model_validate(dlv).model_dump()
     result["supplier_name"] = supplier.name if supplier else ""
     result["status_text"] = STATUS_TEXT.get(dlv.status, dlv.status)
+    _enrich_names(db, result)
     result["items"] = []
     for item in items:
         product = db.query(Product).get(item.product_id)
@@ -176,6 +252,7 @@ def get_purchase_return_dlv(dlv_id: int, db: Session = Depends(get_db)):
         item_data["product_name"] = product.name if product else ""
         result["items"].append(item_data)
 
+    _enrich_names(db, result)
     return ResponseModel(data=result)
 
 
@@ -275,3 +352,48 @@ def delete_purchase_return_dlv(
     db.delete(dlv)
     db.commit()
     return ResponseModel(message="删除成功")
+
+
+# ========== 冲红 ==========
+@router.post("/purchase-return-deliveries/{dlv_id}/reverse", response_model=ResponseModel)
+def reverse_purchase_return_dlv(
+    dlv_id: int,
+    req: ReverseRequest,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    user = get_current_user(authorization, db)
+    dlv = db.query(PurchaseReturnDelivery).get(dlv_id)
+    if not dlv:
+        raise HTTPException(404, "退货出库单不存在")
+
+    # 只有已确认状态可以冲红
+    if dlv.status == "pending":
+        raise HTTPException(400, "草稿状态不能冲红")
+    if dlv.status == "reversed":
+        raise HTTPException(400, "已冲红单据不能重复冲红")
+
+    # 只有管理员可以冲红
+    require_role(user, db, "admin", message="只有管理员可以冲红")
+
+    items = db.query(PurchaseReturnDeliveryItem).filter(
+        PurchaseReturnDeliveryItem.return_dlv_id == dlv_id
+    ).all()
+
+    # 如果仓管已确认（扣了库存），需要回滚库存
+    if dlv.status in ("warehouse_confirmed", "finance_confirmed", "settled"):
+        for item in items:
+            InventoryService.restore(db, item.product_id, dlv.warehouse_id, item.quantity)
+
+    # 如果财务已确认（冲减了应付），需要回滚应付
+    if dlv.status in ("finance_confirmed", "settled"):
+        supplier = db.query(Supplier).get(dlv.supplier_id)
+        if supplier and dlv.total_amount:
+            supplier.payable_balance = (supplier.payable_balance or 0) + dlv.total_amount
+
+    dlv.status = "reversed"
+    dlv.reverse_reason = req.reason
+    dlv.reversed_by = user.id
+    dlv.reversed_at = datetime.now()
+    db.commit()
+    return ResponseModel(message="冲红成功，库存已回滚")

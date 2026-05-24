@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from models.system import OperationLog
+from models.operation_log import OperationLog
 
 
 def write_log(db: Session, operator: str, action: str, target: str, detail: str = "", ip: str = ""):

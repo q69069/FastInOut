@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, func
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, Text, DateTime, func
 from database import Base
 
 
@@ -13,5 +14,5 @@ class Role(Base):
     is_system = Column(Integer, default=1, comment="系统角色不可删除")
     sort_order = Column(Integer, default=0)
     status = Column(String(10), default="active")
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)

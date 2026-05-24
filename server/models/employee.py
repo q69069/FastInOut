@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, ForeignKey, DateTime, func
 from database import Base
 
 
@@ -19,5 +20,5 @@ class Employee(Base):
     bypass_audit = Column(Integer, default=0, comment="是否免审核 0=否 1=是")  # 免审核
     online_status = Column(String(10), default="offline", comment="在线状态 online/offline/busy")  # 在线状态
     status = Column(Integer, default=1)  # 1=启用 0=禁用
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)

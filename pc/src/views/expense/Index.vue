@@ -37,7 +37,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" width="160" />
+        <el-table-column prop="created_at" label="创建时间" width="160" :formatter="fmtDate" />
         <el-table-column label="操作" width="200" align="center">
           <template #default="{ row }">
             <el-button size="small" @click="showDetail(row)">详情</el-button>
@@ -62,7 +62,7 @@
           </el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="说明">{{ detail.description || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ detail.created_at }}</el-descriptions-item>
+        <el-descriptions-item label="创建时间">{{ fmtDateVal(detail.created_at) }}</el-descriptions-item>
       </el-descriptions>
     </el-dialog>
   </div>
@@ -74,6 +74,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { getExpenses, getExpense, approveExpense, rejectExpense, getExpenseCategories, createExpenseCategory, deleteExpenseCategory } from '../../api'
 import { useAuthStore } from '../../stores/auth'
 
+const fmtDateVal = (v) => v ? String(v).replace("T", " ").slice(0, 16) : ""
 const authStore = useAuthStore()
 const now = new Date().toLocaleString('zh-CN')
 

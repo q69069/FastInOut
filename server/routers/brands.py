@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
 from models.brand import Brand
+from models.employee import Employee
 from schemas.brand import BrandCreate, BrandUpdate, BrandOut
 from schemas.common import ResponseModel, PaginatedResponse
+from deps import get_current_user
 
 router = APIRouter(prefix="/api/brands", tags=["品牌管理"])
 
@@ -14,6 +16,7 @@ def list_brands(
     page_size: int = Query(20, ge=1, le=100),
     keyword: str = Query(None),
     status: int = Query(None),
+    user: Employee = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     q = db.query(Brand)
@@ -27,8 +30,11 @@ def list_brands(
 
 
 @router.post("", response_model=ResponseModel)
-def create_brand(req: BrandCreate, db: Session = Depends(get_db)):
-    brand = Brand(**req.model_dump())
+def create_brand(req: BrandCreate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
+    data = req.model_dump()
+    if not data.get('code'):
+        data['code'] = None
+    brand = Brand(**data)
     db.add(brand)
     db.commit()
     db.refresh(brand)
@@ -36,19 +42,17 @@ def create_brand(req: BrandCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{brand_id}", response_model=ResponseModel)
-def get_brand(brand_id: int, db: Session = Depends(get_db)):
+def get_brand(brand_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     brand = db.query(Brand).get(brand_id)
     if not brand:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="品牌不存在")
     return ResponseModel(data=BrandOut.model_validate(brand))
 
 
 @router.put("/{brand_id}", response_model=ResponseModel)
-def update_brand(brand_id: int, req: BrandUpdate, db: Session = Depends(get_db)):
+def update_brand(brand_id: int, req: BrandUpdate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     brand = db.query(Brand).get(brand_id)
     if not brand:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="品牌不存在")
     for k, v in req.model_dump(exclude_unset=True).items():
         setattr(brand, k, v)
@@ -58,10 +62,9 @@ def update_brand(brand_id: int, req: BrandUpdate, db: Session = Depends(get_db))
 
 
 @router.delete("/{brand_id}", response_model=ResponseModel)
-def delete_brand(brand_id: int, db: Session = Depends(get_db)):
+def delete_brand(brand_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     brand = db.query(Brand).get(brand_id)
     if not brand:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="品牌不存在")
     db.delete(brand)
     db.commit()

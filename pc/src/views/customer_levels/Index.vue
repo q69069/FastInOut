@@ -66,7 +66,7 @@
           <el-input v-model="form.name" placeholder="如：A级/B级/C级" />
         </el-form-item>
         <el-form-item label="等级编码">
-          <el-input v-model="form.code" placeholder="如：A/B/C" />
+          <el-input v-model="form.code" placeholder="如：A/B/C" @input="_codeEdited = true" />
         </el-form-item>
         <el-form-item label="折扣率">
           <el-input-number v-model="form.discount_rate" :min="0" :max="1" :precision="2" :step="0.05" />
@@ -80,12 +80,12 @@
         </el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="form.status">
-            <el-radio :label="1">启用</el-radio>
-            <el-radio :label="0">禁用</el-radio>
+            <el-radio :value="1">启用</el-radio>
+            <el-radio :value="0">禁用</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="备注">
-          <el-input v-model="form.remark" type="textarea" rows="3" placeholder="备注" />
+          <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="备注" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -97,8 +97,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { pinyin } from 'pinyin-pro'
 import { getCustomerLevels, createCustomerLevel, updateCustomerLevel, deleteCustomerLevel } from '../../api'
 
 const loading = ref(false)
@@ -111,6 +112,13 @@ const currentItem = ref(null)
 
 const query = ref({ page: 1, page_size: 20, keyword: '', status: null })
 const form = ref({ name: '', code: '', discount_rate: 1.0, credit_limit: 0, sort_order: 0, remark: '', status: 1 })
+const _codeEdited = ref(false)
+
+watch(() => form.value.name, (name) => {
+  if (!isEdit.value && !_codeEdited.value && name) {
+    form.value.code = pinyin(name, { pattern: 'first', toneType: 'none' }).replace(/\s/g, '')
+  }
+})
 
 const loadData = async () => {
   loading.value = true
@@ -123,6 +131,7 @@ const loadData = async () => {
 }
 
 const showDialog = (mode, item = null) => {
+  _codeEdited.value = false
   if (mode === 'create') {
     isEdit.value = false
     form.value = { name: '', code: '', discount_rate: 1.0, credit_limit: 0, sort_order: 0, remark: '', status: 1 }
@@ -158,7 +167,7 @@ const handleDelete = async (item) => {
     await deleteCustomerLevel(item.id)
     ElMessage.success('已删除')
     loadData()
-  } catch {}
+  } catch (e) { console.error('操作失败:', e) }
 }
 
 onMounted(loadData)

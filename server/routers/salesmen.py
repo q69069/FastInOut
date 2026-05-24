@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime
 from database import get_db
+from deps import require_sales_module
 from models.salesman import Salesman
 from models.employee import Employee
 from models.sales import SalesOrder
@@ -13,7 +14,7 @@ router = APIRouter(prefix="/api/salesmen", tags=["业务员"])
 
 
 @router.get("", response_model=ResponseModel)
-def list_salesmen(db: Session = Depends(get_db)):
+def list_salesmen(db: Session = Depends(get_db), _=Depends(require_sales_module)):
     salesmen = db.query(Salesman).filter(Salesman.status == 1).all()
     result = []
     for s in salesmen:
@@ -25,7 +26,7 @@ def list_salesmen(db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=ResponseModel)
-def create_salesman(req: SalesmanCreate, db: Session = Depends(get_db)):
+def create_salesman(req: SalesmanCreate, db: Session = Depends(get_db), _=Depends(require_sales_module)):
     emp = db.query(Employee).get(req.employee_id)
     if not emp:
         raise HTTPException(status_code=400, detail="员工不存在")
@@ -46,7 +47,7 @@ def create_salesman(req: SalesmanCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{salesman_id}", response_model=ResponseModel)
-def update_salesman(salesman_id: int, req: SalesmanUpdate, db: Session = Depends(get_db)):
+def update_salesman(salesman_id: int, req: SalesmanUpdate, db: Session = Depends(get_db), _=Depends(require_sales_module)):
     salesman = db.query(Salesman).get(salesman_id)
     if not salesman:
         raise HTTPException(status_code=404, detail="业务员不存在")
@@ -65,7 +66,8 @@ def update_salesman(salesman_id: int, req: SalesmanUpdate, db: Session = Depends
 def salesman_stats(
     start_date: str = Query(None),
     end_date: str = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _=Depends(require_sales_module)
 ):
     salesmen = db.query(Salesman).filter(Salesman.status == 1).all()
     result = []

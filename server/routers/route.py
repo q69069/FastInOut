@@ -7,7 +7,7 @@ from database import get_db
 from models.route import Route
 from models.employee_route import EmployeeRoute
 from schemas import RouteCreate, RouteUpdate, RouteResponse
-from routers.auth import get_current_user
+from deps import get_current_user
 
 router = APIRouter(prefix="/routes", tags=["路线"])
 

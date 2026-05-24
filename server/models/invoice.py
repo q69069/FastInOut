@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, Date, DateTime, func
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, Float, Date, DateTime, func
 from database import Base
 
 
@@ -20,5 +21,5 @@ class Invoice(Base):
     invoice_date = Column(Date)  # 开票日期
     status = Column(Integer, default=1)  # 1=未认证 2=已认证 3=已作废
     remark = Column(String(500))
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)

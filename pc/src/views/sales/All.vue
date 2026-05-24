@@ -61,6 +61,7 @@
         <el-form-item>
           <el-button type="primary" @click="loadData">查询</el-button>
           <el-button @click="clearFilter">清空</el-button>
+          <el-button type="success" @click="handleExport">导出Excel</el-button>
         </el-form-item>
       </el-form>
 
@@ -84,12 +85,22 @@
             <el-option v-for="s in salesmen" :key="s.id" :label="s.name" :value="s.id" />
           </el-select>
         </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="query.status" clearable placeholder="全部" style="width:120px">
+            <el-option label="草稿" value="pending" />
+            <el-option label="已确认" value="confirmed" />
+            <el-option label="已结算" value="settled" />
+            <el-option label="已作废" value="voided" />
+            <el-option label="已冲红" value="reversed" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="关键词">
           <el-input v-model="query.keyword" clearable placeholder="单据号" style="width:150px" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="loadData">查询</el-button>
           <el-button @click="clearFilter">清空</el-button>
+          <el-button type="success" @click="handleExport">导出Excel</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -109,7 +120,7 @@
             <el-tag v-if="row._type === 'return_delivery' && row.has_return" size="small" type="success">含退</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="交易时间" width="150" />
+        <el-table-column prop="created_at" label="交易时间" width="150" :formatter="fmtDate" />
         <el-table-column prop="salesman_name" label="业务员" width="100" />
         <el-table-column prop="customer_name" label="客户" />
         <el-table-column prop="warehouse_name" label="仓库" width="100" />
@@ -132,60 +143,31 @@
         layout="total, prev, pager, next" style="margin-top:16px" @current-change="loadData" />
     </el-card>
 
-    <!-- 多窗口详情弹窗 -->
-    <template v-for="(dlg, key) in dialogs" :key="key">
-      <el-dialog :model-value="dlg.visible" :title="'单据详情 - ' + (dlg.data?.no || dlg.data?.delivery_no || dlg.data?.order_no || '')" width="700px" @update:model-value="v => { if (!v) closeDialog(key) }">
-        <div v-if="dlg.loading" style="text-align:center;padding:40px">加载中...</div>
-        <template v-else-if="dlg.data">
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="单号">{{ dlg.data.no || dlg.data.delivery_no || dlg.data.order_no }}</el-descriptions-item>
-            <el-descriptions-item label="类型">
-              <el-tag size="small" :type="typeTagMap[dlg.data._type]?.type">{{ typeTagMap[dlg.data._type]?.label }}</el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="状态">
-              <el-tag :type="statusMap[dlg.data.status]?.type">{{ statusMap[dlg.data.status]?.label }}</el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="客户">{{ dlg.data.customer_name }}</el-descriptions-item>
-            <el-descriptions-item label="仓库">{{ dlg.data.warehouse_name }}</el-descriptions-item>
-            <el-descriptions-item label="总金额">¥{{ Number(dlg.data.total_amount||0).toFixed(2) }}</el-descriptions-item>
-            <el-descriptions-item label="创建时间">{{ dlg.data.created_at }}</el-descriptions-item>
-            <el-descriptions-item label="备注" :span="2">{{ dlg.data.remark || '-' }}</el-descriptions-item>
-          </el-descriptions>
-          <el-table :data="dlg.data.items || []" border size="small" style="margin-top:16px">
-            <el-table-column prop="product_name" label="商品" />
-            <el-table-column prop="quantity" label="数量" width="80" align="right" />
-            <el-table-column prop="unit_price" label="单价" width="80" align="right" />
-            <el-table-column prop="amount" label="金额" width="100" align="right" />
-          </el-table>
-        </template>
-      </el-dialog>
-    </template>
-
     <!-- 新建入口 -->
     <el-dialog v-model="createVisible" title="新建销售单据" width="400px">
       <div class="create-menu">
-        <div class="create-item" @click="$router.push('/sales'); createVisible = false">
+        <div class="create-item" @click="$router.push({ path: '/sales', query: { id: 'new-' + Date.now() } }); createVisible = false">
           <div class="create-icon">📋</div>
           <div class="create-text">
             <div class="create-title">销售订单</div>
             <div class="create-desc">创建新的销售订单</div>
           </div>
         </div>
-        <div class="create-item" @click="$router.push('/sales-deliveries'); createVisible = false">
+        <div class="create-item" @click="$router.push({ path: '/sales-deliveries', query: { id: 'new-' + Date.now() } }); createVisible = false">
           <div class="create-icon">🚚</div>
           <div class="create-text">
             <div class="create-title">销售单</div>
             <div class="create-desc">创建新的销售单（出库单）</div>
           </div>
         </div>
-        <div class="create-item" @click="$router.push('/sales-returns'); createVisible = false">
+        <div class="create-item" @click="$router.push({ path: '/sales-returns', query: { id: 'new-' + Date.now() } }); createVisible = false">
           <div class="create-icon">↩️</div>
           <div class="create-text">
             <div class="create-title">退货订单</div>
             <div class="create-desc">创建新的退货订单</div>
           </div>
         </div>
-        <div class="create-item" @click="$router.push('/return-deliveries'); createVisible = false">
+        <div class="create-item" @click="$router.push({ path: '/return-deliveries', query: { id: 'new-' + Date.now() } }); createVisible = false">
           <div class="create-icon">📦</div>
           <div class="create-text">
             <div class="create-title">退货单</div>
@@ -206,7 +188,8 @@ import {
   getSalesDeliveries, getSalesDeliveries as getSalesStockouts,
   getSalesReturns, getSalesReturn,
   getReturnDeliveries, getReturnDelivery,
-  getCustomers, getWarehouses, getSalesmen
+  getCustomers, getWarehouses, getSalesmen,
+  exportDocuments
 } from '../../api'
 import { useAuthStore } from '../../stores/auth'
 
@@ -217,7 +200,6 @@ const saving = ref(false)
 
 const activeType = ref('all')
 const createVisible = ref(false)
-const dialogs = ref({})
 
 const customers = ref([])
 const warehouses = ref([])
@@ -229,19 +211,22 @@ const query = ref({ page: 1, page_size: 20, date_range: [], customer_id: '', war
 
 const statusMap = {
   0: { label: '草稿', type: 'info' },
-  1: { label: '已确认', type: '' },
+  1: { label: '已确认', type: 'warning' },
   2: { label: '已出库', type: 'success' },
-  3: { label: '已关闭', type: 'warning' },
-  pending: { label: '待处理', type: 'warning' },
-  settling: { label: '交账中', type: '' },
-  settled: { label: '已交账', type: 'success' },
+  3: { label: '已冲红', type: 'danger' },
+  pending: { label: '草稿', type: 'info' },
+  confirmed: { label: '已出库', type: 'success' },
+  settling: { label: '交账中', type: 'primary' },
+  settled: { label: '已结算', type: 'success' },
   voided: { label: '已作废', type: 'info' },
   locked: { label: '已锁定', type: 'warning' },
-  reversed: { label: '已红冲', type: 'danger' },
+  reversed: { label: '已冲红', type: 'danger' },
+  warehouse_confirmed: { label: '已入库', type: 'primary' },
+  finance_confirmed: { label: '已结算', type: 'success' },
 }
 
 const typeTagMap = {
-  order: { label: '销售订单', type: '' },
+  order: { label: '销售订单', type: 'primary' },
   delivery: { label: '销售单', type: 'success' },
   return_order: { label: '退货订单', type: 'warning' },
   return_delivery: { label: '退货单', type: 'danger' },
@@ -273,6 +258,7 @@ const buildParams = () => {
   return p
 }
 
+const fmtDate = (_r, _c, v) => v ? String(v).replace('T', ' ').slice(0, 16) : ''
 const loadData = async () => {
   list.value = []
   total.value = 0
@@ -297,10 +283,10 @@ const loadOrders = async () => {
   try {
     const res = await getSalesOrders(buildParams())
     const items = (res.data?.list || res.data || [])
-    items.forEach(i => { i._type = 'order'; i.no = i.order_no })
+    items.forEach(i => { i._type = 'order'; i.no = i.code })
     list.value.push(...items)
     total.value += res.total || 0
-  } catch {}
+  } catch (e) { console.error('操作失败:', e) }
 }
 
 const loadDeliveries = async () => {
@@ -310,27 +296,27 @@ const loadDeliveries = async () => {
     items.forEach(i => { i._type = 'delivery'; i.no = i.delivery_no })
     list.value.push(...items)
     total.value += res.total || 0
-  } catch {}
+  } catch (e) { console.error('操作失败:', e) }
 }
 
 const loadReturnOrders = async () => {
   try {
     const res = await getSalesReturns(buildParams())
     const items = (res.data?.list || res.data || [])
-    items.forEach(i => { i._type = 'return_order'; i.no = i.return_no })
+    items.forEach(i => { i._type = 'return_order'; i.no = i.code })
     list.value.push(...items)
     total.value += res.total || 0
-  } catch {}
+  } catch (e) { console.error('操作失败:', e) }
 }
 
 const loadReturnDeliveries = async () => {
   try {
     const res = await getReturnDeliveries(buildParams())
     const items = (res.data?.list || res.data || [])
-    items.forEach(i => { i._type = 'return_delivery'; i.no = i.delivery_no })
+    items.forEach(i => { i._type = 'return_delivery'; i.no = i.code })
     list.value.push(...items)
     total.value += res.total || 0
-  } catch {}
+  } catch (e) { console.error('操作失败:', e) }
 }
 
 const sortAndDedup = () => {
@@ -351,40 +337,34 @@ const getSummary = ({ columns, data }) => {
   return sums
 }
 
-const openDocument = async (row) => {
-  const key = `${row._type}_${row.id}`
-  if (dialogs.value[key]) {
-    dialogs.value[key].visible = true
-    dialogs.value[key].data = row
-    return
+const openDocument = (row) => {
+  const routeMap = {
+    order: '/sales',
+    delivery: '/sales-deliveries',
+    return_order: '/sales-returns',
+    return_delivery: '/return-deliveries'
   }
-  dialogs.value[key] = { visible: true, data: row, loading: true }
-  try {
-    const apiMap = {
-      order: getSalesOrder,
-      delivery: getSalesStockouts,
-      return_order: getSalesReturn,
-      return_delivery: getReturnDelivery
-    }
-    const api = apiMap[row._type]
-    if (api) {
-      const res = await api(row.id)
-      const data = res.data || res
-      if (dialogs.value[key]) {
-        dialogs.value[key].data = { ...row, ...data }
-        dialogs.value[key].loading = false
-      }
-    } else {
-      if (dialogs.value[key]) dialogs.value[key].loading = false
-    }
-  } catch {
-    if (dialogs.value[key]) dialogs.value[key].loading = false
-  }
+  const path = routeMap[row._type]
+  if (path) router.push({ path, query: { id: row.id } })
 }
 
-const closeDialog = (key) => {
-  if (dialogs.value[key]) {
-    dialogs.value[key].visible = false
+const handleExport = async () => {
+  try {
+    const params = {}
+    if (activeType.value && activeType.value !== 'all') params.type = activeType.value === 'order' ? 'sales_order' : activeType.value === 'delivery' ? 'sales_delivery' : activeType.value === 'return_order' ? 'sales_return_order' : 'return_delivery'
+    if (query.value.date_range?.length === 2) { params.start_date = query.value.date_range[0]; params.end_date = query.value.date_range[1] }
+    if (query.value.keyword) params.keyword = query.value.keyword
+    const res = await exportDocuments(params)
+    const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `销售单据导出_${new Date().toISOString().slice(0,10)}.xlsx`
+    a.click()
+    URL.revokeObjectURL(url)
+    ElMessage.success('导出成功')
+  } catch (e) {
+    ElMessage.error('导出失败')
   }
 }
 

@@ -42,7 +42,7 @@
         </el-table-column>
         <el-table-column prop="desc" label="描述" min-width="250" />
         <el-table-column prop="detail" label="详情" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="created_at" label="时间" width="170" />
+        <el-table-column prop="created_at" label="时间" width="170" :formatter="fmtDate" />
       </el-table>
     </el-card>
   </div>
@@ -52,6 +52,7 @@
 import { ref, onMounted } from 'vue'
 import { getAnomalies } from '../../api'
 
+const fmtDate = (_r, _c, v) => v ? String(v).replace("T", " ").slice(0, 16) : ""
 const now = new Date().toLocaleString('zh-CN')
 const params = ref({ days: 7, threshold: 0.3 })
 const anomalies = ref([])

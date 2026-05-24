@@ -8,6 +8,10 @@ class PurchaseOrderItemBase(BaseModel):
     quantity: float
     price: float
     amount: float = 0
+    unit_id: Optional[int] = None
+    unit_level: Optional[str] = None  # small/medium/large
+    unit_quantity: Optional[float] = 1.0
+    unit_conv_rate: Optional[float] = 1.0
 
 
 class PurchaseOrderItemCreate(PurchaseOrderItemBase):
@@ -19,6 +23,7 @@ class PurchaseOrderItemOut(PurchaseOrderItemBase):
     id: int
     order_id: int
     received_qty: float = 0
+    unit_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -46,6 +51,7 @@ class PurchaseOrderOut(PurchaseOrderBase):
     id: int
     code: str
     operator_id: Optional[int] = None
+    auditor_id: Optional[int] = None
     paid_amount: float
     status: int
     created_at: Optional[datetime] = None
@@ -59,6 +65,10 @@ class PurchaseStockinItemBase(BaseModel):
     quantity: float
     price: float
     amount: float = 0
+    unit_id: Optional[int] = None
+    unit_level: Optional[str] = None  # small/medium/large
+    unit_quantity: Optional[float] = 1.0
+    unit_conv_rate: Optional[float] = 1.0
 
 
 class PurchaseStockinItemCreate(PurchaseStockinItemBase):
@@ -69,6 +79,7 @@ class PurchaseStockinItemCreate(PurchaseStockinItemBase):
 class PurchaseStockinItemOut(PurchaseStockinItemBase):
     id: int
     stockin_id: int
+    unit_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -89,6 +100,7 @@ class PurchaseStockinOut(PurchaseStockinBase):
     id: int
     code: str
     operator_id: Optional[int] = None
+    auditor_id: Optional[int] = None
     status: int
     created_at: Optional[datetime] = None
 
@@ -100,11 +112,23 @@ class PurchaseReturnItemBase(BaseModel):
     quantity: float
     price: float
     amount: float = 0
+    unit_id: Optional[int] = None
+    unit_level: Optional[str] = None  # small/medium/large
+    unit_quantity: Optional[float] = 1.0
+    unit_conv_rate: Optional[float] = 1.0
 
 
 class PurchaseReturnItemCreate(PurchaseReturnItemBase):
     quantity: float = Field(gt=0, description="数量必须大于0")
     price: float = Field(ge=0, description="单价不能为负")
+
+
+class PurchaseReturnItemOut(PurchaseReturnItemBase):
+    id: int
+    return_id: int
+    unit_name: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PurchaseReturnBase(BaseModel):
@@ -123,6 +147,7 @@ class PurchaseReturnOut(PurchaseReturnBase):
     id: int
     code: str
     operator_id: Optional[int] = None
+    auditor_id: Optional[int] = None
     status: int
     created_at: Optional[datetime] = None
     confirmed_at: Optional[datetime] = None

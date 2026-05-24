@@ -1,4 +1,5 @@
 import json
+import hashlib
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from database import get_db
@@ -8,6 +9,7 @@ from models.module import Module
 from models.role_module_permission import RoleModulePermission
 from models.operation_permission import OperationPermission
 from models.employee_role import EmployeeRole
+from models.token_blacklist import TokenBlacklist
 from schemas.auth import LoginRequest, LoginResponse, CurrentUser
 from schemas.common import ResponseModel
 from utils.auth import verify_password, create_access_token, decode_access_token
@@ -25,8 +27,9 @@ _login_lock = threading.Lock()
 MAX_FAILURES = 5
 LOCKOUT_MINUTES = 15
 
-_token_blacklist = set()
-_blacklist_lock = threading.Lock()
+
+def _hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 def _check_login_lock(username: str):
@@ -58,9 +61,9 @@ def get_current_user(authorization: str = Header(None), db: Session = Depends(ge
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="未登录")
     token = authorization.replace("Bearer ", "")
-    with _blacklist_lock:
-        if token in _token_blacklist:
-            raise HTTPException(status_code=401, detail="token已失效，请重新登录")
+    token_hash = _hash_token(token)
+    if db.query(TokenBlacklist).filter(TokenBlacklist.token_hash == token_hash).first():
+        raise HTTPException(status_code=401, detail="token已失效，请重新登录")
     payload = decode_access_token(token)
     if not payload:
         raise HTTPException(status_code=401, detail="token无效或已过期")
@@ -225,11 +228,17 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/logout", response_model=ResponseModel)
-def logout(authorization: str = Header(None)):
+def logout(authorization: str = Header(None), db: Session = Depends(get_db)):
     if authorization and authorization.startswith("Bearer "):
         token = authorization.replace("Bearer ", "")
-        with _blacklist_lock:
-            _token_blacklist.add(token)
+        payload = decode_access_token(token)
+        if payload and payload.get("exp"):
+            expires_at = datetime.fromtimestamp(payload["exp"])
+        else:
+            expires_at = datetime.now() + timedelta(hours=24)
+        entry = TokenBlacklist(token_hash=_hash_token(token), expires_at=expires_at)
+        db.add(entry)
+        db.commit()
     return ResponseModel(message="已退出")
 
 

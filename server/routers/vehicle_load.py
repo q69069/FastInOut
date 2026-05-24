@@ -15,24 +15,10 @@ from models.inventory import Inventory
 from models.employee import Employee
 from schemas.common import ResponseModel, PaginatedResponse
 from utils.status import VehicleLoadStatus
+from utils.unit_convert import resolve_unit_conversion, resolve_by_unit_level
+from deps import get_current_user
 
 router = APIRouter(prefix="/api", tags=["装车单"])
-
-
-def get_current_user(authorization: str = None, db: Session = Depends(get_db)) -> Employee:
-    if not authorization:
-        raise HTTPException(status_code=401, detail="未登录")
-    from utils.auth import decode_access_token
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="token格式错误")
-    payload = decode_access_token(authorization.replace("Bearer ", ""))
-    if not payload:
-        raise HTTPException(status_code=401, detail="token无效")
-    user = db.query(Employee).get(payload.get("user_id"))
-    if not user:
-        raise HTTPException(status_code=401, detail="用户不存在")
-    return user
-
 
 def _gen_load_no(db):
     today = datetime.now().strftime("%Y%m%d")
@@ -121,13 +107,63 @@ def create_vehicle_load(data: dict, authorization: str = Header(None), db: Sessi
     db.add(load)
     db.flush()
     for item in data["items"]:
+        if item.get("unit_level"):
+            base_qty, conv_rate = resolve_by_unit_level(item["product_id"], item["unit_level"], item.get("unit_quantity") or item["quantity"], item.get("unit_conv_rate", 1), db)
+        else:
+            base_qty, conv_rate = resolve_unit_conversion(item["product_id"], item.get("unit_id"), item.get("unit_quantity") or item["quantity"], db)
         db.add(VehicleLoadItem(
             load_id=load.id,
             product_id=item["product_id"],
-            quantity=item["quantity"]
+            quantity=base_qty,
+            unit_id=item.get("unit_id"),
+            unit_quantity=item.get("unit_quantity") or item["quantity"],
+            unit_conv_rate=conv_rate
         ))
     db.commit()
     return ResponseModel(message="装车单创建成功", data={"id": load.id, "load_no": load.load_no})
+
+
+# ========== 修改装车单（仅draft/pending状态） ==========
+@router.put("/vehicle-loads/{load_id}", response_model=ResponseModel)
+def update_vehicle_load(load_id: int, data: dict, authorization: str = Header(None), db: Session = Depends(get_db)):
+    user = get_current_user(authorization, db)
+    load = db.query(VehicleLoad).get(load_id)
+    if not load:
+        raise HTTPException(404, "装车单不存在")
+    if load.status not in ("draft", "pending"):
+        raise HTTPException(400, f"当前状态 {load.status} 不允许修改")
+
+    if not data.get("from_warehouse_id") or not data.get("vehicle_warehouse_id"):
+        raise HTTPException(400, "请选择来源仓库和目标车仓")
+    if not data.get("items"):
+        raise HTTPException(400, "请添加装车明细")
+
+    # 删除旧明细
+    db.query(VehicleLoadItem).filter(VehicleLoadItem.load_id == load_id).delete()
+
+    # 更新主单
+    load.from_warehouse_id = data["from_warehouse_id"]
+    load.vehicle_warehouse_id = data["vehicle_warehouse_id"]
+    load.employee_id = data.get("employee_id")
+    load.remark = data.get("remark")
+
+    # 创建新明细
+    for item in data["items"]:
+        if item.get("unit_level"):
+            base_qty, conv_rate = resolve_by_unit_level(item["product_id"], item["unit_level"], item.get("unit_quantity") or item["quantity"], item.get("unit_conv_rate", 1), db)
+        else:
+            base_qty, conv_rate = resolve_unit_conversion(item["product_id"], item.get("unit_id"), item.get("unit_quantity") or item["quantity"], db)
+        db.add(VehicleLoadItem(
+            load_id=load.id,
+            product_id=item["product_id"],
+            quantity=base_qty,
+            unit_id=item.get("unit_id"),
+            unit_quantity=item.get("unit_quantity") or item["quantity"],
+            unit_conv_rate=conv_rate
+        ))
+
+    db.commit()
+    return ResponseModel(message="装车单修改成功", data={"id": load.id, "load_no": load.load_no})
 
 
 @router.get("/vehicle-loads/{load_id}", response_model=ResponseModel)
@@ -178,6 +214,7 @@ def confirm_vehicle_load(load_id: int, authorization: str = Header(None), db: Se
         _update_inventory(db, load.vehicle_warehouse_id, item.product_id, item.quantity)
     load.status = "loaded"
     load.loaded_at = datetime.now()
+    load.auditor_id = user.id
     db.commit()
     return ResponseModel(message="装车确认成功，库存已转移")
 

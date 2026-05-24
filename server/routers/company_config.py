@@ -6,24 +6,9 @@ from models.company_config import CompanyConfig
 from models.employee import Employee
 from schemas.common import ResponseModel
 from utils.role_check import require_role
+from deps import get_current_user
 
 router = APIRouter(prefix="/api", tags=["公司设置"])
-
-
-def get_current_user(authorization: str = None, db: Session = Depends(get_db)) -> Employee:
-    if not authorization:
-        raise HTTPException(status_code=401, detail="未登录")
-    from utils.auth import decode_access_token
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="token格式错误")
-    payload = decode_access_token(authorization.replace("Bearer ", ""))
-    if not payload:
-        raise HTTPException(status_code=401, detail="token无效")
-    user = db.query(Employee).get(payload.get("user_id"))
-    if not user:
-        raise HTTPException(status_code=401, detail="用户不存在")
-    return user
-
 
 @router.get("/company-configs", response_model=ResponseModel)
 def list_configs(authorization: str = Header(None), db: Session = Depends(get_db)):

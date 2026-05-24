@@ -10,6 +10,10 @@ class SalesDeliveryItemCreate(BaseModel):
     amount: float = 0
     batch_id: Optional[int] = None
     source_order_item_id: Optional[int] = None
+    unit_id: Optional[int] = None
+    unit_level: Optional[str] = None  # small/medium/large
+    unit_quantity: Optional[float] = 1.0
+    unit_conv_rate: Optional[float] = 1.0
 
 
 class SalesDeliveryItemOut(BaseModel):
@@ -21,6 +25,10 @@ class SalesDeliveryItemOut(BaseModel):
     unit_price: float
     amount: float
     source_order_item_id: Optional[int] = None
+    unit_id: Optional[int] = None
+    unit_quantity: Optional[float] = 1.0
+    unit_conv_rate: Optional[float] = 1.0
+    unit_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -54,6 +62,7 @@ class SalesDeliveryOut(BaseModel):
     source_type: str
     void_reason: Optional[str] = None
     originated_from_id: Optional[int] = None
+    payment_evidence: Optional[str] = None
     created_by: int
     auditor_id: Optional[int] = None
     audited_at: Optional[datetime] = None
@@ -61,6 +70,9 @@ class SalesDeliveryOut(BaseModel):
     settlement_id: Optional[int] = None
     created_at: Optional[datetime] = None
     remark: Optional[str] = None
+    reverse_reason: Optional[str] = None
+    reversed_by: Optional[int] = None
+    reversed_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 

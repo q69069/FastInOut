@@ -61,19 +61,19 @@
           <el-input v-model="form.name" placeholder="请输入品牌名称" />
         </el-form-item>
         <el-form-item label="品牌编码">
-          <el-input v-model="form.code" placeholder="请输入品牌编码" />
+          <el-input v-model="form.code" placeholder="请输入品牌编码" @input="_codeEdited = true" />
         </el-form-item>
         <el-form-item label="联系方式">
           <el-input v-model="form.contact" placeholder="请输入联系方式" />
         </el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="form.status">
-            <el-radio :label="1">启用</el-radio>
-            <el-radio :label="0">禁用</el-radio>
+            <el-radio :value="1">启用</el-radio>
+            <el-radio :value="0">禁用</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="备注">
-          <el-input v-model="form.remark" type="textarea" rows="3" placeholder="备注" />
+          <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="备注" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -85,8 +85,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { pinyin } from 'pinyin-pro'
 import { getBrands, createBrand, updateBrand, deleteBrand } from '../../api'
 
 const loading = ref(false)
@@ -100,6 +101,14 @@ const currentItem = ref(null)
 
 const query = ref({ page: 1, page_size: 20, keyword: '', status: null })
 const form = ref({ name: '', code: '', contact: '', remark: '', status: 1 })
+const _codeEdited = ref(false)
+
+// 名称变化时自动生成首字母编码
+watch(() => form.value.name, (name) => {
+  if (name && !isEdit.value && !_codeEdited.value) {
+    form.value.code = pinyin(name, { pattern: 'first', toneType: 'none' }).replace(/\s/g, '')
+  }
+})
 
 const loadData = async () => {
   loading.value = true
@@ -112,6 +121,7 @@ const loadData = async () => {
 }
 
 const showDialog = (mode, item = null) => {
+  _codeEdited.value = false
   if (mode === 'create') {
     isEdit.value = false
     form.value = { name: '', code: '', contact: '', remark: '', status: 1 }
@@ -147,7 +157,7 @@ const handleDelete = async (item) => {
     await deleteBrand(item.id)
     ElMessage.success('已删除')
     loadData()
-  } catch {}
+  } catch (e) { console.error('操作失败:', e) }
 }
 
 onMounted(loadData)

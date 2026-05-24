@@ -1,7 +1,8 @@
 <template>
   <div class="order-page">
     <!-- 顶部：标题栏 -->
-    <el-card class="header-card">
+    <el-card class="header-card" style="position:relative">
+      <DocumentStamp :status="form.status" :confirmed-statuses="[2]" />
       <div class="page-header">
         <div class="page-title">
           <span class="title-text">盘点管理</span>
@@ -15,8 +16,8 @@
           </div>
         </div>
         <div class="header-actions">
-          <el-button type="primary" @click="handleSave" :loading="saving">保存</el-button>
-          <el-button @click="handleAudit" v-if="form.id">审核</el-button>
+          <el-button type="primary" @click="handleSave" :loading="saving" v-if="!form.id || form.status === 0 || form.status === 1">保存</el-button>
+          <el-button @click="handleAudit()" v-if="form.id && form.status === 1">审核</el-button>
           <el-button @click="handlePrint" v-if="form.id">打印</el-button>
           <el-button @click="handleCopy" v-if="form.id">复制</el-button>
           <el-button @click="resetForm">新增</el-button>
@@ -53,7 +54,7 @@
         <el-table-column type="index" label="序号" width="50" align="center" />
         <el-table-column label="商品名称" min-width="220">
           <template #default="{ row, $index }">
-            <el-select v-model="row.product_id" filterable placeholder="搜索商品" style="width:100%">
+            <el-select v-model="row.product_id" filterable placeholder="搜索商品" style="width:100%" @change="onProductChange($index)">
               <el-option v-for="p in products" :key="p.id" :label="`${p.name}${p.spec ? ' ['+p.spec+']' : ''}`" :value="p.id">
                 <span>{{ p.name }}</span>
                 <span v-if="p.spec" class="text-muted"> [{{ p.spec }}]</span>
@@ -64,15 +65,20 @@
         <el-table-column label="条形码" width="120">
           <template #default="{ row }">{{ getProductBarcode(row.product_id) }}</template>
         </el-table-column>
-        <el-table-column label="单位" width="80" align="center">
-          <template #default="{ row }">{{ getUnit(row.product_id) }}</template>
+        <el-table-column label="单位" width="110" align="center">
+          <template #default="{ row, $index }">
+            <el-select v-if="row._availableUnits?.length" v-model="row._unitLevel" size="small" style="width:100px" @change="v => onUnitChange($index, v)">
+              <el-option v-for="u in row._availableUnits" :key="u.unit_level" :label="u.unit_name" :value="u.unit_level" />
+            </el-select>
+            <span v-else class="text-muted">-</span>
+          </template>
         </el-table-column>
         <el-table-column label="系统数量" width="100" align="right">
           <template #default="{ row }">{{ getSystemQty(row.product_id) }}</template>
         </el-table-column>
-        <el-table-column label="实际数量" width="120">
+        <el-table-column label="实际数量" width="130">
           <template #default="{ row }">
-            <el-input-number v-model="row.actual_qty" :min="0" size="small" style="width:90px" />
+            <el-input-number v-model="row.actual_qty" :min="0" size="small" style="width:120px" />
           </template>
         </el-table-column>
         <el-table-column label="差异" width="80" align="right">
@@ -161,7 +167,7 @@
             <el-tag :type="statusTagType(row.status)">{{ statusMap[row.status] }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" width="150" />
+        <el-table-column prop="created_at" label="创建时间" width="150" :formatter="fmtDate" />
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="showDetail(row)">详情</el-button>
@@ -205,11 +211,14 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useWarehouseProducts } from '../../utils/useWarehouseProducts'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getStocktaking, createStocktaking, getStocktakingDetail, auditStocktaking, adjustStocktaking, voidStocktaking, getWarehouses, getProducts, getInventory } from '../../api'
+import { getStocktaking, createStocktaking, updateStocktaking, getStocktakingDetail, auditStocktaking, adjustStocktaking, voidStocktaking, getWarehouses, getInventory } from '../../api'
 import { useAuthStore } from '../../stores/auth'
+import DocumentStamp from '../../components/DocumentStamp.vue'
 
+const fmtDate = (_r, _c, v) => v ? String(v).replace("T", " ").slice(0, 16) : ""
 const route = useRoute()
 const authStore = useAuthStore()
 const now = new Date().toLocaleString('zh-CN')
@@ -219,14 +228,6 @@ const statusMap = { 0: '草稿', 1: '盘点中', 2: '已审核', 3: '已调整',
 const mode = ref('create')
 const saving = ref(false)
 const warehouses = ref([])
-const products = ref([])
-const inventoryMap = ref({})
-const list = ref([])
-const total = ref(0)
-
-const query = ref({ page: 1, page_size: 20, status: '', warehouse_id: '' })
-const openDetails = ref([])
-
 const form = ref({
   id: null,
   code: '',
@@ -234,13 +235,20 @@ const form = ref({
   remark: '',
   status: 0,
   items: [
-    { product_id: null, actual_qty: 0, remark: '' },
-    { product_id: null, actual_qty: 0, remark: '' },
-    { product_id: null, actual_qty: 0, remark: '' },
-    { product_id: null, actual_qty: 0, remark: '' },
-    { product_id: null, actual_qty: 0, remark: '' }
+    { product_id: null, actual_qty: 0, remark: '', unit_id: null, _availableUnits: [] },
+    { product_id: null, actual_qty: 0, remark: '', unit_id: null, _availableUnits: [] },
+    { product_id: null, actual_qty: 0, remark: '', unit_id: null, _availableUnits: [] },
+    { product_id: null, actual_qty: 0, remark: '', unit_id: null, _availableUnits: [] },
+    { product_id: null, actual_qty: 0, remark: '', unit_id: null, _availableUnits: [] }
   ]
 })
+const { products, loadProducts } = useWarehouseProducts(() => form.value.warehouse_id)
+const inventoryMap = ref({})
+const list = ref([])
+const total = ref(0)
+
+const query = ref({ page: 1, page_size: 20, status: '', warehouse_id: '' })
+const openDetails = ref([])
 
 const statusTagType = (status) => ({ 0: 'info', 1: 'warning', 2: 'success', 3: '', 4: 'danger' })[status] || 'info'
 
@@ -249,10 +257,29 @@ const getProductBarcode = (productId) => {
   return p?.barcode || '-'
 }
 
-const getUnit = (productId) => {
-  const p = products.value.find(x => x.id === productId)
-  return p?.unit || '-'
+const buildAvailableUnits = (p) => {
+  if (!p) return []
+  const baseId = p.base_unit_id || p.id
+  const units = [{ unit_id: baseId, unit_level: 'small', unit_name: p.small_unit_name || p.unit || '基本单位', conv_rate: 1 }]
+  if (p.medium_unit_name) units.push({ unit_id: baseId, unit_level: 'medium', unit_name: p.medium_unit_name, conv_rate: p.medium_conv_rate || 1 })
+  if (p.large_unit_name) units.push({ unit_id: baseId, unit_level: 'large', unit_name: p.large_unit_name, conv_rate: p.large_conv_rate || 1 })
+  return units
 }
+
+const onProductChange = (index) => {
+  const row = form.value.items[index]
+  if (!row.product_id) return
+  const p = products.value.find(x => x.id === row.product_id)
+  row._availableUnits = buildAvailableUnits(p)
+  if (row._availableUnits.length > 0) {
+    const defaultUnit = row._availableUnits.find(u => u.unit_level === p.default_unit_level) || row._availableUnits[0]
+    row.unit_id = defaultUnit.unit_id
+    row._unitLevel = defaultUnit.unit_level
+    row._unitConvRate = defaultUnit.conv_rate
+  }
+}
+
+const onUnitChange = () => {}
 
 const getSystemQty = (productId) => {
   const inv = inventoryMap.value[productId]
@@ -287,7 +314,7 @@ const getSummary = ({ columns, data }) => {
 }
 
 const addItem = () => {
-  form.value.items.push({ product_id: null, actual_qty: 0, remark: '' })
+  form.value.items.push({ product_id: null, actual_qty: 0, remark: '', unit_id: null, _availableUnits: [] })
 }
 
 const copyRow = (index) => {
@@ -303,11 +330,11 @@ const resetForm = () => {
     remark: '',
     status: 0,
     items: [
-      { product_id: null, actual_qty: 0, remark: '' },
-      { product_id: null, actual_qty: 0, remark: '' },
-      { product_id: null, actual_qty: 0, remark: '' },
-      { product_id: null, actual_qty: 0, remark: '' },
-      { product_id: null, actual_qty: 0, remark: '' }
+      { product_id: null, actual_qty: 0, remark: '', unit_id: null, _availableUnits: [] },
+      { product_id: null, actual_qty: 0, remark: '', unit_id: null, _availableUnits: [] },
+      { product_id: null, actual_qty: 0, remark: '', unit_id: null, _availableUnits: [] },
+      { product_id: null, actual_qty: 0, remark: '', unit_id: null, _availableUnits: [] },
+      { product_id: null, actual_qty: 0, remark: '', unit_id: null, _availableUnits: [] }
     ]
   }
   mode.value = 'create'
@@ -331,12 +358,18 @@ const handleSave = async () => {
     const data = {
       warehouse_id: form.value.warehouse_id,
       remark: form.value.remark,
-      items: form.value.items.filter(i => i.product_id).map(i => ({
-        product_id: i.product_id,
-        actual_qty: i.actual_qty || 0
-      }))
+      items: form.value.items.filter(i => i.product_id).map(i => {
+        return {
+          product_id: i.product_id,
+          actual_qty: i.actual_qty || 0,
+          unit_id: i.unit_id || null,
+          unit_level: i._unitLevel || 'small',
+          unit_conv_rate: i._unitConvRate || 1,
+          unit_quantity: i.actual_qty || 0
+        }
+      })
     }
-    const res = await createStocktaking(data)
+    const res = form.value.id ? await updateStocktaking(form.value.id, data) : await createStocktaking(data)
     ElMessage.success('保存成功')
     if (res.data?.id) {
       form.value.id = res.data.id
@@ -398,9 +431,9 @@ const handleCopy = () => {
 }
 
 onMounted(async () => {
-  const [w, p] = await Promise.all([getWarehouses({ page_size: 100 }), getProducts({ page_size: 5000 })])
+  const [w] = await Promise.all([getWarehouses({ page_size: 100 })])
   warehouses.value = w.data?.list || w.data || []
-  products.value = p.data?.list || p.data || []
+  await loadProducts()
 
   const id = route.query.id
   if (id) {
@@ -410,17 +443,25 @@ onMounted(async () => {
       if (data && data.id) {
         form.value = {
           ...data,
-          items: (data.items || []).map(i => ({
-            product_id: i.product_id,
-            actual_qty: i.actual_qty || 0,
-            remark: i.remark || ''
-          }))
+          items: (data.items || []).map(i => {
+            const avail = buildAvailableUnits(products.value.find(x => x.id === i.product_id))
+            const matched = avail.find(u => Math.abs(u.conv_rate - (i.unit_conv_rate || 1)) < 0.01) || avail[0] || {}
+            return {
+              product_id: i.product_id,
+              actual_qty: i.unit_quantity || i.actual_qty || 0,
+              remark: i.remark || '',
+              unit_id: i.unit_id || null,
+              _availableUnits: avail,
+              _unitLevel: matched.unit_level || 'small',
+              _unitConvRate: i.unit_conv_rate || 1
+            }
+          })
         }
         while (form.value.items.length < 5) {
-          form.value.items.push({ product_id: null, actual_qty: 0, remark: '' })
+          form.value.items.push({ product_id: null, actual_qty: 0, remark: '', unit_id: null, _availableUnits: [] })
         }
       }
-    } catch {}
+    } catch (e) { console.error('操作失败:', e) }
   } else {
     loadData()
   }

@@ -1,5 +1,6 @@
+from datetime import datetime
 """客户对账模型 — Phase D"""
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, func
+from sqlalchemy import text, Column, Integer, String, Float, DateTime, ForeignKey, Text, func
 from database import Base
 
 
@@ -19,4 +20,4 @@ class CustomerReconciliation(Base):
     confirmed_at = Column(DateTime)
     remark = Column(Text)
     created_by = Column(Integer, ForeignKey("employees.id"))
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)

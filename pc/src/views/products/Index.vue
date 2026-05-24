@@ -9,7 +9,13 @@
       </template>
       <el-form inline style="margin-bottom:16px">
         <el-form-item>
-          <el-input v-model="query.keyword" placeholder="搜索商品名称/编码" clearable @keyup.enter="loadData" />
+          <el-input v-model="query.keyword" placeholder="搜索名称/编码/品牌/首字母" clearable @keyup.enter="loadData" />
+        </el-form-item>
+        <el-form-item>
+          <el-select v-model="query.status" placeholder="状态" clearable style="width:100px" @change="loadData">
+            <el-option label="启用" :value="1" />
+            <el-option label="禁用" :value="0" />
+          </el-select>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="loadData">查询</el-button>
@@ -18,15 +24,24 @@
       <el-table :data="list" border stripe>
         <el-table-column prop="code" label="编码" width="120" />
         <el-table-column prop="name" label="名称" />
+        <el-table-column prop="brand_name" label="品牌" width="100" />
         <el-table-column prop="spec" label="规格" width="120" />
-        <el-table-column prop="unit" label="基本单位" width="100" />
-        <el-table-column prop="purchase_price" label="进价" width="100" />
-        <el-table-column prop="retail_price" label="零售价" width="100" />
+        <el-table-column prop="small_unit_name" label="单位" width="80" />
+        <el-table-column label="进价" width="100" align="right">
+          <template #default="{ row }">{{ row.purchase_price?.toFixed(2) }}</template>
+        </el-table-column>
+        <el-table-column label="售价" width="100" align="right">
+          <template #default="{ row }">{{ row.retail_price?.toFixed(2) }}</template>
+        </el-table-column>
         <el-table-column prop="stock_min" label="库存下限" width="100" />
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="状态" width="70" align="center">
+          <template #default="{ row }">
+            <el-switch v-model="row.status" :active-value="1" :inactive-value="0" @change="(val) => toggleStatus(row, val)" />
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="showDialog(row)">编辑</el-button>
-            <el-button size="small" @click="showUnitConfig(row)">单位换算</el-button>
             <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -40,10 +55,11 @@
         @current-change="loadData"
       />
     </el-card>
+
     <el-dialog v-model="dialogVisible" :title="form.id ? '编辑商品' : '新增商品'" width="600px">
-      <el-form :model="form" label-width="80px">
+      <el-form :model="form" label-width="100px">
         <el-form-item label="编码" required>
-          <el-input v-model="form.code" />
+          <el-input v-model="form.code" @input="_codeEdited = true" />
         </el-form-item>
         <el-form-item label="名称" required>
           <el-input v-model="form.name" />
@@ -51,43 +67,61 @@
         <el-form-item label="规格">
           <el-input v-model="form.spec" />
         </el-form-item>
-        <el-form-item label="基本单位" required>
-          <el-select v-model="form.unit" filterable allow-create placeholder="选择或输入单位" style="width:100%">
-            <el-option v-for="u in allUnits" :key="u.id" :label="`${u.name} (${u.symbol || ''})`" :value="u.name" />
+        <el-form-item label="品牌" required>
+          <el-select v-model="form.brand_id" filterable placeholder="选择品牌" style="width:100%">
+            <el-option v-for="b in brands" :key="b.id" :label="b.name" :value="b.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="进价">
-          <el-input-number v-model="form.purchase_price" :min="0" :precision="2" />
+
+        <el-divider content-position="left">单位与价格</el-divider>
+
+        <el-form-item label="小单位" required>
+          <div style="display:flex;gap:8px;width:100%">
+            <el-select v-model="form.small_unit_name" filterable allow-create placeholder="选择单位" style="width:100px">
+              <el-option v-for="u in allUnits" :key="u.name" :label="u.name" :value="u.name" />
+            </el-select>
+            <span style="line-height:32px;color:#909399;font-size:12px;width:60px">进价</span>
+            <el-input-number v-model="smallPurchasePrice" :min="0" :precision="2" size="small" controls-position="right" style="width:100px" @change="onSmallPurchaseChange" />
+            <span style="line-height:32px;color:#909399;font-size:12px;width:60px">售价</span>
+            <el-input-number v-model="smallRetailPrice" :min="0" :precision="2" size="small" controls-position="right" style="width:100px" @change="onSmallRetailChange" />
+          </div>
         </el-form-item>
-        <el-form-item label="零售价">
-          <el-input-number v-model="form.retail_price" :min="0" :precision="2" />
+
+        <el-form-item label="中单位">
+          <div style="display:flex;gap:8px;width:100%">
+            <el-select v-model="form.medium_unit_name" filterable allow-create clearable placeholder="选择单位" style="width:100px">
+              <el-option v-for="u in allUnits" :key="u.name" :label="u.name" :value="u.name" />
+            </el-select>
+            <span style="line-height:32px;font-size:12px;white-space:nowrap">1 =</span>
+            <el-input-number v-model="form.medium_conv_rate" :min="0" :precision="0" size="small" controls-position="right" style="width:80px" />
+            <span style="line-height:32px;color:#909399;font-size:12px;white-space:nowrap">{{ form.small_unit_name || '小单位' }}</span>
+            <el-input-number v-model="mediumPurchasePrice" :min="0" :precision="2" size="small" controls-position="right" style="width:100px" @change="onMediumPurchaseChange" :disabled="!form.medium_conv_rate" />
+            <el-input-number v-model="mediumRetailPrice" :min="0" :precision="2" size="small" controls-position="right" style="width:100px" @change="onMediumRetailChange" :disabled="!form.medium_conv_rate" />
+          </div>
         </el-form-item>
-        <el-form-item label="会员价">
-          <el-input-number v-model="form.member_price" :min="0" :precision="2" />
+
+        <el-form-item label="大单位">
+          <div style="display:flex;gap:8px;width:100%">
+            <el-select v-model="form.large_unit_name" filterable allow-create clearable placeholder="选择单位" style="width:100px">
+              <el-option v-for="u in allUnits" :key="u.name" :label="u.name" :value="u.name" />
+            </el-select>
+            <span style="line-height:32px;font-size:12px;white-space:nowrap">1 =</span>
+            <el-input-number v-model="form.large_conv_rate" :min="0" :precision="0" size="small" controls-position="right" style="width:80px" />
+            <span style="line-height:32px;color:#909399;font-size:12px;white-space:nowrap">{{ form.small_unit_name || '小单位' }}</span>
+            <el-input-number v-model="largePurchasePrice" :min="0" :precision="2" size="small" controls-position="right" style="width:100px" @change="onLargePurchaseChange" :disabled="!form.large_conv_rate" />
+            <el-input-number v-model="largeRetailPrice" :min="0" :precision="2" size="small" controls-position="right" style="width:100px" @change="onLargeRetailChange" :disabled="!form.large_conv_rate" />
+          </div>
         </el-form-item>
-        <el-divider content-position="left">等级价格</el-divider>
-        <el-row :gutter="12">
-          <el-col :span="6">
-            <el-form-item label="VIP价">
-              <el-input-number v-model="levelPrices.VIP" :min="0" :precision="2" style="width:100%" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="A级价">
-              <el-input-number v-model="levelPrices.A" :min="0" :precision="2" style="width:100%" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="B级价">
-              <el-input-number v-model="levelPrices.B" :min="0" :precision="2" style="width:100%" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="C级价">
-              <el-input-number v-model="levelPrices.C" :min="0" :precision="2" style="width:100%" />
-            </el-form-item>
-          </el-col>
-        </el-row>
+
+        <el-form-item label="默认单位">
+          <el-radio-group v-model="form.default_unit_level">
+            <el-radio value="small">{{ form.small_unit_name || '小单位' }}</el-radio>
+            <el-radio value="medium" :disabled="!form.medium_unit_name">{{ form.medium_unit_name || '中单位' }}</el-radio>
+            <el-radio value="large" :disabled="!form.large_unit_name">{{ form.large_unit_name || '大单位' }}</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-divider content-position="left">其他</el-divider>
         <el-form-item label="条码">
           <el-input v-model="form.barcode" />
         </el-form-item>
@@ -103,82 +137,103 @@
         <el-button type="primary" @click="handleSave">保存</el-button>
       </template>
     </el-dialog>
-
-    <!-- 单位换算配置弹窗 -->
-    <el-dialog v-model="unitConfigVisible" title="单位换算配置" width="700px">
-      <div style="margin-bottom:16px">
-        <strong>商品：</strong>{{ currentProduct?.name }}
-        <strong>基本单位：</strong>{{ currentProduct?.unit }}
-      </div>
-      <div style="margin-bottom:16px">
-        <el-button type="primary" size="small" @click="showAddConversion">添加换算关系</el-button>
-      </div>
-      <el-table :data="productConversions" border stripe>
-        <el-table-column prop="from_unit_name" label="源单位" />
-        <el-table-column prop="to_unit_name" label="目标单位" />
-        <el-table-column prop="ratio" label="换算比例" />
-        <el-table-column prop="level" label="层级" width="80" />
-        <el-table-column label="操作" width="100">
-          <template #default="{ row }">
-            <el-button size="small" type="danger" @click="handleDeleteConversion(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <!-- 添加换算表单 -->
-      <el-card v-if="showAddConvForm" style="margin-top:16px">
-        <el-form :model="newConversion" label-width="80px" inline>
-          <el-form-item label="源单位" required>
-            <el-select v-model="newConversion.from_unit_id" placeholder="选择单位" style="width:120px">
-              <el-option v-for="u in allUnits" :key="u.id" :label="u.name" :value="u.id" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="=">
-            <span style="font-size:18px">=</span>
-          </el-form-item>
-          <el-form-item label="比例" required>
-            <el-input-number v-model="newConversion.ratio" :min="0.001" :precision="3" style="width:120px" />
-          </el-form-item>
-          <el-form-item label="目标单位" required>
-            <el-select v-model="newConversion.to_unit_id" placeholder="选择单位" style="width:120px">
-              <el-option v-for="u in allUnits" :key="u.id" :label="u.name" :value="u.id" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="层级">
-            <el-input-number v-model="newConversion.level" :min="1" :max="10" style="width:80px" />
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" size="small" @click="handleAddConversion">确定</el-button>
-            <el-button size="small" @click="showAddConvForm = false">取消</el-button>
-          </el-form-item>
-        </el-form>
-      </el-card>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import {
-  getProducts, createProduct, updateProduct, deleteProduct,
-  getAllUnits, getProductUnitConfig, createUnitConversion, deleteUnitConversion
-} from '../../api'
+import { pinyin } from 'pinyin-pro'
+import { getProducts, createProduct, updateProduct, deleteProduct, getAllUnits, getBrands } from '../../api'
 
 const list = ref([])
 const total = ref(0)
-const query = ref({ page: 1, page_size: 20, keyword: '' })
+const query = ref({ page: 1, page_size: 20, keyword: '', status: null })
 const dialogVisible = ref(false)
 const form = ref({})
-const levelPrices = ref({ VIP: null, A: null, B: null, C: null })
-
-// 单位相关
 const allUnits = ref([])
-const unitConfigVisible = ref(false)
-const currentProduct = ref(null)
-const productConversions = ref([])
-const showAddConvForm = ref(false)
-const newConversion = ref({ from_unit_id: null, to_unit_id: null, ratio: 1, level: 1 })
+const brands = ref([])
+
+// 表单中三级价格（用于 UI 绑定，不存 DB）
+const smallPurchasePrice = ref(0)
+const smallRetailPrice = ref(0)
+const mediumPurchasePrice = ref(0)
+const mediumRetailPrice = ref(0)
+const largePurchasePrice = ref(0)
+const largeRetailPrice = ref(0)
+
+let _recalc = false
+const _codeEdited = ref(false)
+
+// 名称变化时自动生成首字母编码
+watch(() => form.value.name, (name) => {
+  if (name && !form.value.id && !_codeEdited.value) {
+    form.value.code = pinyin(name, { pattern: 'first', toneType: 'none' }).replace(/\s/g, '')
+  }
+})
+
+const recalcPricesFromSmall = () => {
+  if (_recalc) return
+  _recalc = true
+  const pp = smallPurchasePrice.value || 0
+  const rp = smallRetailPrice.value || 0
+  if (form.value.medium_conv_rate) {
+    mediumPurchasePrice.value = parseFloat((pp * form.value.medium_conv_rate).toFixed(2))
+    mediumRetailPrice.value = parseFloat((rp * form.value.medium_conv_rate).toFixed(2))
+  }
+  if (form.value.large_conv_rate) {
+    largePurchasePrice.value = parseFloat((pp * form.value.large_conv_rate).toFixed(2))
+    largeRetailPrice.value = parseFloat((rp * form.value.large_conv_rate).toFixed(2))
+  }
+  _recalc = false
+}
+
+const onSmallPurchaseChange = () => { form.value.purchase_price = smallPurchasePrice.value; recalcPricesFromSmall() }
+const onSmallRetailChange = () => { form.value.retail_price = smallRetailPrice.value; recalcPricesFromSmall() }
+
+const onMediumPurchaseChange = () => {
+  if (_recalc || !form.value.medium_conv_rate) return
+  _recalc = true
+  form.value.purchase_price = parseFloat(((mediumPurchasePrice.value || 0) / form.value.medium_conv_rate).toFixed(4))
+  smallPurchasePrice.value = form.value.purchase_price
+  recalcPricesFromSmall()
+  _recalc = false
+}
+
+const onMediumRetailChange = () => {
+  if (_recalc || !form.value.medium_conv_rate) return
+  _recalc = true
+  form.value.retail_price = parseFloat(((mediumRetailPrice.value || 0) / form.value.medium_conv_rate).toFixed(4))
+  smallRetailPrice.value = form.value.retail_price
+  recalcPricesFromSmall()
+  _recalc = false
+}
+
+const onLargePurchaseChange = () => {
+  if (_recalc || !form.value.large_conv_rate) return
+  _recalc = true
+  form.value.purchase_price = parseFloat(((largePurchasePrice.value || 0) / form.value.large_conv_rate).toFixed(4))
+  smallPurchasePrice.value = form.value.purchase_price
+  recalcPricesFromSmall()
+  _recalc = false
+}
+
+const onLargeRetailChange = () => {
+  if (_recalc || !form.value.large_conv_rate) return
+  _recalc = true
+  form.value.retail_price = parseFloat(((largeRetailPrice.value || 0) / form.value.large_conv_rate).toFixed(4))
+  smallRetailPrice.value = form.value.retail_price
+  recalcPricesFromSmall()
+  _recalc = false
+}
+
+// 中/大单位换算率变化时重新计算对应价格
+watch(() => form.value.medium_conv_rate, (v) => {
+  if (v) { mediumPurchasePrice.value = parseFloat(((form.value.purchase_price || 0) * v).toFixed(2)); mediumRetailPrice.value = parseFloat(((form.value.retail_price || 0) * v).toFixed(2)) }
+})
+watch(() => form.value.large_conv_rate, (v) => {
+  if (v) { largePurchasePrice.value = parseFloat(((form.value.purchase_price || 0) * v).toFixed(2)); largeRetailPrice.value = parseFloat(((form.value.retail_price || 0) * v).toFixed(2)) }
+})
 
 const loadData = async () => {
   const res = await getProducts(query.value)
@@ -191,22 +246,42 @@ const loadUnits = async () => {
   allUnits.value = res.data || []
 }
 
+const loadBrands = async () => {
+  const res = await getBrands({ page_size: 1000 })
+  brands.value = res.data?.list || res.data || []
+}
+
 const showDialog = (row) => {
-  form.value = row ? { ...row } : { code: '', name: '', spec: '', unit: '', purchase_price: 0, retail_price: 0, member_price: 0, barcode: '', stock_min: 0, stock_max: 0 }
-  // Parse level prices
-  try {
-    levelPrices.value = row?.level_prices ? JSON.parse(row.level_prices) : { VIP: null, A: null, B: null, C: null }
-  } catch { levelPrices.value = { VIP: null, A: null, B: null, C: null } }
+  _codeEdited.value = false
+  if (row) {
+    form.value = { ...row }
+  } else {
+    form.value = { code: '', name: '', spec: '', brand_id: null, small_unit_name: '', medium_unit_name: '', medium_conv_rate: null, large_unit_name: '', large_conv_rate: null, default_unit_level: 'small', purchase_price: 0, retail_price: 0, barcode: '', stock_min: 0, stock_max: 0 }
+  }
+  smallPurchasePrice.value = form.value.purchase_price || 0
+  smallRetailPrice.value = form.value.retail_price || 0
+  if (form.value.medium_conv_rate) {
+    mediumPurchasePrice.value = parseFloat(((form.value.purchase_price || 0) * form.value.medium_conv_rate).toFixed(2))
+    mediumRetailPrice.value = parseFloat(((form.value.retail_price || 0) * form.value.medium_conv_rate).toFixed(2))
+  } else {
+    mediumPurchasePrice.value = 0; mediumRetailPrice.value = 0
+  }
+  if (form.value.large_conv_rate) {
+    largePurchasePrice.value = parseFloat(((form.value.purchase_price || 0) * form.value.large_conv_rate).toFixed(2))
+    largeRetailPrice.value = parseFloat(((form.value.retail_price || 0) * form.value.large_conv_rate).toFixed(2))
+  } else {
+    largePurchasePrice.value = 0; largeRetailPrice.value = 0
+  }
   dialogVisible.value = true
 }
 
 const handleSave = async () => {
-  // Serialize level prices (only non-null values)
-  const lp = {}
-  for (const k of ['VIP', 'A', 'B', 'C']) {
-    if (levelPrices.value[k] != null && levelPrices.value[k] > 0) lp[k] = levelPrices.value[k]
-  }
-  form.value.level_prices = Object.keys(lp).length > 0 ? JSON.stringify(lp) : null
+  if (!form.value.brand_id) return ElMessage.warning('请选择品牌')
+  form.value.purchase_price = smallPurchasePrice.value
+  form.value.retail_price = smallRetailPrice.value
+  // 清理空单位
+  if (!form.value.medium_unit_name) { form.value.medium_conv_rate = null }
+  if (!form.value.large_unit_name) { form.value.large_conv_rate = null }
 
   if (form.value.id) {
     await updateProduct(form.value.id, form.value)
@@ -218,6 +293,12 @@ const handleSave = async () => {
   loadData()
 }
 
+const toggleStatus = async (row, val) => {
+  await updateProduct(row.id, { status: val })
+  row.status = val
+  ElMessage.success(val ? '已启用' : '已停用')
+}
+
 const handleDelete = async (row) => {
   await ElMessageBox.confirm('确定删除该商品？', '提示', { type: 'warning' })
   await deleteProduct(row.id)
@@ -225,44 +306,9 @@ const handleDelete = async (row) => {
   loadData()
 }
 
-// 单位换算配置
-const showUnitConfig = async (row) => {
-  currentProduct.value = row
-  unitConfigVisible.value = true
-  showAddConvForm.value = false
-  await loadProductConversions(row.id)
-}
-
-const loadProductConversions = async (productId) => {
-  const res = await getProductUnitConfig(productId)
-  productConversions.value = res.data?.conversions || []
-}
-
-const showAddConversion = () => {
-  newConversion.value = { product_id: currentProduct.value.id, from_unit_id: null, to_unit_id: null, ratio: 1, level: 1 }
-  showAddConvForm.value = true
-}
-
-const handleAddConversion = async () => {
-  if (!newConversion.value.from_unit_id || !newConversion.value.to_unit_id) {
-    ElMessage.warning('请选择源单位和目标单位')
-    return
-  }
-  await createUnitConversion(newConversion.value)
-  ElMessage.success('添加成功')
-  showAddConvForm.value = false
-  await loadProductConversions(currentProduct.value.id)
-}
-
-const handleDeleteConversion = async (row) => {
-  await ElMessageBox.confirm('确定删除该换算关系？', '提示', { type: 'warning' })
-  await deleteUnitConversion(row.id)
-  ElMessage.success('删除成功')
-  await loadProductConversions(currentProduct.value.id)
-}
-
 onMounted(() => {
   loadData()
   loadUnits()
+  loadBrands()
 })
 </script>

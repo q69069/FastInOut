@@ -1,3 +1,4 @@
+from datetime import datetime
 """采购退货出库单（PurchaseReturnDelivery）— Phase A+
 
 独立于现有 PurchaseReturn（订单层），这是单据层：
@@ -6,7 +7,7 @@
 - 财务确认：冲减供应商应付
 """
 
-from sqlalchemy import Column, Integer, String, Float, Text, DateTime, ForeignKey
+from sqlalchemy import text, Column, Integer, String, Float, Text, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from database import Base
 
@@ -30,8 +31,11 @@ class PurchaseReturnDelivery(Base):
     fin_confirmed_by = Column(Integer, ForeignKey("employees.id"))
     fin_confirmed_at = Column(DateTime)
 
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
     remark = Column(Text)
+    reverse_reason = Column(String(200))
+    reversed_by = Column(Integer, ForeignKey("employees.id"))
+    reversed_at = Column(DateTime)
 
 
 class PurchaseReturnDeliveryItem(Base):
@@ -43,3 +47,6 @@ class PurchaseReturnDeliveryItem(Base):
     quantity = Column(Float, default=0)
     unit_price = Column(Float, default=0)
     amount = Column(Float, default=0)
+    unit_id = Column(Integer, ForeignKey("units.id"), nullable=True)
+    unit_quantity = Column(Float, default=1)
+    unit_conv_rate = Column(Float, default=1)

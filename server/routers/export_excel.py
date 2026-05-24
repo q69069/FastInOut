@@ -5,6 +5,7 @@ from fastapi import APIRouter, Query, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from database import get_db
+from deps import get_current_user
 from models.sale import SaleOrder
 from models.purchase import PurchaseOrder
 from models.inventory import InventoryRecord
@@ -60,7 +61,8 @@ def make_wb():
 def export_profit(
     start_date: str = Query(None),
     end_date: str = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _=Depends(get_current_user)
 ):
     from models.report import ProfitReport
     q = db.query(ProfitReport)

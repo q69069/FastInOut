@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, func
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, Float, DateTime, func
 from database import Base
 
 
@@ -13,5 +14,5 @@ class CustomerLevel(Base):
     sort_order = Column(Integer, default=0)
     remark = Column(String(500))
     status = Column(Integer, default=1)  # 1=启用 0=禁用
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)

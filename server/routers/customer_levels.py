@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
 from models.customer_level import CustomerLevel
+from models.employee import Employee
 from schemas.customer_level import CustomerLevelCreate, CustomerLevelUpdate, CustomerLevelOut
 from schemas.common import ResponseModel, PaginatedResponse
+from deps import get_current_user
 
 router = APIRouter(prefix="/api/customer-levels", tags=["客户等级"])
 
@@ -14,6 +16,7 @@ def list_customer_levels(
     page_size: int = Query(20, ge=1, le=100),
     keyword: str = Query(None),
     status: int = Query(None),
+    user: Employee = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     q = db.query(CustomerLevel)
@@ -27,7 +30,7 @@ def list_customer_levels(
 
 
 @router.post("", response_model=ResponseModel)
-def create_customer_level(req: CustomerLevelCreate, db: Session = Depends(get_db)):
+def create_customer_level(req: CustomerLevelCreate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     level = CustomerLevel(**req.model_dump())
     db.add(level)
     db.commit()
@@ -36,19 +39,17 @@ def create_customer_level(req: CustomerLevelCreate, db: Session = Depends(get_db
 
 
 @router.get("/{level_id}", response_model=ResponseModel)
-def get_customer_level(level_id: int, db: Session = Depends(get_db)):
+def get_customer_level(level_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     level = db.query(CustomerLevel).get(level_id)
     if not level:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="客户等级不存在")
     return ResponseModel(data=CustomerLevelOut.model_validate(level))
 
 
 @router.put("/{level_id}", response_model=ResponseModel)
-def update_customer_level(level_id: int, req: CustomerLevelUpdate, db: Session = Depends(get_db)):
+def update_customer_level(level_id: int, req: CustomerLevelUpdate, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     level = db.query(CustomerLevel).get(level_id)
     if not level:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="客户等级不存在")
     for k, v in req.model_dump(exclude_unset=True).items():
         setattr(level, k, v)
@@ -58,10 +59,9 @@ def update_customer_level(level_id: int, req: CustomerLevelUpdate, db: Session =
 
 
 @router.delete("/{level_id}", response_model=ResponseModel)
-def delete_customer_level(level_id: int, db: Session = Depends(get_db)):
+def delete_customer_level(level_id: int, user: Employee = Depends(get_current_user), db: Session = Depends(get_db)):
     level = db.query(CustomerLevel).get(level_id)
     if not level:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="客户等级不存在")
     db.delete(level)
     db.commit()

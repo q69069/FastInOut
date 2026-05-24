@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, ForeignKey, DateTime, func
 from database import Base
 
 
@@ -14,5 +15,5 @@ class CustomerContact(Base):
     email = Column(String(100))
     is_primary = Column(Integer, default=0)  # 1=主要联系人
     remark = Column(String(200))
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)

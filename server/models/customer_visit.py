@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, func
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, Text, ForeignKey, DateTime, func
 from database import Base
 
 
@@ -15,4 +16,4 @@ class CustomerVisit(Base):
     next_plan = Column(Text)  # 下次计划
     operator = Column(String(50))  # 拜访人
     created_by = Column(Integer, default=0)
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)

@@ -40,22 +40,25 @@
       </el-form>
 
       <el-table :data="list" border stripe show-summary :summary-method="getSummary">
-        <el-table-column prop="warehouse_name" label="仓库" width="120" />
-        <el-table-column prop="product_code" label="商品编码" width="120" />
-        <el-table-column prop="product_name" label="商品名称" min-width="200" />
-        <el-table-column prop="product_spec" label="规格" width="100" />
+        <el-table-column prop="warehouse_name" label="仓库" width="100" />
+        <el-table-column prop="product_code" label="编码" width="100" />
+        <el-table-column prop="product_name" label="商品名称" min-width="180" />
+        <el-table-column prop="product_spec" label="规格" width="90" />
         <el-table-column prop="product_unit" label="单位" width="70" align="center" />
         <el-table-column prop="quantity" label="库存数量" width="100" align="right">
           <template #default="{ row }">{{ (row.quantity || 0).toFixed(2) }}</template>
         </el-table-column>
-        <el-table-column prop="cost_price" label="成本价" width="100" align="right">
-          <template #default="{ row }">¥{{ (row.cost_price || 0).toFixed(2) }}</template>
+        <el-table-column v-if="canViewPurchasePrice" prop="purchase_price" label="进价" width="90" align="right">
+          <template #default="{ row }">¥{{ (row.purchase_price || 0).toFixed(2) }}</template>
         </el-table-column>
-        <el-table-column prop="retail_price" label="零售价" width="100" align="right">
+        <el-table-column prop="retail_price" label="售价" width="90" align="right">
           <template #default="{ row }">¥{{ (row.retail_price || 0).toFixed(2) }}</template>
         </el-table-column>
-        <el-table-column prop="total_value" label="库存金额" width="120" align="right">
-          <template #default="{ row }">¥{{ (row.total_value || 0).toFixed(2) }}</template>
+        <el-table-column v-if="canViewPurchasePrice" prop="purchase_total" label="进价金额" width="110" align="right">
+          <template #default="{ row }">¥{{ (row.purchase_total || 0).toFixed(2) }}</template>
+        </el-table-column>
+        <el-table-column prop="retail_total" label="售价金额" width="110" align="right">
+          <template #default="{ row }">¥{{ (row.retail_total || 0).toFixed(2) }}</template>
         </el-table-column>
         <el-table-column label="操作" width="80" fixed="right">
           <template #default="{ row }">
@@ -82,30 +85,36 @@
         <el-descriptions-item label="规格">{{ detail.product_spec || '-' }}</el-descriptions-item>
         <el-descriptions-item label="单位">{{ detail.product_unit }}</el-descriptions-item>
         <el-descriptions-item label="库存数量">{{ (detail.quantity || 0).toFixed(2) }}</el-descriptions-item>
-        <el-descriptions-item label="成本价">¥{{ (detail.cost_price || 0).toFixed(2) }}</el-descriptions-item>
-        <el-descriptions-item label="零售价">¥{{ (detail.retail_price || 0).toFixed(2) }}</el-descriptions-item>
-        <el-descriptions-item label="库存金额">¥{{ (detail.total_value || 0).toFixed(2) }}</el-descriptions-item>
+        <el-descriptions-item label="基本单位库存">{{ (detail.base_quantity || 0).toFixed(2) }}</el-descriptions-item>
+        <el-descriptions-item v-if="canViewPurchasePrice" label="进价">¥{{ (detail.purchase_price || 0).toFixed(2) }}</el-descriptions-item>
+        <el-descriptions-item label="售价">¥{{ (detail.retail_price || 0).toFixed(2) }}</el-descriptions-item>
+        <el-descriptions-item v-if="canViewPurchasePrice" label="进价金额">¥{{ (detail.purchase_total || 0).toFixed(2) }}</el-descriptions-item>
+        <el-descriptions-item label="售价金额">¥{{ (detail.retail_total || 0).toFixed(2) }}</el-descriptions-item>
       </el-descriptions>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getInventory, getWarehouses, getProducts } from '../../api'
+import { getInventory, getWarehouses, getProducts, getBrands, getCategories } from '../../api'
 import { useAuthStore } from '../../stores/auth'
 
 const authStore = useAuthStore()
+const canViewPurchasePrice = computed(() => authStore.isAdmin || authStore.hasOperation('inventory:view_purchase_price'))
 const now = new Date().toLocaleString('zh-CN')
 
 const warehouses = ref([])
 const products = ref([])
+const brands = ref([])
+const categories = ref([])
 const list = ref([])
 const total = ref(0)
 
 const queryFilter = ref({ page: 1, page_size: 20, warehouse_id: '', keyword: '', brand_id: '', category_id: '' })
 
+const mode = ref('query')
 const detailVisible = ref(false)
 const detail = ref({})
 
@@ -129,7 +138,7 @@ const getSummary = ({ columns, data }) => {
   const sums = []
   columns.forEach((col, idx) => {
     if (idx === 0) { sums[idx] = '合计'; return }
-    if (['quantity', 'total_value'].includes(col.property)) {
+    if (['quantity', 'purchase_total', 'retail_total'].includes(col.property)) {
       const val = data.reduce((s, r) => s + (Number(r[col.property]) || 0), 0)
       sums[idx] = col.property === 'quantity' ? val.toFixed(2) : `¥${val.toFixed(2)}`
     }
@@ -143,12 +152,16 @@ const showDetail = (row) => {
 }
 
 onMounted(async () => {
-  const [w, p] = await Promise.all([
+  const [w, p, b, c] = await Promise.all([
     getWarehouses({ page_size: 100 }),
-    getProducts({ page_size: 1000 })
+    getProducts({ page_size: 1000, status: 1 }),
+    getBrands({ page_size: 200 }),
+    getCategories({ page_size: 200 })
   ])
   warehouses.value = w.data?.list || w.data || []
   products.value = p.data?.list || p.data || []
+  brands.value = b.data?.list || b.data || []
+  categories.value = c.data?.list || c.data || []
   loadData()
 })
 </script>

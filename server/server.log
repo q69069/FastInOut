@@ -1,0 +1,11 @@
+D:\A\claude\FastInOut\server\config.py:19: UserWarning: SECRET_KEY 环境变量未设置，已生成临时密钥。请设置环境变量 SECRET_KEY！
+  warnings.warn("SECRET_KEY 环境变量未设置，已生成临时密钥。请设置环境变量 SECRET_KEY！")
+INFO:     Will watch for changes in these directories: ['D:\\A\\claude\\FastInOut\\server']
+INFO:     Uvicorn running on http://0.0.0.0:8002 (Press CTRL+C to quit)
+INFO:     Started reloader process [1269104] using StatReload
+D:\A\claude\FastInOut\server\config.py:19: UserWarning: SECRET_KEY 环境变量未设置，已生成临时密钥。请设置环境变量 SECRET_KEY！
+  warnings.warn("SECRET_KEY 环境变量未设置，已生成临时密钥。请设置环境变量 SECRET_KEY！")
+INFO:     Started server process [1271188]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'routers\roles.py'. Reloading...

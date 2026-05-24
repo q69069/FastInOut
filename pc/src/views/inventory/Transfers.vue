@@ -1,7 +1,8 @@
 <template>
   <div class="order-page">
     <!-- 顶部标题栏 -->
-    <el-card class="header-card">
+    <el-card class="header-card" style="position:relative">
+      <DocumentStamp :status="form.status" :confirmed-statuses="[2]" />
       <div class="page-header">
         <div class="page-title">
           <span class="title-text">库存调拨</span>
@@ -15,8 +16,9 @@
           </div>
         </div>
         <div class="header-actions">
-          <el-button type="primary" @click="handleSave" :loading="saving">保存</el-button>
-          <el-button @click="handleAudit" v-if="form.id">审核</el-button>
+          <el-button type="primary" @click="handleSave" :loading="saving" v-if="!form.id || form.status === 0 || form.status === 1">保存</el-button>
+          <el-button @click="handleAudit()" v-if="form.id && form.status === 1">审核</el-button>
+          <el-button @click="showReverseDialog = true" v-if="form.id && form.status === 2" type="danger">冲红</el-button>
           <el-button @click="handlePrint" v-if="form.id">打印</el-button>
           <el-button @click="handleCopy" v-if="form.id">复制</el-button>
           <el-button @click="resetForm">新增</el-button>
@@ -24,6 +26,7 @@
         </div>
       </div>
     </el-card>
+    <ReverseDialog v-model="showReverseDialog" @confirm="handleReverse" />
 
     <!-- 单据主内容 -->
     <el-card class="form-card">
@@ -79,22 +82,24 @@
         <el-table-column label="条形码" width="120">
           <template #default="{ row }">{{ getProductBarcode(row.product_id) }}</template>
         </el-table-column>
-        <el-table-column label="单位" width="80" align="center">
-          <template #default="{ row }">{{ getUnit(row.product_id) }}</template>
+        <el-table-column label="单位" width="110" align="center">
+          <template #default="{ row, $index }">
+            <el-select v-if="row._availableUnits?.length" v-model="row._unitLevel" size="small" style="width:100px" @change="v => onUnitChange($index, v)">
+              <el-option v-for="u in row._availableUnits" :key="u.unit_level" :label="u.unit_name" :value="u.unit_level" />
+            </el-select>
+            <span v-else class="text-muted">-</span>
+          </template>
         </el-table-column>
-        <el-table-column label="单位换算" width="100" align="center">
-          <template #default="{ row }">{{ getUnitConvert(row.product_id) }}</template>
-        </el-table-column>
-        <el-table-column label="调拨数量" width="100">
+        <el-table-column label="调拨数量" width="130">
           <template #default="{ row }">
-            <el-input-number v-model="row.quantity" :min="1" size="small" style="width:90px" @change="calcRowAmount(row)" />
+            <el-input-number v-model="row.quantity" :min="1" size="small" style="width:120px" @change="calcRowAmount(row)" />
           </template>
         </el-table-column>
         <el-table-column label="金额" width="100" align="right">
           <template #default="{ row }">¥{{ (row.amount || 0).toFixed(2) }}</template>
         </el-table-column>
         <el-table-column label="可用库存" width="90" align="right">
-          <template #default="{ row }">{{ getAvailableStock(row.product_id) }}</template>
+          <template #default="{ row }">{{ getAvailableStock(row) }}</template>
         </el-table-column>
         <el-table-column label="备注" width="100">
           <template #default="{ row }">
@@ -171,7 +176,7 @@
             <el-tag :type="statusTagType(row.status)">{{ statusMap[row.status] }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="时间" width="150" />
+        <el-table-column prop="created_at" label="时间" width="150" :formatter="fmtDate" />
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="showDetail(row)">详情</el-button>
@@ -193,7 +198,7 @@
         <el-descriptions-item label="调出仓库">{{ d.data.from_warehouse_name }}</el-descriptions-item>
         <el-descriptions-item label="调入仓库">{{ d.data.to_warehouse_name }}</el-descriptions-item>
         <el-descriptions-item label="调拨日期">{{ d.data.transfer_date }}</el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ d.data.created_at }}</el-descriptions-item>
+        <el-descriptions-item label="创建时间">{{ fmtDateVal(d.data.created_at) }}</el-descriptions-item>
         <el-descriptions-item label="备注" :span="2">{{ d.data.remark || '-' }}</el-descriptions-item>
       </el-descriptions>
       <el-table v-if="d.data.items?.length" :data="d.data.items" border size="small" style="margin-top:16px">
@@ -208,11 +213,15 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useWarehouseProducts } from '../../utils/useWarehouseProducts'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getTransfers, createTransfer, confirmTransfer, cancelTransfer, getTransfer, getWarehouses, getProducts } from '../../api'
+import { getTransfers, createTransfer, updateTransfer, confirmTransfer, cancelTransfer, reverseTransfer, getTransfer, getWarehouses } from '../../api'
 import { useAuthStore } from '../../stores/auth'
+import DocumentStamp from '../../components/DocumentStamp.vue'
+import ReverseDialog from '../../components/ReverseDialog.vue'
 
+const fmtDateVal = (v) => v ? String(v).replace("T", " ").slice(0, 16) : ""
 const route = useRoute()
 const authStore = useAuthStore()
 const now = new Date().toLocaleString('zh-CN')
@@ -220,14 +229,8 @@ const statusMap = { 0: '草稿', 1: '调拨中', 2: '已确认', 3: '已取消' 
 
 const mode = ref('create')
 const saving = ref(false)
+const showReverseDialog = ref(false)
 const warehouses = ref([])
-const products = ref([])
-const list = ref([])
-const total = ref(0)
-const openDetails = ref([])
-
-const query = ref({ page: 1, page_size: 20, keyword: '', status: null })
-
 const form = ref({
   id: null,
   code: '',
@@ -237,13 +240,19 @@ const form = ref({
   remark: '',
   status: 0,
   items: [
-    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '' },
-    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '' },
-    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '' },
-    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '' },
-    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '' }
+    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '', unit_id: null, _availableUnits: [], _basePrice: 0 },
+    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '', unit_id: null, _availableUnits: [], _basePrice: 0 },
+    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '', unit_id: null, _availableUnits: [], _basePrice: 0 },
+    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '', unit_id: null, _availableUnits: [], _basePrice: 0 },
+    { product_id: null, quantity: 1, price: 0, amount: 0, remark: '', unit_id: null, _availableUnits: [], _basePrice: 0 }
   ]
 })
+const { products, loadProducts } = useWarehouseProducts(() => form.value.from_warehouse_id)
+const list = ref([])
+const total = ref(0)
+const openDetails = ref([])
+
+const query = ref({ page: 1, page_size: 20, keyword: '', status: null })
 
 const totalAmount = computed(() => {
   return form.value.items.reduce((s, item) => s + (item.quantity || 0) * (item.price || 0), 0)
@@ -274,27 +283,49 @@ const getProductBarcode = (productId) => {
   return p?.barcode || '-'
 }
 
-const getUnit = (productId) => {
-  const p = products.value.find(x => x.id === productId)
-  return p?.unit || '-'
+const getAvailableStock = (row) => {
+  const p = products.value.find(x => x.id === row.product_id)
+  const stock = p?.available_stock || p?.stock || 0
+  const rate = row._unitConvRate || 1
+  return rate > 1 ? (stock / rate).toFixed(2) : stock.toFixed(2)
 }
 
-const getUnitConvert = (productId) => {
-  const p = products.value.find(x => x.id === productId)
-  return p?.unit_convert || '-'
+const buildAvailableUnits = (p) => {
+  if (!p) return []
+  const baseId = p.base_unit_id || p.id
+  const units = [{ unit_id: baseId, unit_level: 'small', unit_name: p.small_unit_name || p.unit || '基本单位', conv_rate: 1 }]
+  if (p.medium_unit_name) units.push({ unit_id: baseId, unit_level: 'medium', unit_name: p.medium_unit_name, conv_rate: p.medium_conv_rate || 1 })
+  if (p.large_unit_name) units.push({ unit_id: baseId, unit_level: 'large', unit_name: p.large_unit_name, conv_rate: p.large_conv_rate || 1 })
+  return units
 }
 
-const getAvailableStock = (productId) => {
-  const p = products.value.find(x => x.id === productId)
-  return (p?.available_stock || p?.stock || 0).toFixed(2)
-}
-
-const onProductChange = (index) => {
-  const p = products.value.find(x => x.id === form.value.items[index].product_id)
+const onProductChange = async (index) => {
+  const row = form.value.items[index]
+  const p = products.value.find(x => x.id === row.product_id)
   if (p) {
-    form.value.items[index].price = p.cost_price || p.retail_price || 0
-    calcRowAmount(form.value.items[index])
+    row.price = p.cost_price || p.retail_price || 0
+    row._basePrice = row.price
+    row._availableUnits = buildAvailableUnits(p)
+    if (row._availableUnits.length > 0) {
+      const defaultUnit = row._availableUnits.find(u => u.unit_level === p.default_unit_level) || row._availableUnits[0]
+      row.unit_id = defaultUnit.unit_id
+      row._unitLevel = defaultUnit.unit_level
+      row._unitConvRate = defaultUnit.conv_rate
+      row.price = parseFloat((row._basePrice * defaultUnit.conv_rate).toFixed(2))
+    }
+    calcRowAmount(row)
   }
+}
+
+const onUnitChange = (index, unitLevel) => {
+  const row = form.value.items[index]
+  const unit = row._availableUnits?.find(u => u.unit_level === unitLevel)
+  if (unit && row._basePrice) {
+    row._unitLevel = unit.unit_level
+    row._unitConvRate = unit.conv_rate
+    row.price = parseFloat((row._basePrice * unit.conv_rate).toFixed(2))
+  }
+  calcRowAmount(row)
 }
 
 const calcRowAmount = (row) => {
@@ -302,7 +333,7 @@ const calcRowAmount = (row) => {
 }
 
 const addItem = () => {
-  form.value.items.push({ product_id: null, quantity: 1, price: 0, amount: 0, remark: '' })
+  form.value.items.push({ product_id: null, quantity: 1, price: 0, amount: 0, remark: '', unit_id: null, _availableUnits: [], _basePrice: 0 })
 }
 
 const copyRow = (index) => {
@@ -320,11 +351,11 @@ const resetForm = () => {
     remark: '',
     status: 0,
     items: [
-      { product_id: null, quantity: 1, price: 0, amount: 0, remark: '' },
-      { product_id: null, quantity: 1, price: 0, amount: 0, remark: '' },
-      { product_id: null, quantity: 1, price: 0, amount: 0, remark: '' },
-      { product_id: null, quantity: 1, price: 0, amount: 0, remark: '' },
-      { product_id: null, quantity: 1, price: 0, amount: 0, remark: '' }
+      { product_id: null, quantity: 1, price: 0, amount: 0, remark: '', unit_id: null, _availableUnits: [], _basePrice: 0 },
+      { product_id: null, quantity: 1, price: 0, amount: 0, remark: '', unit_id: null, _availableUnits: [], _basePrice: 0 },
+      { product_id: null, quantity: 1, price: 0, amount: 0, remark: '', unit_id: null, _availableUnits: [], _basePrice: 0 },
+      { product_id: null, quantity: 1, price: 0, amount: 0, remark: '', unit_id: null, _availableUnits: [], _basePrice: 0 },
+      { product_id: null, quantity: 1, price: 0, amount: 0, remark: '', unit_id: null, _availableUnits: [], _basePrice: 0 }
     ]
   }
   mode.value = 'create'
@@ -343,15 +374,21 @@ const handleSave = async () => {
       to_warehouse_id: form.value.to_warehouse_id,
       transfer_date: form.value.transfer_date,
       remark: form.value.remark,
-      items: validItems.map(i => ({
-        product_id: i.product_id,
-        quantity: i.quantity,
-        price: i.price,
-        amount: (i.quantity || 0) * (i.price || 0),
-        remark: i.remark
-      }))
+      items: validItems.map(i => {
+        return {
+          product_id: i.product_id,
+          quantity: i.quantity,
+          price: i.price,
+          amount: (i.quantity || 0) * (i.price || 0),
+          remark: i.remark,
+          unit_id: i.unit_id || null,
+          unit_level: i._unitLevel || 'small',
+          unit_conv_rate: i._unitConvRate || 1,
+          unit_quantity: i.quantity
+        }
+      })
     }
-    const res = await createTransfer(data)
+    const res = form.value.id ? await updateTransfer(form.value.id, data) : await createTransfer(data)
     ElMessage.success('保存成功')
     if (res.data?.id) {
       form.value.id = res.data.id
@@ -379,6 +416,13 @@ const handleAudit = async (row) => {
   await confirmTransfer(form.value.id)
   form.value.status = 2
   ElMessage.success('审核成功')
+}
+
+const handleReverse = async (reason) => {
+  await reverseTransfer(form.value.id, { reason })
+  form.value.status = 3
+  showReverseDialog.value = false
+  ElMessage.success('冲红成功，库存已回滚')
 }
 
 const handlePrint = () => {
@@ -415,9 +459,9 @@ const showDetail = async (row) => {
 }
 
 onMounted(async () => {
-  const [w, p] = await Promise.all([getWarehouses({ page_size: 100 }), getProducts({ page_size: 5000 })])
+  const [w] = await Promise.all([getWarehouses({ page_size: 100 })])
   warehouses.value = w.data?.list || w.data || []
-  products.value = p.data?.list || p.data || []
+  await loadProducts()
 
   const id = route.query.id
   if (id) {
@@ -427,19 +471,28 @@ onMounted(async () => {
       if (data && data.id) {
         form.value = {
           ...data,
-          items: (data.items || []).map(i => ({
-            product_id: i.product_id,
-            quantity: i.quantity || 1,
-            price: i.price || 0,
-            amount: i.amount || 0,
-            remark: i.remark || ''
-          }))
+          items: (data.items || []).map(i => {
+            const avail = buildAvailableUnits(products.value.find(x => x.id === i.product_id))
+            const matched = avail.find(u => Math.abs(u.conv_rate - (i.unit_conv_rate || 1)) < 0.01) || avail[0] || {}
+            return {
+              product_id: i.product_id,
+              quantity: i.unit_quantity || i.quantity || 1,
+              price: i.price || 0,
+              amount: i.amount || 0,
+              remark: i.remark || '',
+              unit_id: i.unit_id || null,
+              _availableUnits: avail,
+              _basePrice: i.price || 0,
+              _unitLevel: matched.unit_level || 'small',
+              _unitConvRate: i.unit_conv_rate || 1
+            }
+          })
         }
         while (form.value.items.length < 5) {
-          form.value.items.push({ product_id: null, quantity: 1, price: 0, amount: 0, remark: '' })
+          form.value.items.push({ product_id: null, quantity: 1, price: 0, amount: 0, remark: '', unit_id: null, _availableUnits: [], _basePrice: 0 })
         }
       }
-    } catch {}
+    } catch (e) { console.error('操作失败:', e) }
   } else {
     loadData()
   }

@@ -1,5 +1,6 @@
+from datetime import datetime
 """员工提成模型 — Phase C"""
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, func
+from sqlalchemy import text, Column, Integer, String, Float, DateTime, ForeignKey, Text, func
 from database import Base
 
 
@@ -14,4 +15,4 @@ class Commission(Base):
     commission_amount = Column(Float, default=0)  # 提成金额
     status = Column(String(20), default="pending")  # pending/paid
     remark = Column(Text)
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models.price_change import PriceChangeLog
 from schemas import PriceChangeLogResponse
-from routers.auth import get_current_user
+from deps import get_current_user
 
 router = APIRouter(prefix="/price-changes", tags=["价格"])
 

@@ -1,5 +1,6 @@
+from datetime import datetime
 """预收付款模型 — Phase C"""
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, func
+from sqlalchemy import text, Column, Integer, String, Float, DateTime, ForeignKey, Text, func
 from database import Base
 
 
@@ -17,5 +18,5 @@ class AdvancePayment(Base):
     status = Column(String(20), default="pending")  # pending/confirmed/cancelled
     remark = Column(Text)
     created_by = Column(Integer, ForeignKey("employees.id"))
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
     confirmed_at = Column(DateTime)

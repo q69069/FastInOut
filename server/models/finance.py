@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text, Boolean, func
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, Float, ForeignKey, DateTime, Text, Boolean, func
 from database import Base
 
 
@@ -17,7 +18,7 @@ class Receipt(Base):
     operator_id = Column(Integer, ForeignKey("employees.id"))
     created_by = Column(Integer, default=0)
     remark = Column(Text)
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
     confirmed_at = Column(DateTime)
 
 
@@ -36,5 +37,5 @@ class Payment(Base):
     operator_id = Column(Integer, ForeignKey("employees.id"))
     created_by = Column(Integer, default=0)
     remark = Column(Text)
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
     confirmed_at = Column(DateTime)

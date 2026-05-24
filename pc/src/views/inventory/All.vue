@@ -20,7 +20,6 @@
     <el-card class="filter-card">
       <el-tabs v-model="activeType" @tab-change="onTypeChange">
         <el-tab-pane label="全部" name="all" />
-        <el-tab-pane label="库存查询" name="inventory" />
         <el-tab-pane label="库存调拨" name="transfer" />
         <el-tab-pane label="盘点管理" name="stocktake" />
         <el-tab-pane label="装车调度" name="vehicle" />
@@ -42,13 +41,14 @@
         <el-form-item>
           <el-button type="primary" @click="loadData">查询</el-button>
           <el-button @click="clearFilter">清空</el-button>
+          <el-button type="success" @click="handleExport">导出Excel</el-button>
         </el-form-item>
       </el-form>
     </el-card>
 
     <!-- 列表 -->
     <el-card class="list-card">
-      <el-table :data="list" border stripe>
+      <el-table :data="list" border stripe show-summary :summary-method="getSummary">
         <el-table-column type="index" width="50" align="center" />
         <el-table-column label="类型" width="100">
           <template #default="{ row }">
@@ -60,12 +60,17 @@
             <span>{{ row.no || row.code || row.transfer_no }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="时间" width="150" />
+        <el-table-column prop="created_at" label="时间" width="150" :formatter="fmtDate" />
         <el-table-column prop="warehouse_name" label="仓库" />
-        <el-table-column prop="remark" label="备注" />
+        <el-table-column prop="total_amount" label="金额" width="100" align="right">
+          <template #default="{ row }">
+            <span v-if="row.total_amount != null">¥{{ Number(row.total_amount || 0).toFixed(2) }}</span>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="90" align="center">
           <template #default="{ row }">
-            <el-tag :type="statusMap[row.status]?.type">{{ statusMap[row.status]?.label || row.status }}</el-tag>
+            <el-tag :type="statusMap[row.status]?.type" size="small">{{ statusMap[row.status]?.label || row.status || '-' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="100" fixed="right">
@@ -99,32 +104,6 @@
         </div>
       </div>
     </el-dialog>
-
-    <!-- 多窗口详情弹窗 -->
-    <template v-for="(dlg, key) in dialogs" :key="key">
-      <el-dialog :model-value="dlg.visible" :title="'单据详情 - ' + (dlg.data?.no || dlg.data?.code || dlg.data?.transfer_no || '')" width="600px" @update:model-value="v => { if (!v) closeDialog(key) }">
-        <div v-if="dlg.loading" style="text-align:center;padding:40px">加载中...</div>
-        <template v-else-if="dlg.data">
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="单号">{{ dlg.data.no || dlg.data.code || dlg.data.transfer_no }}</el-descriptions-item>
-            <el-descriptions-item label="类型">
-              <el-tag size="small" :type="typeTagMap[dlg.data._type]?.type">{{ typeTagMap[dlg.data._type]?.label }}</el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="状态">
-              <el-tag :type="statusMap[dlg.data.status]?.type">{{ statusMap[dlg.data.status]?.label || dlg.data.status }}</el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="仓库">{{ dlg.data.warehouse_name }}</el-descriptions-item>
-            <el-descriptions-item label="创建时间">{{ dlg.data.created_at }}</el-descriptions-item>
-            <el-descriptions-item label="备注" :span="2">{{ dlg.data.remark || '-' }}</el-descriptions-item>
-          </el-descriptions>
-          <el-table v-if="dlg.data.items?.length" :data="dlg.data.items" border size="small" style="margin-top:16px">
-            <el-table-column prop="product_name" label="商品" />
-            <el-table-column prop="quantity" label="数量" width="80" align="right" />
-            <el-table-column prop="remark" label="备注" />
-          </el-table>
-        </template>
-      </el-dialog>
-    </template>
   </div>
 </template>
 
@@ -133,11 +112,12 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
-  getInventory, getTransfers, getTransfer,
-  getStocktaking, getStocktakingDetail,
-  getVehicleLoads, getVehicleLoad,
-  getDamageReports, getDamageReport,
-  getWarehouses
+  getTransfers,
+  getStocktaking,
+  getVehicleLoads,
+  getDamageReports,
+  getWarehouses,
+  exportDocuments
 } from '../../api'
 import { useAuthStore } from '../../stores/auth'
 import { Box, Calendar, Van, Warning } from '@element-plus/icons-vue'
@@ -148,7 +128,6 @@ const now = new Date().toLocaleString('zh-CN')
 
 const activeType = ref('all')
 const createDialogVisible = ref(false)
-const dialogs = ref({})
 
 const warehouses = ref([])
 const list = ref([])
@@ -160,18 +139,22 @@ const statusMap = {
   0: { label: '草稿', type: 'info' },
   1: { label: '进行中', type: 'warning' },
   2: { label: '已完成', type: 'success' },
-  3: { label: '已关闭', type: '' },
+  3: { label: '已取消', type: 'danger' },
   4: { label: '已作废', type: 'danger' },
-  pending: { label: '待处理', type: 'warning' },
+  pending: { label: '草稿', type: 'info' },
   confirmed: { label: '已确认', type: 'success' },
-  settled: { label: '已结清', type: 'success' },
+  settled: { label: '已结算', type: 'success' },
   voided: { label: '已作废', type: 'info' },
   transferring: { label: '调拨中', type: 'warning' },
   completed: { label: '已完成', type: 'success' },
+  draft: { label: '草稿', type: 'info' },
+  loaded: { label: '已装车', type: 'success' },
+  returned: { label: '已退库', type: 'danger' },
+  adjusted: { label: '已调整', type: 'success' },
+  reversed: { label: '已冲红', type: 'danger' },
 }
 
 const typeTagMap = {
-  inventory: { label: '库存查询', type: '' },
   transfer: { label: '库存调拨', type: 'success' },
   stocktake: { label: '盘点管理', type: 'warning' },
   vehicle: { label: '装车调度', type: 'info' },
@@ -200,37 +183,40 @@ const buildParams = () => {
   return p
 }
 
+const fmtDate = (_r, _c, v) => v ? String(v).replace('T', ' ').slice(0, 16) : ''
+
+const getSummary = ({ columns, data }) => {
+  const sums = []
+  columns.forEach((col, idx) => {
+    if (idx === 0) { sums[idx] = '合计'; return }
+    if (col.property === 'total_amount') {
+      const val = data.reduce((s, r) => s + Number(r[col.property] || 0), 0)
+      sums[idx] = `¥${val.toFixed(2)}`
+    } else { sums[idx] = '' }
+  })
+  return sums
+}
+
 const loadData = async () => {
   list.value = []
   total.value = 0
   if (activeType.value === 'all') {
     await Promise.all([loadTransfers(), loadStocktakes(), loadVehicles(), loadDamages()])
     list.value.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
-  } else if (activeType.value === 'inventory') { await loadInventory() }
-  else if (activeType.value === 'transfer') { await loadTransfers() }
+  } else if (activeType.value === 'transfer') { await loadTransfers() }
   else if (activeType.value === 'stocktake') { await loadStocktakes() }
   else if (activeType.value === 'vehicle') { await loadVehicles() }
   else if (activeType.value === 'damage') { await loadDamages() }
-}
-
-const loadInventory = async () => {
-  try {
-    const res = await getInventory(buildParams())
-    const items = (res.data?.list || res.data || [])
-    items.forEach(i => { i._type = 'inventory'; i.no = i.product_name })
-    list.value.push(...items)
-    total.value += res.total || 0
-  } catch {}
 }
 
 const loadTransfers = async () => {
   try {
     const res = await getTransfers(buildParams())
     const items = (res.data?.list || res.data || [])
-    items.forEach(i => { i._type = 'transfer'; i.no = i.transfer_no })
+    items.forEach(i => { i._type = 'transfer'; i.no = i.code })
     list.value.push(...items)
     total.value += res.total || 0
-  } catch {}
+  } catch (e) { console.error('操作失败:', e) }
 }
 
 const loadStocktakes = async () => {
@@ -240,7 +226,7 @@ const loadStocktakes = async () => {
     items.forEach(i => { i._type = 'stocktake'; i.no = i.code })
     list.value.push(...items)
     total.value += res.total || 0
-  } catch {}
+  } catch (e) { console.error('操作失败:', e) }
 }
 
 const loadVehicles = async () => {
@@ -250,53 +236,50 @@ const loadVehicles = async () => {
     items.forEach(i => { i._type = 'vehicle'; i.no = i.load_no })
     list.value.push(...items)
     total.value += res.total || 0
-  } catch {}
+  } catch (e) { console.error('操作失败:', e) }
 }
 
 const loadDamages = async () => {
   try {
     const res = await getDamageReports(buildParams())
     const items = (res.data?.list || res.data || [])
-    items.forEach(i => { i._type = 'damage'; i.no = i.report_no })
+    items.forEach(i => { i._type = 'damage'; i.no = i.code })
     list.value.push(...items)
     total.value += res.total || 0
-  } catch {}
+  } catch (e) { console.error('操作失败:', e) }
 }
 
-const openDocument = async (row) => {
-  const key = `${row._type}_${row.id}`
-  if (dialogs.value[key]) {
-    dialogs.value[key].visible = true
-    dialogs.value[key].data = row
-    return
+const routeMap = {
+  transfer: '/transfers',
+  stocktake: '/stocktaking',
+  vehicle: '/vehicle-loads',
+  damage: '/damage-reports'
+}
+
+const openDocument = (row) => {
+  const path = routeMap[row._type]
+  if (path) {
+    router.push({ path, query: { id: row.id } })
   }
-  dialogs.value[key] = { visible: true, data: row, loading: true }
+}
+
+const handleExport = async () => {
   try {
-    const apiMap = {
-      transfer: getTransfer,
-      stocktake: getStocktakingDetail,
-      vehicle: getVehicleLoad,
-      damage: getDamageReport
-    }
-    const api = apiMap[row._type]
-    if (api) {
-      const res = await api(row.id)
-      const data = res.data || res
-      if (dialogs.value[key]) {
-        dialogs.value[key].data = { ...row, ...data }
-        dialogs.value[key].loading = false
-      }
-    } else {
-      if (dialogs.value[key]) dialogs.value[key].loading = false
-    }
-  } catch {
-    if (dialogs.value[key]) dialogs.value[key].loading = false
-  }
-}
-
-const closeDialog = (key) => {
-  if (dialogs.value[key]) {
-    dialogs.value[key].visible = false
+    const params = {}
+    if (activeType.value && activeType.value !== 'all') params.type = activeType.value === 'transfer' ? 'transfer' : activeType.value === 'stocktake' ? 'stocktaking' : activeType.value === 'vehicle' ? 'vehicle_load' : 'damage_report'
+    if (query.value.date_range?.length === 2) { params.start_date = query.value.date_range[0]; params.end_date = query.value.date_range[1] }
+    if (query.value.keyword) params.keyword = query.value.keyword
+    const res = await exportDocuments(params)
+    const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `库存单据导出_${new Date().toISOString().slice(0,10)}.xlsx`
+    a.click()
+    URL.revokeObjectURL(url)
+    ElMessage.success('导出成功')
+  } catch (e) {
+    ElMessage.error('导出失败')
   }
 }
 

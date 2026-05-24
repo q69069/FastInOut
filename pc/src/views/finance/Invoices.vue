@@ -9,7 +9,79 @@
           <span class="info-item">制单人：{{ authStore.displayName }}</span>
           <span class="info-item">{{ now }}</span>
         </div>
-        <div class="header-actions" />
+        <div class="header-actions">
+          <el-button type="primary" @click="openForm(null)">新增发票</el-button>
+        </div>
+      </div>
+    </el-card>
+
+    <!-- 筛选区域 -->
+    <el-card style="margin-top: 12px">
+      <el-row :gutter="12">
+        <el-col :span="4">
+          <el-select v-model="tabType" @change="loadData" style="width:100%">
+            <el-option label="销售发票" value="sales" />
+            <el-option label="采购发票" value="purchase" />
+          </el-select>
+        </el-col>
+        <el-col :span="6">
+          <el-input v-model="queryFilter.keyword" placeholder="发票号码/代码" clearable @clear="loadData" @keyup.enter="loadData" />
+        </el-col>
+        <el-col :span="4">
+          <el-select v-model="queryFilter.status" placeholder="状态" clearable @change="loadData">
+            <el-option label="未认证" :value="1" />
+            <el-option label="已认证" :value="2" />
+            <el-option label="已作废" :value="3" />
+          </el-select>
+        </el-col>
+        <el-col :span="4">
+          <el-button type="primary" @click="loadData">查询</el-button>
+        </el-col>
+      </el-row>
+    </el-card>
+
+    <!-- 表格 -->
+    <el-card style="margin-top: 12px">
+      <el-table :data="list" border stripe>
+        <el-table-column prop="invoice_code" label="发票代码" width="120" />
+        <el-table-column prop="invoice_no" label="发票号码" width="120" />
+        <el-table-column prop="amount" label="金额" width="100" align="right">
+          <template #default="{ row }">{{ (row.amount || 0).toFixed(2) }}</template>
+        </el-table-column>
+        <el-table-column prop="tax_amount" label="税额" width="100" align="right">
+          <template #default="{ row }">{{ (row.tax_amount || 0).toFixed(2) }}</template>
+        </el-table-column>
+        <el-table-column prop="total_amount" label="价税合计" width="100" align="right">
+          <template #default="{ row }">{{ (row.total_amount || 0).toFixed(2) }}</template>
+        </el-table-column>
+        <el-table-column prop="invoice_date" label="开票日期" width="110" />
+        <el-table-column prop="status" label="状态" width="80" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 2 ? 'success' : row.status === 3 ? 'danger' : 'info'" size="small">
+              {{ statusMap[row.status] || '未知' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="remark" label="备注" min-width="120" show-overflow-tooltip />
+        <el-table-column label="操作" width="200" fixed="right">
+          <template #default="{ row }">
+            <el-button v-if="row.status === 1" type="primary" link size="small" @click="openForm(row)">编辑</el-button>
+            <el-button v-if="row.status === 1" type="success" link size="small" @click="handleCertify(row)">认证</el-button>
+            <el-button v-if="row.status === 1" type="warning" link size="small" @click="handleVoid(row)">作废</el-button>
+            <el-button v-if="row.status !== 2" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div style="margin-top: 16px; display: flex; justify-content: flex-end">
+        <el-pagination
+          v-model:current-page="queryFilter.page"
+          v-model:page-size="queryFilter.page_size"
+          :total="total"
+          :page-sizes="[20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @current-change="loadData"
+          @size-change="loadData"
+        />
       </div>
     </el-card>
 

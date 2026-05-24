@@ -16,7 +16,8 @@ from models.inventory import Inventory, InventoryCheck, InventoryCheckItem, Inve
 from models.purchase import PurchaseOrder, PurchaseOrderItem, PurchaseStockin, PurchaseStockinItem, PurchaseReturn, PurchaseReturnItem
 from models.sales import SalesOrder, SalesOrderItem, SalesStockout, SalesStockoutItem, SalesReturn, SalesReturnItem
 from models.finance import Receipt, Payment
-from models.system import OperationLog, Message, BackupRecord
+from models.system import Message, BackupRecord
+from models.operation_log import OperationLog
 from models.customer_price import CustomerPrice
 from models.crm import Contact, Visit
 from models.salesman import Salesman

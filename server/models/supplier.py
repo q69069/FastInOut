@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, func
+from datetime import datetime
+from sqlalchemy import text, Column, Integer, String, Float, ForeignKey, DateTime, func
 from database import Base
 
 
@@ -14,6 +15,7 @@ class Supplier(Base):
     category_id = Column(Integer, ForeignKey("supplier_categories.id"))
     payment_term = Column(String(50))  # 账期
     payable_balance = Column(Float, default=0)  # 应付余额
+    prepaid_balance = Column(Float, default=0)  # 预付余额（多付的钱）
     bank_name = Column(String(200))
     bank_account = Column(String(100))
     tax_number = Column(String(50))
@@ -21,5 +23,5 @@ class Supplier(Base):
     channel = Column(String(50), comment="渠道")
     status = Column(Integer, default=1)
     created_by = Column(Integer, default=0)
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)

@@ -10,24 +10,9 @@ from models.employee import Employee
 from models.product import Product
 from models.customer import Customer
 from schemas.common import ResponseModel
+from deps import get_current_user
 
 router = APIRouter(prefix="/api/reports", tags=["增强报表"])
-
-
-def get_current_user(authorization: str = None, db: Session = Depends(get_db)) -> Employee:
-    if not authorization:
-        raise HTTPException(status_code=401, detail="未登录")
-    from utils.auth import decode_access_token
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="token格式错误")
-    payload = decode_access_token(authorization.replace("Bearer ", ""))
-    if not payload:
-        raise HTTPException(status_code=401, detail="token无效")
-    user = db.query(Employee).get(payload.get("user_id"))
-    if not user:
-        raise HTTPException(status_code=401, detail="用户不存在")
-    return user
-
 
 @router.get("/sales-detail", response_model=ResponseModel)
 def sales_detail_report(
